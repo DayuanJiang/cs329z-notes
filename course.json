@@ -15,7 +15,8 @@
           "title": "导论：什么是 agent 系统",
           "summary": "agent 的组成：LLM、推理、记忆、工具和环境；复合 AI 系统；workflow 和 agent 的区别；可靠性、训练、安全和评估这几个难题。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture01.pdf",
-          "video": "https://youtu.be/DGI4vucR71w"
+          "video": "https://youtu.be/DGI4vucR71w",
+          "dir": "lecture01"
         },
         {
           "n": 2,

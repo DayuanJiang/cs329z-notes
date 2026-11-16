@@ -1,0 +1,143 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>agent 需要记忆有两个原因。上下文窗口装不下一个长任务里发生的所有事；就算装得下，模型也很难从一大堆记录里找到和眼前这一步有关的那几条。</li>
+    <li>按存的内容分，记忆有三种：情景记忆存经历，语义记忆存知识，程序记忆存技能。这个分法借自对人的长期记忆的研究。</li>
+    <li>每种记忆都要回答两个问题：怎么写进去，怎么读出来。情景记忆是原样追加、按打分检索；语义记忆是让 LLM 从经历里归纳；程序记忆是把做成的事存成代码、按相似度检索。</li>
+    <li>记什么、丢什么是一个设计上的决定，做错了会出事。2026 年 2 月有一个例子：一个 agent 没等用户确认，就成批删除和归档了她的邮件。当事人的判断是，它在压缩记忆时丢掉了「动手前先确认」这条要求。</li>
+  </ul>
+</section>
+
+<section class="sec" id="why">
+  <h2>为什么需要记忆</h2>
+  <p><a href="anatomy.html#loop">第二部分</a>的循环里，记忆只是一个不断变长的列表：每一步做了什么、看到了什么，都追加在后面，下一轮全部交给模型。任务短的时候这样就够了。任务一长，就会遇到两个问题。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">问题</th><th scope="col">说明</th><th scope="col">例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">装不下</th><td>上下文窗口（context window，模型一次能读入的文字的上限）虽然越做越大，仍然装不下一个长任务里的全部事件</td><td>一个 agent 在一个项目上连续工作三个多小时，产生的记录远远超过上下文窗口</td></tr>
+        <tr><th scope="row">找不到</th><td>就算全部放得进去，模型也很难注意到真正有关的那几条，更难把它们消化成结论</td><td>上下文里放了 1,000 篇文档，每一步都要从里面找到用得上的那一篇，要找的范围太大</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>所以要把一部分内容放到上下文之外，用到的时候再取回来。存在上下文之外的这部分，就是通常说的长期记忆；留在上下文里的是短期记忆，也叫工作记忆。</p>
+  {{fig 45 | Generative Agents 的记忆结构。中间是记忆流（memory stream）。左边的感知（Perceive）往里写，右边的检索（Retrieve）从里面取出一部分交给行动（Act）。上面的计划（Plan）和下面的反思（Reflect）读取记忆，产生新的内容，再写回记忆流。图片来源：<a href="https://arxiv.org/abs/2304.03442">Park 等，2023</a>。}}
+  <p>图来自 Generative Agents 这项研究（Park 等，2023）。它在一个叫 Smallville 的沙盒小镇里放了 25 个 agent，让它们模拟居民的日常生活：起床、上班、聊天、筹备聚会。要让每个角色的故事连贯地发展下去，就得记住每个人身上发生过什么，所以它的核心是一个记忆流：一个按时间顺序记录 agent 全部经历的数据库。这一部分的前两种记忆都用它来举例。</p>
+</section>
+
+<section class="sec" id="types">
+  <h2>三种记忆：按存的内容分</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">类型</th><th scope="col">存什么</th><th scope="col">对人来说像什么</th><th scope="col">怎么写</th><th scope="col">怎么读</th><th scope="col">例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">情景记忆<br><span class="muted small">Episodic</span></th><td>经历：发生过的每一件事的原始记录</td><td>记得昨天晚饭吃了什么</td><td>只追加，不修改</td><td>按几个打分规则检索</td><td>Generative Agents 的记忆流</td></tr>
+        <tr><th scope="row">语义记忆<br><span class="muted small">Semantic</span></th><td>知识：从经历里归纳出来的、关于世界和自己的事实</td><td>知道巴黎是法国的首都</td><td>让 LLM 对一批事件做推理，写下结论</td><td>检索</td><td>Generative Agents 的反思</td></tr>
+        <tr><th scope="row">程序记忆<br><span class="muted small">Procedural</span></th><td>技能：某一类事情怎么做</td><td>会骑自行车</td><td>把做成的事存成一段代码</td><td>按向量相似度检索</td><td>Voyager 的技能库</td></tr>
+      </tbody>
+    </table>
+    <figcaption>「对人来说像什么」一列是为了帮助理解补充的常见例子。</figcaption>
+  </figure>
+  <p>这张表只按存的内容来分，分法借自心理学对人的长期记忆的划分。别的分法也有，比如按保存的时间长短分成短期和长期，第 7 讲会讲到更多。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>CoALA 框架对这三种记忆的定义。</b>情景记忆存的是之前各轮决策里的经历。语义记忆存的是 agent 关于世界和关于自己的知识。程序记忆有两种形式：一种是隐含的，就是 LLM 权重里的知识；一种是明确写出来的，就是 agent 的代码。按这个定义，agent 的 prompt 模板和工具代码也属于程序记忆。CoALA 还单独列了工作记忆：当前这一轮决策里随时可用的信息，大致对应上下文里的内容。出处：<a href="https://arxiv.org/abs/2309.02427">Sumers 等，2024</a>。</div></div>
+</section>
+
+<section class="sec" id="episodic">
+  <h2>情景记忆：全部记下来，用的时候按打分检索</h2>
+  <p>情景记忆最简单：发生一件事，就追加一条记录，从不修改。难的是读。</p>
+  {{fig 47 | 左：角色 Isabella 的记忆流的一段，每一行是一个时间和一件事，比如「书桌是空闲的」「Isabella 在伸懒腰」「Isabella 在看书」。右：有人问她「你现在最期待什么」，系统给每条记忆算一个检索分，取分数最高的几条交给模型，模型据此回答。图片来源：<a href="https://arxiv.org/abs/2304.03442">Park 等，2023</a>。}}
+  <p>记忆流里绝大部分是琐碎的观察。要回答「你现在最期待什么」，得从里面找出最有关的几条。Generative Agents 给每条记忆算三个分数。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">分数</th><th scope="col">意思</th><th scope="col">怎么算</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">新近度<br><span class="muted small">Recency</span></th><td>最近被用到过的记忆更可能有关</td><td>按这条记忆上一次被检索之后过了多少个小时（游戏里的时间）做指数衰减，每小时乘 0.995</td></tr>
+        <tr><th scope="row">重要性<br><span class="muted small">Importance</span></th><td>大事比琐事更该被想起来</td><td>写入这条记忆时，直接让 LLM 打一个 1 到 10 的整数分。1 是刷牙、整理床铺这样的琐事，10 是分手、被大学录取这样的大事</td></tr>
+        <tr><th scope="row">相关度<br><span class="muted small">Relevance</span></th><td>和当前的问题有关</td><td>把记忆和问题各自变成一个向量，算两个向量的余弦相似度</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2304.03442">Park 等，2023</a>。</figcaption>
+  </figure>
+  <p>三个分数各自缩放到 0 到 1 之间，再相加，权重都是 1。图里排第一的记忆是「Isabella 很兴奋地在筹备 2 月 14 日下午 5 点在 Hobbs 咖啡馆办的情人节派对」，它的检索分是 2.34，由新近度 0.91、重要性 0.63、相关度 0.80 相加得到。排在后面的两条是「为派对订购装饰品」（2.21）和「为派对查找点子」（2.20）。模型拿到这几条之后，替 Isabella 回答：最期待的是在 Hobbs 咖啡馆筹办的情人节派对。</p>
+  <p>这三个分数是人为定下的规则，没有经过学习。它们好在简单，在这个模拟小镇里够用。换一个场合，哪些记忆该被想起来，可能需要别的规则。</p>
+</section>
+
+<section class="sec" id="semantic">
+  <h2>语义记忆：从经历里归纳出结论</h2>
+  <p>只有原始记录还不够。论文举了一个例子：问角色 Klaus「在你认识的人里选一个共度一小时，你选谁」。只靠原始的观察记录，他选了打交道次数最多的宿舍邻居，而这两个人其实只是路过时打个招呼。要答得合理，他得对自己的经历有更高一层的认识，比如知道自己对研究很投入，谁和他有同样的兴趣。</p>
+  {{fig 48 | 角色 Klaus Mueller 的一棵反思树。最下面一层是原始的观察，比如「Klaus 在读关于士绅化（gentrification）的资料」「Klaus 在和图书馆管理员讨论他的研究」。往上一层是由这些观察归纳出的反思，比如「Klaus 花很多时间阅读」「Klaus 在做研究」。最上面是由几条反思再归纳出的一条：「Klaus 对研究非常投入」。图片来源：<a href="https://arxiv.org/abs/2304.03442">Park 等，2023</a>。}}
+  <p>Generative Agents 把这一步叫反思（reflection）。做法是：</p>
+  <ul>
+    <li><b>什么时候做。</b>把 agent 最近感知到的事件的重要性分数加起来，超过一个阈值（实现里是 150）就做一次反思。实际运行中，每个 agent 大约一天反思两三次。</li>
+    <li><b>怎么做。</b>取记忆流里最近的 100 条记录交给 LLM，先让它提出「根据这些信息，可以回答的最要紧的 3 个问题是什么」，再用每个问题去检索有关的记忆，让 LLM 从中写出几条结论，并注明每条结论依据的是哪几条记录。</li>
+    <li><b>写到哪里。</b>结论作为新的记录写回同一个记忆流，以后可以和原始观察一样被检索出来，也可以成为下一次反思的材料。所以反思能一层一层往上叠，形成图里的树。</li>
+  </ul>
+  <p>图里一小段时间内发生的事，被归纳成了一句话的认识。这就是语义记忆的意思：写入靠 LLM 对事件做推理，读取仍然靠检索。它比原始记录短得多，也更有用。代价是归纳可能出错，错的结论一旦写进记忆，会影响后面的所有决定。这项研究用的模型是 ChatGPT（gpt-3.5-turbo）。</p>
+</section>
+
+<section class="sec" id="procedural">
+  <h2>程序记忆：把做成的事存成技能</h2>
+  <p>第三种记忆存的是「怎么做」。例子是 Voyager（Wang 等，2023），一个在 Minecraft 游戏里自己探索的 agent。</p>
+  {{fig 49 | Voyager 的三个部件。左：自动课程，不断给自己提出下一个任务，比如砍木头、做工作台、打僵尸、挖钻石。中：迭代的 prompt 机制，让模型写一段代码去完成任务，根据环境的反馈和执行的报错反复修改，再由模型自己检查任务是否完成。右：技能库，里面是已经验证过的技能，比如「做石剑」「做盾牌」。图片来源：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>。}}
+  <p>Voyager 的动作是代码：模型写一段 JavaScript 程序来控制游戏里的角色。一个任务做成之后，这段程序就是一项技能。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">环节</th><th scope="col">做法</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">写入</th><td>模型写出一段程序并且自己验证任务确实完成之后，把它加进技能库。技能库是一个向量数据库：键是这段程序的文字说明的向量，值是程序本身</td></tr>
+        <tr><th scope="row">读取</th><td>遇到新任务时，先让模型写一段解决思路，和环境的反馈合在一起作为查询，从技能库里取出最相关的 5 项技能，放进 prompt</td></tr>
+        <tr><th scope="row">复用</th><td>新写的程序可以直接调用已有的技能。图中间的「打僵尸」这段代码，就调用了技能库里的「做石剑」和「做盾牌」</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>。</figcaption>
+  </figure>
+  <p>和前两种记忆相比，这里存下来的东西更抽象：它丢掉了「那一次是在哪里、哪一天做成的」这些具体细节，只留下做法。技能越攒越多，复杂的技能建立在简单的技能上，agent 能做的事就越来越多。Voyager 通过接口调用 GPT-4，没有对模型做 fine-tuning（在预训练模型的基础上，用特定任务的数据继续训练）。论文报告，和之前最好的方法相比，它得到的不同物品数量是 3.3 倍，解锁关键科技节点的速度最高快 15.3 倍。作者来自 NVIDIA、加州理工、得州大学奥斯汀分校、斯坦福和威斯康星大学麦迪逊分校。</p>
+  <p>现在的 coding agent 里常见的「技能」文件，也就是把某一类任务的做法写成说明和脚本、需要时再读进上下文，可以看作同一个思路的延续。</p>
+</section>
+
+<section class="sec" id="what-to-remember">
+  <h2>记什么，由谁决定</h2>
+  <p>记忆系统的设计里，有一个问题比「存在哪里」更要紧：哪些东西值得记，由谁来判断。三种记忆的回答不一样。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">记忆</th><th scope="col">记什么由谁定</th><th scope="col">设计的人要定的事</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">情景记忆</th><td>没有人需要判断，规则就是全部记下来</td><td>读的时候按什么规则打分</td></tr>
+        <tr><th scope="row">语义记忆</th><td>一个单独的环节，通常是一次 LLM 调用，负责判断什么重要</td><td>要告诉它什么算重要的信息，可以给示范；还要定下存进去的格式</td></tr>
+        <tr><th scope="row">程序记忆</th><td>做成了并且通过验证的才存</td><td>怎样验证，怎样描述一项技能以便日后找到</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>把「什么重要」交给模型判断，就可能出错。下面的例子很可能属于这种情况。</p>
+</section>
+
+<section class="sec" id="failure">
+  <h2>一个出事的例子：没等确认就动了用户的邮箱</h2>
+  <p>OpenClaw 是一个开源的个人 AI 助手，运行在用户自己的设备上，可以替用户操作别的软件和服务。2026 年 2 月，Meta 的一位做 AI 安全和对齐研究的负责人 Summer Yue 在 X 上讲了她的经历。下面的经过出自 TechCrunch 和 PCMag 对她的帖子的引述。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">顺序</th><th scope="col">发生了什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1</th><td>她先在一个用来试验的小邮箱上用 OpenClaw 整理邮件，一切正常</td></tr>
+        <tr><th scope="row">2</th><td>她让它接着看真实的邮箱，要求是：也检查这个邮箱，建议哪些该归档、哪些该删除，在得到指示之前不要动手</td></tr>
+        <tr><th scope="row">3</th><td>按她的说法，真实的邮箱内容太多，触发了压缩（compaction）：上下文快满时，agent 把之前的对话概括成一份短的摘要，用摘要替换原文</td></tr>
+        <tr><th scope="row">4</th><td>她认为压缩的过程中「不要动手」这条指示丢了。agent 开始成批地删除和归档邮件</td></tr>
+        <tr><th scope="row">5</th><td>她在手机上发消息让它停下，它没有停。她只好跑到运行它的那台电脑前把它终止</td></tr>
+        <tr><th scope="row">6</th><td>事后 agent 自己的说法是：它没有先给出计划、也没有得到同意，就成批地删除和归档了几百封邮件，违反了她定的规则</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://techcrunch.com/2026/02/23/a-meta-ai-security-researcher-said-an-openclaw-agent-ran-amok-on-her-inbox/">TechCrunch</a>、<a href="https://www.pcmag.com/news/meta-security-researchers-openclaw-ai-agent-accidentally-deleted-her-emails">PCMag</a> 2026 年 2 月的报道。第 6 行出自 <a href="https://cybernews.com/ai-news/meta-openclaw-inbox/">Cybernews</a> 引用的截图。TechCrunch 说明它没能独立核实她的邮箱里实际发生了什么。丢失指示这个原因是当事人自己的判断。</figcaption>
+  </figure>
+  <p>这件事放在记忆这一部分讲，是因为如果当事人的判断属实，问题就出在记忆的压缩上。压缩是为了让记忆占的地方更小，所以要让模型判断哪些信息重要、值得留下。一种可能的解释是：「动手之前先确认」这句话，在做摘要的模型看来不属于和任务有关的重要信息，就没有留下来。可是对用户来说，它是整个对话里最重要的一句。摘要里实际留下了什么，报道里没有给出。</p>
+  <p>由此可以看到记忆设计的两个要求。一是忠实：压缩和归纳之后的内容不能和原来的意思有出入，尤其是用户定下的限制。二是能支持合理的推断：留下来的东西要足够让 agent 在后面做出对的决定。怎样做到这两点，现在还没有公认的办法，第 7 讲会讲几种架构和它们各自没解决的问题。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>上下文窗口是 agent 的短期记忆。任务一长，它装不下，模型也不容易从里面找到有关的内容，所以需要上下文之外的长期记忆。</li>
+    <li>长期记忆按内容分三种：情景记忆存原始经历，语义记忆存归纳出的知识，程序记忆存技能。</li>
+    <li>每种记忆都有写和读两个动作。写得越精炼，读起来越省事，丢掉要紧内容的风险也越大。</li>
+  </ul>
+  <p>在<a href="anatomy.html#five">第二部分五个部件的表</a>里，「读写记忆」列在工具那一行。下一部分讲<a href="tools.html">工具</a>。</p>
+</section>
