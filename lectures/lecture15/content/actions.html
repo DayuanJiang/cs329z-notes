@@ -1,0 +1,191 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>第三阶段评的东西换了。前两个阶段，语言模型评审（让一个语言模型来判断另一个系统的输出好不好）评的是文字。这一阶段评的是 agent 的动作和动作造成的结果。agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。要评的是：点了哪些按钮，改了哪些文件，任务到底有没有做成。</li>
+    <li>WebVoyager 让一个能看图的模型读 agent 浏览网页时的截图，判断任务是否完成。在 300 个任务上，它的判定和三位标注员的结论有 85.3% 相同。</li>
+    <li>Pan 等人的评审和基准测试（benchmark，一组题目加一个报告成绩的办法）自带的检查或人的判断相比，准确率在 74.4% 到 92.9% 之间。把评审的判定当作反馈交还给 agent，一个网页 agent 的成功率从 15.6% 提高到 20.2%。</li>
+    <li>Agent-as-a-Judge 让评审自己也成为一个 agent，可以打开工作目录、读文件、查运行轨迹（agent 每一步的动作和看到的结果的完整记录）。它和三位人类专家的共识的一致率在 84% 到 92% 之间，花的时间和钱比请三位专家少约 97%。</li>
+    <li>这些评审总体上接近人的判断，但在个别网站或个别系统上可以和人差 10 个百分点以上，并且有偏向自己同款模型的迹象。</li>
+  </ul>
+</section>
+
+<section class="sec" id="questions">
+  <h2>第三阶段要回答的三个问题</h2>
+  <p><a href="preference.html">第二阶段</a>评的基本上是单轮的回答或几轮对话。第三阶段问的是：<mark>语言模型能不能评判 agent 的动作和这些动作造成的结果</mark>。前两个阶段评的只是说出来的话。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">问题</th><th scope="col">研究</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">语言模型能不能看出一条运行轨迹成功了没有？</th><td><a href="#webvoyager">WebVoyager</a>、<a href="#pan">Pan 等</a></td></tr>
+        <tr><th scope="row">评审能不能像 agent 一样，自己去查看环境？</th><td><a href="#agentjudge">Agent-as-a-Judge</a></td></tr>
+        <tr><th scope="row">和人类专家相比，这些评审有多可靠？</th><td><a href="#reliable">本页最后一节</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>这里的运行轨迹，英文是 trajectory。和第二阶段一样，这里的评审也有两种用途：给 agent 打分，或者当作奖励和反馈去改进 agent。</p>
+</section>
+
+<section class="sec" id="webvoyager">
+  <h2>WebVoyager：让模型看截图判断任务成没成</h2>
+  <p>WebVoyager（He 等，2024）是一个在真实网站上完成任务的 agent。它每一步看到的是网页的截图，截图上给可以点击的元素画了框、标了编号；它输出的是「点第 10 号」「在第 17 号里输入文字」这样的动作。和它一起发布的基准测试有 15 个常用的网站，共 643 个任务。</p>
+  {{fig 56 | WebVoyager 的工作流程。用户给出一个任务，agent 每一步根据网页截图和页面元素的文字来思考并选择动作，在真实的网站上执行，完成后把答案返回给用户。图里的例子是「在亚马逊上查 PS4 的两年保修要多少钱」。右边是基准测试用到的一部分网站。图片来源：<a href="https://arxiv.org/abs/2401.13919">He 等，2024</a>。}}
+  <p>这里的评分有一个新的困难：<mark>真实的网站没有答案表，也没有可以直接查的数据库</mark>。网页的内容每天在变，任务的答案也多数是开放的。第 13 讲讲过的 WebArena 是自己搭一套网站，所以能用程序检查网站的状态。WebVoyager 用的是线上的网站，做不到这一点。</p>
+  <p>论文的主要评分办法是人工：把 agent 完整的运行轨迹，也就是全部的截图和动作，交给标注员，让他们判断任务完成了没有。按人工评分，WebVoyager 的任务成功率是 59.1%，只读文字的版本是 40.1%，对照的 GPT-4 (All Tools) 是 30.8%。</p>
+  <h3>自动评审</h3>
+  <p>人工评分不能大规模地做，所以论文同时试了让 GPT-4V 来判。GPT-4V 是能同时读图片和文字的模型，这类模型统称视觉语言模型（VLM）。做法是把任务、agent 最后的回答和最后的 k 张截图交给它，让它判定成功或不成功。</p>
+  {{figs 57 59 | 左：一条运行轨迹的截图，六步完成一个在苹果官网上的任务，每一步点击或输入的元素用橙色标出。右：左边的表是 GPT-4V 的判定和人的判定有多一致，每一行给评审看的截图数量不同；右边的表是换不同的模型做 agent 和评审时的成功率。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">给评审看的截图</th><th scope="col" class="r">GPT-4V 判出的成功率</th><th scope="col" class="r">和人的判定相同的比例</th><th scope="col" class="r">kappa</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">最后 1 张</th><td class="r">47.7%</td><td class="r">75.3%</td><td class="r">0.51</td></tr>
+        <tr><th scope="row">最后 2 张</th><td class="r">55.3%</td><td class="r">79.7%</td><td class="r">0.59</td></tr>
+        <tr><th scope="row">最后 3 张</th><td class="r">54.3%</td><td class="r">81.3%</td><td class="r">0.62</td></tr>
+        <tr><th scope="row">完整的运行轨迹</th><td class="r">58.3%</td><td class="r">85.3%</td><td class="r">0.70</td></tr>
+      </tbody>
+    </table>
+    <figcaption>在 300 个任务上比较。人的判定是三位标注员讨论后合并的结论。kappa 是扣除了碰巧一致之后的一致程度，1 表示完全一致，0 表示和随机乱判一样。三位标注员在讨论之前，彼此之间的 kappa 也是 0.7。来自论文的表 2。</figcaption>
+  </figure>
+  <p>两点值得注意。第一，给评审看的越多，它和人越一致。只看最后一张截图时，评审常常判不出任务是否真的做完了。第二，看完整的运行轨迹时，评审和人的一致程度（kappa 0.70），达到了标注员彼此之间在讨论前的一致程度。</p>
+  <h3>总体接近，分网站看差别很大</h3>
+  {{fig 58 | 各个网站上的任务成功率，图里只显示了 15 个网站里的 8 个。上面三行是人工评分的结果。下面四行名字带星号，是 GPT-4V 评审看完整运行轨迹给出的结果，正负号后面是评审重复判三次的波动。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">范围</th><th scope="col" class="r">人工评出的成功率</th><th scope="col" class="r">GPT-4V 评出的成功率</th><th scope="col" class="r">GPT-4V 比人高或低多少个百分点</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">全部 15 个网站</th><td class="r">59.1%</td><td class="r">57.1%</td><td class="r">低 2.0</td></tr>
+        <tr><th scope="row">Coursera</th><td class="r">73.8%</td><td class="r">57.9%</td><td class="r">低 15.9</td></tr>
+        <tr><th scope="row">Huggingface</th><td class="r">44.2%</td><td class="r">55.8%</td><td class="r">高 11.6</td></tr>
+        <tr><th scope="row">Booking</th><td class="r">43.2%</td><td class="r">32.6%</td><td class="r">低 10.6</td></tr>
+        <tr><th scope="row">ESPN</th><td class="r">38.6%</td><td class="r">47.0%</td><td class="r">高 8.4</td></tr>
+        <tr><th scope="row">ArXiv</th><td class="r">51.2%</td><td class="r">52.0%</td><td class="r">高 0.8</td></tr>
+      </tbody>
+    </table>
+    <figcaption>被评的都是用 GPT-4V 做的 WebVoyager。来自论文的表 1，这里只列了总体和其中五个网站。相差 10 个百分点以上的网站有三个，就是表里的第二到第四行。这张表算的是全部 643 个任务，GPT-4V 一栏是评审重复判三次的平均，所以总体的 57.1% 和上一张表里 300 个任务上的 58.3% 略有不同。</figcaption>
+  </figure>
+  <p>总体上两个数只差 2 个百分点，看上去评审很准。拆到单个网站，有的被评审高估了十几个百分点，有的被低估了十几个百分点，在总体里互相抵消了。所以这个结果只说明一件事：对这一个系统、这一批任务，评审给出的总体成功率接近人工的结果。用它来判断「这个 agent 在订酒店这类任务上行不行」就要小心。用它比较不同系统的总分，还要先确认评审对每个系统的偏差大小相近，下面换评审的那张表显示，这一点不能默认成立。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这两列比的很可能是同一批运行轨迹。</b>论文的表注只说评审重复判了三次，没有说 agent 重新跑过，所以两列的差别很可能全部来自评分的人和评分的模型看法不同。论文没有明确写出这一点。</div></div>
+  <h3>评审偏向和自己同款的模型</h3>
+  <p>论文还换了三种模型分别做 agent 和评审，结果是论文的表 3，前面讲自动评审时右边那张配图里也有这张表。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做 agent 的模型</th><th scope="col" class="r">GPT-4V 当评审</th><th scope="col" class="r">Claude 3 Opus 当评审</th><th scope="col" class="r">GPT-4o 当评审</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">GPT-4V</th><td class="r">57.1</td><td class="r">55.1</td><td class="r">63.0</td></tr>
+        <tr><th scope="row">Claude 3 Opus</th><td class="r">52.8</td><td class="r">61.6</td><td class="r">55.4</td></tr>
+        <tr><th scope="row">GPT-4o</th><td class="r">55.5</td><td class="r">54.9</td><td class="r">64.1</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每格是评审判出的任务成功率，单位是百分比。来自论文的表 3。</figcaption>
+  </figure>
+  <p>按列看：每个评审都把用自己这个模型做的 agent 排在第一。论文的说法是，Claude 3 Opus 对自己的结果有明显的偏好，GPT-4V 和 GPT-4o 也各有一定的偏向；另外 GPT-4o 判得偏松，GPT-4V 判得偏严。这是<a href="bias.html#self">第五部分</a>要讲的自我偏好在 agent 评估里的一个例子。</p>
+</section>
+
+<section class="sec" id="pan">
+  <h2>Pan 等：评审的判定还能用来改进 agent</h2>
+  <p>操作网页和手机的 agent，通常只能靠基准测试里人手写的检查来评分。没有这种检查的地方，比如一个新的应用，就没法评。Pan 等人（2024）要回答两个问题：模型能不能评判任意一条运行轨迹；评出来的结果能不能用来改进 agent。</p>
+  {{fig 61 | 两个评判的例子，每个例子上面是用户的指令和 agent 的动作记录，下面是评审写的理由和判定。左：agent 中途报错停下，评审看到评论其实已经发出，认为任务完成了。右：评审把乘公交的时间看成了开车的时间。两个例子的细节见下面的说明。两个例子右下角各有一个红色的 FAILURE 标记，图上没有说明它是谁给出的判定。图片来源：<a href="https://arxiv.org/abs/2404.06474">Pan 等，2024</a>。}}
+  <p>他们设计了两种评审。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">设计</th><th scope="col">怎么做</th><th scope="col">用的模型</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">端到端<br><span class="muted small">End-to-end</span></th><td>把指令、动作记录和截图直接交给一个视觉语言模型，让它判定成功或失败</td><td>GPT-4V</td></tr>
+        <tr><th scope="row">分两步<br><span class="muted small">Caption-then-reason</span></th><td>先让一个视觉语言模型把截图描述成文字，再让一个只读文字的语言模型根据描述、动作和指令来判定</td><td>描述用一个开源的模型，判定用 Mixtral 或 GPT-4</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>评审拿到的输入比 WebVoyager 少：多数实验里只有指令、动作记录和最后一张截图。论文说，初步的实验表明再给前面几步的截图，评审的表现没有提高。这和 WebVoyager 的结果方向相反，两项研究的任务和输入的形式不同，论文没有分析原因。</p>
+  <p>上面那张图里的两个例子说明了这两种设计的差别。左边的例子，评审判对了：agent 因为重复同一个动作被强制停止，但评论已经发出，任务实际上完成了。右边的例子是分两步的评审判错的情况：负责描述截图的模型把乘公交的时间当成了开车的时间，负责判定的模型据此认为 agent 的回答和页面对不上，把任务判成了失败。论文说，换成 GPT-4V 直接看截图，这个错误就不会出现。</p>
+  {{fig 63 | 左：在 Android-in-the-Wild 数据集上，四组运行轨迹被判为成功的比例，每组四根柱子分别来自人的判断和三种评审。横轴每组名字下面括号里的数，是这个数据集原来用的「动作匹配分」。右上：四种评审的准确率。右下：把评审用于 Reflexion 时，网页 agent 的成功率随重试轮数的变化。}}
+  <h3>评审有多准</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">评审</th><th scope="col" class="r">WebArena 上的准确率</th><th scope="col" class="r">Android 上的准确率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">GPT-4V，端到端</th><td class="r">80.6%</td><td class="r">90.6%</td></tr>
+        <tr><th scope="row">先描述，再由 Mixtral 判定</th><td class="r">74.4%</td><td class="r">92.9%</td></tr>
+        <tr><th scope="row">先描述，再由 GPT-4 判定</th><td class="r">82.1%</td><td class="r">89.8%</td></tr>
+        <tr><th scope="row">开源的视觉语言模型 QWen-VL-chat，端到端<br><span class="muted small">对照用</span></th><td class="r">68.0%</td><td class="r">70.2%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>准确率是评审的判定和参照的判定相同的比例。WebArena 上的参照是这个基准测试自带的、人手写的检查。Android 上的参照是人对 120 个任务、四组运行轨迹的判断。来自论文的表 1。</figcaption>
+  </figure>
+  <p>论文摘要里说的「74.4% 到 92.9%」，是前三行的范围。</p>
+  <h3>顺带查出的一件事：旧的自动指标很不准</h3>
+  <p>Android-in-the-Wild 这个数据集原来的评分办法，是逐步比较 agent 的动作和人类示范的动作，匹配上的比例叫动作匹配分。上面那张图左边的柱状图显示，三个模型的动作匹配分都在 67% 到 71% 之间，但由人来判断整条运行轨迹是否成功，成功率只有 5.0%、0.8% 和 14.2%。也就是说，单步动作猜对七成，离把整个任务做成还很远。人类示范本身被判为成功的也只有 64.2%，大约 36% 的示范其实没有完成任务。给这几组运行轨迹排名次，三种评审排出的顺序和人完全一致，动作匹配分排出的顺序和人不一样。</p>
+  <h3>把评审用来改进 agent</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">实验</th><th scope="col">评审怎么用</th><th scope="col">结果</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">WebArena 上的 Reflexion</th><td>Reflexion 是让 agent 在失败之后写一段反思、再重试的办法。它需要有人告诉 agent「这次失败了」。这里由评审来告诉</td><td>agent 原来的成功率是 15.6%。用 GPT-4V 评审，重试三轮后是 20.2%，相对提高 29%。用基准测试自带的检查来告诉它，三轮后是 25.9%，这是这种办法能达到的上限</td></tr>
+        <tr><th scope="row">iOS 上的筛选式模仿学习</th><td>让 agent 自己跑任务，评审挑出其中成功的运行轨迹，再用这些轨迹继续训练 agent。iOS 上没有现成的基准测试检查</td><td>52 个测试任务里，成功的个数从 8 个增加到 14 个，相对提高 75%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自论文的正文和图 3。「相对提高」是提高的部分除以原来的成功率。</figcaption>
+  </figure>
+  <p>两个结果合起来看：这些评审已经准到可以当训练信号用，同时离完美的评分还有明显的距离。在 WebArena 上，评审带来的提高是 4.6 个百分点，完美的评分能带来 10.3 个百分点。</p>
+</section>
+
+<section class="sec" id="agentjudge">
+  <h2>Agent-as-a-Judge：让评审自己也是一个 agent</h2>
+  <p>写代码的 agent 交出来的是一个工作目录：很多个文件、生成的数据和图片、运行的记录。评审只读一段最后的回答，判断不了这些东西对不对。Agent-as-a-Judge（Zhuge 等，2024）的想法是：既然被评的是 agent，评审也做成一个 agent，让它自己去查看工作目录。</p>
+  {{fig 64 | 右边的图比较三种评法。最左是语言模型评审，用在一问一答上。中间是 agent 评审，被评的两个 agent 各有一个工作目录，评审可以进去查看。最右是人工评审，人既要运行程序，又要读代码。图片来源：<a href="https://arxiv.org/abs/2410.10934">Zhuge 等，2024</a>。}}
+  <h3>DevAI：带层级要求的开发任务</h3>
+  <p>为了检验这个想法，论文先做了一个基准测试 DevAI：55 个 AI 开发任务，例如「按一篇博客的办法，写脚本生成藏有文字的图片」。每个任务除了一段用户的请求，还拆成了若干条要求，一共 365 条，要求之间有依赖关系，比如「生成的图片分辨率是 1080p，并保存到指定的目录」依赖于「照博客的办法把生成图片的脚本搭好」。另外有 125 条偏好，是比较软的要求。这样评分就不只有通过或不通过，可以看到每一条要求做到了没有。</p>
+  {{fig 65 | 左：一个任务的例子，上面是用户的请求，下面是逐条的要求和它们的依赖关系，最后是偏好。右：三位人类专家对三个开发 agent 的评判结果。}}
+  <p>论文评了三个开源的开发 agent：MetaGPT、GPT-Pilot 和 OpenHands。先由三位人类专家来评，他们各自评完之后再讨论，达成的共识作为最后的人工结果。按这个结果，表现最好的两个系统满足了约 29% 的要求；如果不管依赖关系，是约 44%。55 个任务里，它们各自只有 1 个任务做到了全部要求。</p>
+  <h3>评审 agent 的组成</h3>
+  <p>评审 agent 最初设计了八个模块，试验之后效果最好的组合用了其中五个。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模块</th><th scope="col">做什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">graph</th><td>把整个项目的结构建成一张图：有哪些文件、模块，它们之间怎么依赖</td></tr>
+        <tr><th scope="row">locate</th><td>找出一条要求指的是哪个目录或文件</td></tr>
+        <tr><th scope="row">read</th><td>读文件的内容，支持代码、图片、文档等 33 种格式</td></tr>
+        <tr><th scope="row">retrieve</th><td>从很长的运行轨迹里取出和这条要求有关的片段</td></tr>
+        <tr><th scope="row">ask</th><td>根据上面收集到的东西，判断这条要求是否满足</td></tr>
+      </tbody>
+    </table>
+    <figcaption>没有用上的三个模块是搜索代码、记住以前的判定和规划下一步动作。论文的试验里，加上它们之后一致率没有提高。</figcaption>
+  </figure>
+  <h3>和人有多一致</h3>
+  {{fig 66 | 上半部分是语言模型评审，下半部分是 agent 评审，三列是三个被评的开发 agent。每个部分的最后一行蓝字 Alignment Rate 是评审的逐条判定和人类专家共识相同的比例。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">评审</th><th scope="col">能不能看到被评系统的运行轨迹</th><th scope="col" class="r">评 MetaGPT</th><th scope="col" class="r">评 GPT-Pilot</th><th scope="col" class="r">评 OpenHands</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" rowspan="2">语言模型评审</th><td>不能</td><td class="r">84.15%</td><td class="r">65.30%</td><td class="r">60.38%</td></tr>
+        <tr><td>能</td><td class="r">68.86%</td><td class="r">71.85%</td><td class="r">70.76%</td></tr>
+        <tr><th scope="row" rowspan="2">agent 评审</th><td>不能</td><td class="r">88.52%</td><td class="r">83.88%</td><td class="r">90.44%</td></tr>
+        <tr><td>能</td><td class="r">92.07%</td><td class="r">86.61%</td><td class="r">90.16%</td></tr>
+        <tr><th scope="row">三位人类专家各自的判定<br><span class="muted small">三人的平均</span></th><td></td><td class="r">89.34%</td><td class="r">84.88%</td><td class="r">85.70%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每格是 365 条要求里，判定和三位专家讨论后的共识相同的比例。「不能」的两行就是上面配图里的数。来自论文的表 3。</figcaption>
+  </figure>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>常见的概括是「agent 评审约 90%，语言模型评审约 70%」。</b>这是论文引言里取整的说法，大致是三个系统的平均。逐格看有两点补充。
+    <ul>
+      <li><b>语言模型评审在 MetaGPT 上有 84.15%。</b>论文的解释是，MetaGPT 很少满足要求，评审把大多数要求判成「没做到」就能对上大半。这说明一致率要和被评系统的实际成绩一起看：一个几乎什么都做不成的系统，全判失败也能有很高的一致率。</li>
+      <li><b>agent 评审和单个人类专家差不多。</b>三位专家各自最初的判定，和最后的共识相比，平均也只有 85% 到 89% 相同。agent 评审的六个数在 83.88% 到 92.07% 之间，和这个水平接近，具体高低随被评的系统和能不能看到运行轨迹而变。</li>
+    </ul></div></div>
+  <p>花费方面：三位专家一共用了 86.5 小时，按每小时 15 美元算是 1,297.50 美元。agent 评审用了 118.43 分钟，调用模型的费用是 30.58 美元。论文据此说，时间节省了 97.72%，花费节省了 97.64%。语言模型评审更快，只要 10.99 分钟，但费用差不多，是 29.63 美元。</p>
+</section>
+
+<section class="sec" id="reliable">
+  <h2>这些评审有多可靠</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">问题</th><th scope="col">答案</th><th scope="col">依据</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">语言模型能不能看出一条运行轨迹成功了没有？</th><td>大部分时候能</td><td>WebVoyager：GPT-4V 看完整的运行轨迹，和人的判定有 85.3% 相同。Pan 等：三种评审和参照的判定有 74.4% 到 92.9% 相同</td></tr>
+        <tr><th scope="row">评审能不能像 agent 一样自己去查看环境？</th><td>能，而且更准</td><td>Agent-as-a-Judge：让评审自己查看工作目录，和专家共识的一致率从语言模型评审的 60% 到 84%，提高到 84% 到 92%</td></tr>
+        <tr><th scope="row">和人类专家相比有多可靠？</th><td>够用来训练，在局部可能偏很多</td><td>Pan 等：当作反馈用，网页 agent 的成功率相对提高 29%。WebVoyager：总体只差 2 个百分点，个别网站差 10 到 16 个百分点</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>三项研究有一个共同的做法：<mark>每一个评审都拿去和人的判断对过，并且报告了一致的程度</mark>。没有这一步，评审给出的成功率就没法解读。第 13 讲讲过一个反例：WebArena 用语言模型判断文字答案是否正确，标准答案是 63 分钟，agent 答了 53 分钟，评审判了对。出处：<a href="https://arxiv.org/abs/2507.02825">Zhu 等，2025</a>。</p>
+  <p>这些研究也已经显出评审的系统性问题：WebVoyager 里每个评审都把自己同款的模型排第一。下一部分专门讲<a href="bias.html">评审的偏差，以及怎样对着人的判断来校准</a>。</p>
+</section>

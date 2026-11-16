@@ -149,7 +149,8 @@
           "date": "11 月 11 日",
           "title": "用 LLM 当评审和评估的基础设施",
           "summary": "三种评分器；评审 prompt 的设计和已知的偏差；成对比较和单独打分；pass@k 和 pass^k；评估框架的设计。",
-          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture15.pdf"
+          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture15.pdf",
+          "dir": "lecture15"
         }
       ]
     }
