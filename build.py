@@ -9,7 +9,9 @@ Layout:
 
 Content shortcuts:
   <section class="sec" id="x" data-p="7-15">   shows "讲义第 7 至 15 页" beside the heading
-  {{slide 13 | caption}} or {{slides 18 19 | caption}}   inserts the slide images from img/
+  {{slide 13 | caption}} or {{slides 18 19 | caption}}   inserts the slide images from img/,
+                                                         caption prefixed with the slide numbers
+  {{fig 13 | caption}} or {{figs 18 19 | caption}}       same images, caption shown as written
 """
 import json
 import re
@@ -21,7 +23,7 @@ OUT = ROOT / "_site"
 SITE_NAME = "CS329Z 中文学习笔记"
 
 SEC_RE = re.compile(r'<section class="sec" id="([\w-]+)"((?: data-p="[\d-]+")?)>\s*<h2>(.*?)</h2>', re.S)
-SLIDE_RE = re.compile(r"\{\{slides? ([\d ]+)\|(.*?)\}\}", re.S)
+SLIDE_RE = re.compile(r"\{\{(slides?|figs?) ([\d ]+)\|(.*?)\}\}", re.S)
 
 
 def strip_tags(html):
@@ -45,17 +47,20 @@ def add_section_heads(content):
 def expand_slides(content, img_dir):
     """Replace {{slide N | caption}} with a figure showing the slide images."""
     def repl(m):
-        nums = [int(n) for n in m[1].split()]
+        plain = m[1].startswith("fig")
+        nums = [int(n) for n in m[2].split()]
         for n in nums:
             if not (img_dir / f"p{n:02d}.jpg").exists():
                 raise SystemExit(f"missing image {img_dir}/p{n:02d}.jpg")
+        alt = "配图" if plain else "讲义原图"
         imgs = "".join(f'<a href="img/p{n:02d}.jpg" target="_blank" rel="noopener">'
-                       f'<img src="img/p{n:02d}.jpg" alt="讲义第 {n} 页" loading="lazy" width="1600" height="900"></a>'
+                       f'<img src="img/p{n:02d}.jpg" alt="{alt}" loading="lazy" width="1600" height="900"></a>'
                        for n in nums)
         cls = "slides slides-2" if len(nums) > 1 else "slides"
         pages = "、".join(str(n) for n in nums)
+        prefix = "" if plain else f"讲义第 {pages} 页。"
         return (f'<figure class="plate"><div class="{cls}">{imgs}</div>'
-                f'<figcaption>讲义第 {pages} 页。{m[2].strip()}</figcaption></figure>')
+                f'<figcaption>{prefix}{m[3].strip()}</figcaption></figure>')
     return SLIDE_RE.sub(repl, content)
 
 
@@ -104,6 +109,8 @@ def build_lecture(src):
     for slug, page in meta["pages"].items():
         raw = (src / "content" / f"{slug}.html").read_text()
         content = expand_slides(add_section_heads(raw), src / "img")
+        if page.get("credit"):
+            content += f'\n<p class="muted small credit">{page["credit"]}</p>'
         toc = "".join(f'<li><a href="#{m[1]}"><span>{strip_tags(m[3])}</span></a></li>' for m in SEC_RE.finditer(raw))
         body = (f'{topbar(meta["brand"], meta["nav"], slug, "../index.html")}\n{hero(page)}\n'
                 f'<div class="wrap"><nav class="toc" aria-label="本页目录"><div class="toc-title">本页内容</div><ol>{toc}</ol></nav>\n'
