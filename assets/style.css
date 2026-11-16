@@ -431,3 +431,35 @@ pre.code code { background: none; padding: 0; font-size: inherit; }
 .leclist .go { background: var(--ink); color: #fff; padding: 3px 14px; border-radius: 999px; text-decoration: none; }
 .leclist .go:hover { background: var(--d-fin); }
 @media (max-width: 720px) { .leclist .lec { grid-template-columns: 1fr; gap: 4px; } }
+
+.rs-copy { display: none; }
+
+/* ---- Phones ---- */
+@media (max-width: 680px) {
+  html { scroll-padding-top: 104px; }
+  .topbar-in { flex-wrap: wrap; gap: 2px 12px; padding: 8px 16px; }
+  .brand { flex-basis: 100%; font-size: 16px; white-space: normal; }
+  .modnav { flex-basis: 100%; margin: 0 -6px; }
+  .hero { padding: 28px 16px 20px; }
+  .hero h1 { font-size: 28px; }
+  .hero .lede { font-size: 16.5px; }
+  .wrap { padding: 0 16px 64px; }
+  .sec h2 { font-size: 24px; }
+  .sec-head { flex-wrap: wrap; }
+
+  /* A table row becomes a card: the row name on top, then each cell under its column name */
+  .tbl:not(.tbl-scroll) { display: block; overflow: visible; border: 0; background: none; }
+  .tbl:not(.tbl-scroll) thead { display: none; }
+  .tbl:not(.tbl-scroll) tbody, .tbl:not(.tbl-scroll) tr, .tbl:not(.tbl-scroll) td, .tbl:not(.tbl-scroll) th { display: block; }
+  .tbl:not(.tbl-scroll) tr { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .tbl:not(.tbl-scroll) tr:last-child { margin-bottom: 0; }
+  .tbl:not(.tbl-scroll) td, .tbl:not(.tbl-scroll) tbody th { border: 0; padding: 0; text-align: left; white-space: normal; }
+  .tbl:not(.tbl-scroll) tbody th { font-size: 16px; }
+  .tbl:not(.tbl-scroll) [data-label]::before { content: attr(data-label); display: block; margin-top: 8px; font-size: 12.5px; font-weight: 400; color: var(--ink-3); }
+  .tbl:not(.tbl-scroll) tr > [data-label]:first-child::before { margin-top: 0; }
+  .tbl:not(.tbl-scroll) td:empty { display: none; }
+  .tbl:not(.tbl-scroll) td.rs-copy { display: block; }
+
+  /* Tables with cells merged across rows keep the grid and scroll sideways */
+  .tbl.tbl-scroll th, .tbl.tbl-scroll td { min-width: 7.5em; white-space: normal; }
+}

@@ -39,7 +39,7 @@
 - `lectures/lectureNN/content/*.html`：各页的正文，改这里。
 - `lectures/lectureNN/img/pNN.jpg`：正文用到的配图。
 - `assets/`：全站共用的样式和脚本。
-- `build.py`：把上面这些生成到 `_site/`。
+- `build.py`：把上面这些生成到 `_site/`。生成时会给表格的每个格子加上所在列的列名（`data-label`）。手机上每一行显示成一张卡片，格子上方显示列名，样式在 `assets/style.css` 末尾的 Phones 一段。
 - `scripts/pdf_extract.py`：把课程 PDF 的每一页转成图片并提取文字，输出到 `src/`（不进仓库）。
 - `scripts/check_site.py`：检查生成的网站里所有站内链接、锚点和图片。
 - `scripts/check_text.py lectureNN`：检查一讲的正文有没有违反写法规则（提到讲义、破折号、强行对比的句式等）。
