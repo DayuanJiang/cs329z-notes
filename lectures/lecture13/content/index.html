@@ -1,12 +1,12 @@
 <section class="sec" id="thesis">
   <h2>一句话的结论</h2>
   <p class="lead-in">一个基准测试的分数，是两样东西合起来的结果：<mark>题目本身，和这个分数是怎么跑出来的</mark>。讲义把前一样叫任务定义，后一样叫评估协议。题目出得不好，分数说明不了能力。题目出得好，跑分的方式不一致，分数之间也没法比。</p>
-  <p>这一讲的前一半教你把一个 agent 基准测试拆开来看，后一半分别说这两样要满足什么：好的基准测试有七条性质，可信的分数有四条要求。</p>
+  <p>这里的 agent，指能自己调用工具、分很多步去完成一个任务的语言模型系统。这一讲的前一半教你把一个 agent 基准测试拆开来看，后一半分别说这两样要满足什么：好的基准测试有七条性质，可信的分数有四条要求。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">题目这一侧</th><th scope="col">跑分这一侧</th></tr></thead>
       <tbody>
-        <tr><th scope="row">讲义的叫法</th><td>任务定义：问题描述、环境、验证</td><td>评估协议：跑几次、何时停、模型设置、运行框架和工具、怎么汇总</td></tr>
+        <tr><th scope="row">讲义的叫法</th><td>任务定义：问题描述、环境、验证</td><td>评估协议：跑几次、何时停、模型设置、运行框架（包在模型外面、给它工具并管理多轮对话的程序）和工具、怎么汇总</td></tr>
         <tr><th scope="row">谁负责</th><td>出题的人</td><td>拿基准测试来跑分的人</td></tr>
         <tr><th scope="row">要满足什么</th><td>七条性质：有挑战、自然、有区分度、容易运行、容易验证、可解释、耐用</td><td>四条要求：公平、可复现、透明、诚实</td></tr>
         <tr><th scope="row">出了问题会怎样</th><td>分数高低和能力高低对不上。例：τ-bench 的航空任务里，什么都不做的 agent 能拿 38%</td><td>分数之间不可比。例：同一个模型，换一个运行框架、多跑几次再挑，分数从 48% 变成 72%</td></tr>
@@ -25,35 +25,35 @@
       <tbody>
         <tr><th scope="row"><a href="benchmark.html">一 基准测试是什么，<br>为什么离不开它？</a></th><td>一组题目加一个报告成绩的办法。它让开发有数可依，让一个领域的人做同一批问题，让结果可以比较。代价是分数一旦成了目标，就会有办法把它做高而能力没有跟上</td><td>题目从语言学的小任务，变成考试、聊天、安全，再到 agent 任务。强化学习的 agent 为了游戏得分原地转圈，得分比人高 20%，却从不跑完比赛</td></tr>
         <tr><th scope="row"><a href="anatomy.html">二 agent 的基准测试<br>由哪几块组成？</a></th><td>任务定义（问题描述、环境、验证）加评估协议。和考试类的区别是：给的是任务和环境，过程是很多轮，交出来的是一条运行轨迹和一个被改动过的环境</td><td>讲义的三条轴：问题描述从写明一切到只给目标，环境从模拟到真实，评分分成四格</td></tr>
-        <tr><th scope="row"><a href="cases.html">三 真实的基准测试<br>长什么样？</a></th><td>十二个案例，从 2018 年的文字游戏到 2026 年的机器学习研究任务。越往后环境越真实，问题描述越开放，评分也越难做对</td><td>发布时最好的成绩：SWE-bench 1.96%，OSWorld 12.24%，WebArena 14.41%。后来的研究在其中几个的评分里查出了问题</td></tr>
-        <tr><th scope="row"><a href="good.html">四 什么样的<br>基准测试算好？</a></th><td>七条性质。它们互相拉扯，也会随着模型变强而变化，所以基准测试有从提出到被替换的生命周期</td><td>SWE-bench 在 2023 年发布时很有挑战；现在容易运行了，但挑战、区分度和耐用都下降了</td></tr>
-        <tr><th scope="row"><a href="trust.html">五 什么样的<br>分数可信？</a></th><td>四条要求：照基准测试的规定跑，记下所有版本，除了分数还报误差范围和花费，测试集只用来测量</td><td>讲义引用的一张真实的表：两个系统的成功率是 70% 和 67%，差距落在误差范围以内，而分数高的那个每个任务的花费是另一个的 3 倍</td></tr>
+        <tr><th scope="row"><a href="cases.html">三 真实的基准测试<br>长什么样？</a></th><td>十二个案例，最早的是 2018 年的文字游戏，最新的是 2026 年的机器学习研究任务。环境越真实、问题描述越开放，评分越难做对</td><td>其中三个发布时最好的成功率：SWE-bench 1.96%，OSWorld 12.24%，WebArena 14.41%。后来的研究在其中几个的评分里查出了问题</td></tr>
+        <tr><th scope="row"><a href="good.html">四 什么样的<br>基准测试算好？</a></th><td>七条性质。它们很难同时做到，也会随着模型变强而变化，所以基准测试有从提出到被替换的生命周期</td><td>SWE-bench 在 2023 年发布时很有挑战；现在容易运行了，但挑战、区分度和耐用都下降了</td></tr>
+        <tr><th scope="row"><a href="trust.html">五 什么样的<br>分数可信？</a></th><td>四条要求：照基准测试的规定跑，记下所有版本，除了分数还报误差范围和花费，测试集只用来测量</td><td>讲义引用的一张真实的表：两个系统的成功率是 70% 和 67%，差距落在误差范围（重复测量时分数可能波动的幅度）以内，而分数高的那个每个任务的花费是另一个的 3 倍</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
   </figure>
-  <p>讲义最后的落点是：没有哪一个评测能说明一切。要判断一个模型或 agent 的能力，得同时看很多个基准测试。</p>
+  <p>讲义最后的结论是：没有哪一个评测能说明一切。要判断一个模型或 agent 的能力，得同时看很多个基准测试。</p>
 </section>
 
 <section class="sec" id="gaps">
   <h2>读讲义时要留意的地方</h2>
-  <p>我逐页对照了讲义引用的论文、课程指定的三篇阅读材料和各个排行榜的官方页面。有两处，讲义的说法和后来的事实或课程自己指定的阅读材料对不上。另有七处需要补上条件或信息。</p>
+  <p>我逐页对照了讲义引用的论文、课程指定的三篇阅读材料和各个排行榜的官方页面。有一处，讲义举的例子和后来的事实对不上。另有八处需要补上条件或信息。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">类型</th><th scope="col">讲义的说法</th><th scope="col">原文和后来的资料补充了什么</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
-        <tr><th scope="row">例子已经过时</th><td>SWE-bench Verified 是「更严的评分：堵上捷径、加强测试」的例子</td><td>Verified 是把有问题的题筛掉，没有加强测试。OpenAI 在 2026 年 2 月宣布不再报告它的分数：抽查的 138 道题里至少 59.4% 的测试有缺陷，前沿模型能背出某些题的标准答案</td><td><a href="good.html#durable">好的基准测试</a></td></tr>
-        <tr><th scope="row">只讲了一半</th><td>容易验证：任务能自动地、正确地验证。讲义介绍 τ-bench、WebArena、OSWorld 的评分办法时没有提到问题</td><td>课程指定的必读论文正好查了这三个：τ-bench 的航空任务里什么都不做能拿 38%，WebArena 的分数被高估 1.4% 到 5.2%，OSWorld 有一部分被低估 28 个百分点。能自动评分，不等于评得对</td><td><a href="cases.html#flaws">十二个案例</a></td></tr>
+        <tr><th scope="row">例子已经过时</th><td>SWE-bench Verified 是「更严的评分：堵上捷径、加强测试」的例子</td><td>Verified 是把有问题的题筛掉，没有加强测试。OpenAI 在 2026 年 2 月宣布不再报告它的分数：他们抽查了模型经常做不出来的 138 道题，其中至少 59.4% 的测试会拒绝功能正确的提交；前沿模型还能背出某些题的标准答案</td><td><a href="good.html#durable">好的基准测试</a></td></tr>
+        <tr><th scope="row">没有提已知的问题</th><td>介绍 τ-bench、WebArena、OSWorld 的评分办法时，没有提到它们的评分有问题</td><td>课程指定的必读论文正好查了这三个：τ-bench 的航空任务里什么都不做能拿 38%；WebArena 的分数被高估 1.4% 到 5.2%；OSWorld 和 Chrome 有关的那部分任务上，一个 agent 的成绩被低估 28 个百分点</td><td><a href="cases.html#flaws">十二个案例</a></td></tr>
         <tr><th scope="row">前后说法不同</th><td>基准测试是两块（第 32 页），是三样加一个协议（第 71 页）</td><td>课程主页介绍这一讲时用的是四元组：请求、环境、停止条件、评分器。三种说法说的是同一件事，差别在停止条件和工具算在哪一块</td><td><a href="anatomy.html#count">怎么组成</a></td></tr>
         <tr><th scope="row">前后说法不同</th><td>评估协议是不绑定在基准测试上的参数（第 37 页）；要照着基准测试规定的运行框架、预算和设置去跑（第 65 页）</td><td>两处合起来读：参数的值在每次跑分时才填，但基准测试通常会给出规定或默认值</td><td><a href="anatomy.html#count">怎么组成</a></td></tr>
         <tr><th scope="row">页面内容重复</th><td>讲可复现的第 66 页，右边列的仍然是讲公平时的五样</td><td>可复现要做的事写在第 69 页的检查表里：模型快照、运行框架、数据集和镜像的版本要固定并记录</td><td><a href="trust.html#repro">可信的分数</a></td></tr>
-        <tr><th scope="row">要加条件</th><td>70% 和 67% 的差距落在误差范围以内</td><td>表里的误差范围只反映同一批题重跑时的波动。题目只有 113 道，这部分的不确定性没有算进去，实际的误差范围更宽</td><td><a href="trust.html#transparent">可信的分数</a></td></tr>
+        <tr><th scope="row">要加条件</th><td>70% 和 67% 的差距落在误差范围以内</td><td>表里的误差范围只反映同一批题重跑时的波动。题目只有 113 道带来的不确定性没有算进去。另外，两个范围重叠只说明这张表不足以确认谁更强，这一点是我的补充</td><td><a href="trust.html#transparent">可信的分数</a></td></tr>
         <tr><th scope="row">要加条件</th><td>七条「接替」的链，比如网页类是 WebShop、WebArena、OSWorld、BrowseComp</td><td>有的链是按难度排的，时间顺序并不一致。有的链混了不同类型的任务：BrowseComp 是上网查资料回答问题，前三个是操作界面。Terminal-Bench 的链跳过了两个版本</td><td><a href="good.html#lifecycle">好的基准测试</a></td></tr>
         <tr><th scope="row">没有标出处</th><td>古德哈特定律的两句话，和旁边的两张图</td><td>第一句是 Goodhart 1975 年写的，加框的那句是人类学家 Strathern 1997 年的概括。两张图来自 OpenAI 的两份材料</td><td><a href="benchmark.html#goodhart">是什么</a></td></tr>
         <tr><th scope="row">说得粗</th><td>个别案例的一句话概括，比如 τ-bench 按数据库状态评分，OSWorld 看截图操作，Terminal-Bench 有 89 个任务</td><td>τ-bench 还要检查回复的内容。OSWorld 发布时最好的成绩来自只读文字的输入方式。89 个任务是 2.0 版</td><td><a href="cases.html#notes">十二个案例</a></td></tr>
       </tbody>
     </table>
-    <figcaption>前两行在对应的页面上用橙色框标出，其余用蓝色框标出。</figcaption>
+    <figcaption>第一行在对应的页面上用橙色框标出。其余各行写在对应小节的表格或说明框里。</figcaption>
   </figure>
 </section>
 
@@ -61,7 +61,7 @@
   <h2>页面里三种颜色的框</h2>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对讲义内容的说明和提醒，包括讲义前后说法不同的地方。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是讲义之外的资料，都带出处链接。</div></div>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是讲义的说法和后来的事实、或者和课程指定的阅读材料对不上的地方。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是讲义的说法和后来的事实对不上的地方。这一讲只有一处。</div></div>
   <p>正文里，讲义说的、论文原文说的、我自己的判断是分开写的。表格下面的说明会写清每一列来自哪里。这一讲没有课堂视频，所以笔记里没有讲者口头讲的内容。</p>
 </section>
 
@@ -71,7 +71,7 @@
     <a href="benchmark.html"><span class="m">第一部分</span><span><b>基准测试是什么，为什么离不开它</b><p>从训练损失到一道一道的题；四类基准测试；八个例子；三个用处；古德哈特定律。</p></span><span class="dur">第 3 至 28 页</span></a>
     <a href="anatomy.html"><span class="m">第二部分</span><span><b>agent 的基准测试由哪几块组成</b><p>和考试类的区别；问题描述、环境、验证各自的轴；评估协议的五个问题；两块、三块还是四块。</p></span><span class="dur">第 29 至 37 页</span></a>
     <a href="cases.html"><span class="m">第三部分</span><span><b>十二个案例</b><p>每个案例的任务定义和评估协议；讲义的一句话要补充的地方；后来查出的评分问题。</p></span><span class="dur">第 38 至 50 页</span></a>
-    <a href="good.html"><span class="m">第四部分</span><span><b>什么样的基准测试算好</b><p>七条性质逐条看；它们怎样互相拉扯；生命周期的七条链；另外两份材料的说法。</p></span><span class="dur">第 51 至 62 页</span></a>
+    <a href="good.html"><span class="m">第四部分</span><span><b>什么样的基准测试算好</b><p>七条性质逐条看；哪几条很难同时做到；生命周期的七条链；另外两份材料的说法。</p></span><span class="dur">第 51 至 62 页</span></a>
     <a href="trust.html"><span class="m">第五部分</span><span><b>什么样的分数可信</b><p>公平、可复现、透明、诚实；怎样读误差范围；检查表；整讲的小结。</p></span><span class="dur">第 63 至 71 页</span></a>
   </div>
 </section>

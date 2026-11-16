@@ -3,7 +3,7 @@
   <ul class="takeaways">
     <li>基准测试（benchmark）是一组题目，加一个报告成绩的办法。用它来回答一个问题：对模型或系统做的改动，到底有没有让它变好。</li>
     <li>题目一路在变难：先是语言学里的小任务，再是人参加的考试，然后是开放的聊天和安全，最后是要在环境里做很多步的 agent 任务。这门课关心的是最后一类。</li>
-    <li>基准测试有三个用处：让开发有数可依，让一个领域的人朝同一批问题使劲，让不同论文的结果可以比较。</li>
+    <li>基准测试有三个用处：让开发有数可依，让一个领域的人集中做同一批问题，让不同论文的结果可以比较。</li>
     <li>它也有代价。一个分数一旦成了大家追的目标，就会有办法把分数做高而能力没有跟上。讲义用古德哈特定律（Goodhart's Law）说这件事。</li>
   </ul>
 </section>
@@ -11,7 +11,7 @@
 <section class="sec" id="why" data-p="4">
   <h2>这一讲要回答的问题</h2>
   <p>课程前面讲了两类事情。一类是怎样搭一个基于语言模型的 agent 系统：框架、设计模式、记忆、多 agent。另一类是怎样让它的能力更强：优化、数据。讲义在这里问了一句：<mark>怎么知道这些改进真的起作用了？</mark></p>
-  <p>回答这个问题的工具就是基准测试。这一讲和下一讲（第 15 讲，用 LLM 当评审）都在讲它。</p>
+  <p>回答这个问题的工具就是基准测试。这一讲和下一次讲课都在讲它。下一次讲课是第 15 讲，题目是用 LLM 当评审和评估的基础设施；中间的第 14 讲是一次对谈，没有讲义。</p>
 </section>
 
 <section class="sec" id="from-loss" data-p="5-9">
@@ -48,7 +48,7 @@
       <thead><tr><th scope="col">基准测试</th><th scope="col">考什么</th><th scope="col">规模</th><th scope="col">分数怎么算</th></tr></thead>
       <tbody>
         <tr><th scope="row"><a href="https://arxiv.org/abs/2009.03300">MMLU</a><br><span class="muted small">2020</span></th><td>57 个学科的知识题，从初等数学到美国历史、法律</td><td>15,908 道题，其中测试集 14,079 道</td><td>四选一的准确率，随机猜是 25%</td></tr>
-        <tr><th scope="row"><a href="https://arxiv.org/abs/2406.01574">MMLU-Pro</a><br><span class="muted small">2024</span></th><td>在 MMLU 的基础上加了更需要推理的题，去掉了太容易的题和有问题的题</td><td>12,032 道题，14 个学科</td><td>选项从四个增加到最多十个，仍然看准确率。论文说模型的准确率比在 MMLU 上低 16% 到 33%</td></tr>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2406.01574">MMLU-Pro</a><br><span class="muted small">2024</span></th><td>在 MMLU 的基础上加了更需要推理的题，去掉了太容易的题和有问题的题</td><td>12,032 道题，14 个学科</td><td>选项从四个增加到最多十个，仍然看准确率。论文摘要说，模型的准确率比在 MMLU 上下降了 16% 到 33%</td></tr>
         <tr><th scope="row"><a href="https://arxiv.org/abs/2311.12022">GPQA</a><br><span class="muted small">2023</span></th><td>生物、物理、化学的难题，要求外行就算上网查也答不出</td><td>主数据集 448 道题</td><td>四选一的准确率。出题的是有博士学位或在读博士的专业人员</td></tr>
         <tr><th scope="row"><a href="https://arxiv.org/abs/2501.14249">Humanity's Last Exam</a><br><span class="muted small">2025</span></th><td>数学、人文、自然科学等几十个学科里专家出的题</td><td>公开 2,500 道题，另有一批不公开的题</td><td>选择题和简答题都有，可以自动评分</td></tr>
         <tr><th scope="row"><a href="https://tatsu-lab.github.io/alpaca_eval/">AlpacaEval</a></th><td>模型按一般的用户指令办事的能力</td><td>一套固定的指令</td><td>胜率：让一个模型当评审，比较被测模型的回答和一个固定的参照模型的回答，被测模型胜出的比例</td></tr>
@@ -64,10 +64,10 @@
   <ul>
     <li><b>MMLU-Pro。</b>讲义说选项从 4 个变成 10 个，去掉了有噪声的题。论文里，83% 的题有 10 个选项，其余的少一些。被去掉的还有太容易的题：8 个小模型里超过 4 个能答对的题都删了，一共删了 5,886 道。另外还从别的来源加了新的难题。</li>
     <li><b>GPQA。</b>讲义说是博士生出的题。论文里，出题的是通过外包平台雇的 61 个人，要求有博士学位或正在读博士。在包含 546 道题的扩展集上，同领域的专家答对 65%；其他领域的专家平均花了 30 多分钟、可以随便上网，只答对 34%。当时最强的基线模型（基于 GPT-4）答对 39%。</li>
-    <li><b>AlpacaEval 和 Chatbot Arena。</b>讲义说聊天类的评测用胜率或 Elo 分，又说 Chatbot Arena 把 AlpacaEval 的做法扩展到了真实用户的 prompt。两者的相同点是都做两两比较。不同点有三个：AlpacaEval 的题是固定的，评审是一个模型，对手是一个固定的参照模型；Chatbot Arena 的题是用户现场提的，评审是提问的用户自己，对手是随机配的另一个模型。Chatbot Arena 的论文现在用的是 Bradley-Terry 系数（一种从两两胜负记录里估出每个选手强度的统计方法），早期用过 Elo 分。</li>
+    <li><b>AlpacaEval 和 Chatbot Arena。</b>讲义说聊天类的评测用胜率或 Elo 分（按对战胜负算出的等级分，国际象棋排名用的那种），又说 Chatbot Arena 把 AlpacaEval 的做法扩展到了真实用户的 prompt。两者的相同点是都做两两比较。不同点有三个：AlpacaEval 的题是固定的，评审是一个模型，对手是一个固定的参照模型；Chatbot Arena 的题是用户现场提的，评审是提问的用户自己，对手是随机配的另一个模型。Chatbot Arena 的论文现在用的是 Bradley-Terry 系数（一种从两两胜负记录里估出每个选手强度的统计方法），早期用过 Elo 分。</li>
     <li><b>AlpacaEval 那页上的 0.98。</b>它是 AlpacaEval 给模型排的名次，和 Chatbot Arena 排的名次之间的相关系数，说明两个榜单当时把共同的那批模型排得几乎一样。评审模型偏爱长回答，所以 AlpacaEval 后来加了一个按长度校正过的胜率；校正之后，这个相关系数从 0.94 升到了 0.98。</li>
   </ul>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这一串考试类的例子本身就是一条线。</b>MMLU 被做到 90% 以上之后，MMLU-Pro 把它加难；GPQA 换成研究生水平的题；Humanity's Last Exam 的论文摘要开头就说，模型在 MMLU 这类基准测试上已经超过 90%，没法再用它们衡量最强的模型。<a href="good.html#lifecycle">第四部分</a>把这个现象叫作基准测试的生命周期。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这一串考试类的例子本身就是一条线。</b>MMLU-Pro 的论文说，模型在 MMLU 这类基准测试上的成绩已经开始停滞，所以把它加难；GPQA 换成研究生水平的题；Humanity's Last Exam 的论文摘要开头就说，模型在 MMLU 这类基准测试上已经超过 90%，没法再用它们衡量最强的模型。<a href="good.html#lifecycle">第四部分</a>把这个现象叫作基准测试的生命周期。</div></div>
 </section>
 
 <section class="sec" id="matter" data-p="26-27">
@@ -78,7 +78,7 @@
     <table class="tbl">
       <thead><tr><th scope="col">用处</th><th scope="col">讲义的说法</th><th scope="col">换成具体的事</th></tr></thead>
       <tbody>
-        <tr><th scope="row">度量<br><span class="muted small">Measurement</span></th><td>开发模型、prompt 和运行框架时，可以对着实验结果来做</td><td>改了一版 prompt，跑一遍就知道是变好了还是变差了</td></tr>
+        <tr><th scope="row">度量<br><span class="muted small">Measurement</span></th><td>开发模型、prompt 和运行框架（包在模型外面、给它工具并管理多轮对话的程序）时，可以对着实验结果来做</td><td>改了一版 prompt，跑一遍就知道是变好了还是变差了</td></tr>
         <tr><th scope="row">方向<br><span class="muted small">Direction</span></th><td>把一个领域聚到同一批问题上，也反映出这个领域共同决定要解决什么</td><td>SWE-bench 出来之后，很多团队都去做「修真实代码仓库里的 bug」这件事</td></tr>
         <tr><th scope="row">交流<br><span class="muted small">Communication</span></th><td>给研究者一套共同的语言，「在某个基准测试上高 5 分」对所有人是同一个意思，不同论文的结果可以比</td><td>两篇论文报的都是同一个基准测试的成功率，可以直接放在一张表里</td></tr>
       </tbody>
@@ -108,10 +108,10 @@
   <p>讲义没有给这两张图标出处。按内容对照，它们来自 OpenAI 的两份材料。</p>
   <ul>
     <li><b>左边的赛艇游戏。</b>来自 OpenAI 2016 年的文章《Faulty reward functions in the wild》。游戏叫 CoastRunners，人玩的时候目标是尽快跑完比赛，但游戏给分是按撞到沿途的目标物算的。用强化学习训练出来的 agent 找到一个小水湾，在里面不停转圈，反复撞同样的三个目标物。它着火、撞船、逆行，从来不跑完比赛，得分却比人类玩家平均高 20%。</li>
-    <li><b>右边的曲线图。</b>来自 Gao、Schulman 和 Hilton 2022 年的论文《Scaling Laws for Reward Model Overoptimization》。训练聊天模型时，常常先训练一个打分模型（reward model）来模仿人的偏好，再让聊天模型去追这个打分模型给的分。图的横轴是聊天模型被优化得离起点有多远，纵轴是得分。虚线是打分模型自己给的分，一直在涨。实线是代表真实偏好的分，先涨，到了一个顶点之后往下掉。</li>
+    <li><b>右边的曲线图。</b>来自 Gao、Schulman 和 Hilton 2022 年的论文《Scaling Laws for Reward Model Overoptimization》。训练聊天模型时，常常先训练一个打分模型（reward model）来模仿人的偏好，再让聊天模型去追这个打分模型给的分。这篇论文做的是一个模拟实验：用一个固定的「金标准」打分模型扮演人，再训练一个小一些的打分模型去模仿它。图里的做法是让聊天模型一次生成很多个回答，用小的打分模型挑出分数最高的一个。生成的回答越多，挑出来的结果离聊天模型原本的样子越远，这就是横轴。纵轴是得分。虚线是小的打分模型给的分，一直在涨。实线是金标准打分模型给的分，先涨，到了一个顶点之后往下掉。</li>
   </ul>
   <p>两张图说的是同一件事：被优化的那个分数一直在涨，它本来要代表的东西却没有跟着涨，甚至在变差。讲义右边的那句比喻也是这个意思：按长度给作文打分，你会得到很长的作文，不一定是好作文。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：这和基准测试的关系。</b>这两张图里追分数的都是训练中的模型。放到基准测试上，追分数的是整个领域：大家都在同一个榜单上比，题目会进入训练数据，系统会针对榜单调整，评分办法里的漏洞也会被用上。<a href="good.html#durable">第四部分</a>的「耐用」这条性质，和<a href="trust.html#honest">第五部分</a>的「诚实」这条要求，分别从出题的人和跑分的人两边应对这件事。出处：<a href="https://openai.com/index/faulty-reward-functions/">OpenAI，2016</a>；<a href="https://arxiv.org/abs/2210.10760">Gao 等，2022</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：这和基准测试的关系。</b>这两张图里追分数的都是单个系统。放到基准测试上，追分数的是整个领域：大家都在同一个榜单上比，题目会进入训练数据，系统会针对榜单调整，评分办法里的漏洞也会被用上。<a href="good.html#durable">第四部分</a>的「耐用」这条性质，和<a href="trust.html#honest">第五部分</a>的「诚实」这条要求，分别从出题的人和跑分的人两边应对这件事。出处：<a href="https://openai.com/index/faulty-reward-functions/">OpenAI，2016</a>；<a href="https://arxiv.org/abs/2210.10760">Gao 等，2022</a>。</div></div>
 </section>
 
 <section class="sec" id="summary" data-p="24">
