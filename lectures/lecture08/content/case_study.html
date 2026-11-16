@@ -9,11 +9,11 @@
   </ul>
 </section>
 
-<section class="sec" id="background" data-p="84">
+<section class="sec" id="background">
   <h2>背景</h2>
-  {{slide 84 | 图片来源：<a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic</a>。}}
-  <p>文章的标题是「用一组并行的 Claude 写一个 C 编译器」，作者是 Nicholas Carlini，发表于 2026 年 2 月 5 日。讲义选它的理由写在图下面：公司正在用 agent swarm 做工程和科研，这个案例可以让我们看一眼这样的 swarm 可能是怎样运作的。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：规模。</b>讲义没有放数字，下面取自原文。
+  {{fig 84 | 图片来源：<a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic</a>。}}
+  <p>文章的标题是「用一组并行的 Claude 写一个 C 编译器」，作者是 Nicholas Carlini，发表于 2026 年 2 月 5 日。看这个案例的理由是：已经有公司在用 agent swarm（一群并行工作的 agent）做工程和科研，从这个案例可以看到这样的 swarm 可能是怎样运作的。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>规模。</b>下面的数字取自原文。
     <ul>
       <li>16 个 agent 并行，用的模型是 Opus 4.6。</li>
       <li>两周里跑了近 2000 次 Claude Code 会话，用了 20 亿输入 token 和 1.4 亿输出 token，总成本不到 2 万美元。</li>
@@ -22,9 +22,9 @@
     出处：<a href="https://www.anthropic.com/engineering/building-c-compiler">Building a C compiler with a team of parallel Claudes</a>。本页其余绿色框的出处相同。</div></div>
 </section>
 
-<section class="sec" id="loop" data-p="85">
+<section class="sec" id="loop">
   <h2>编排：没有人分派任务</h2>
-  <p>讲义这一页只有一段脚本。每个 agent 都在这样一个循环里运行：</p>
+  <p>每个 agent 都在这样一个循环里运行：</p>
   <figure class="plate">
 <pre class="code"><code>#!/bin/bash
 
@@ -36,7 +36,7 @@ while true; do
            -p "$(cat AGENT_PROMPT.md)" \
            --model claude-opus-X-Y &amp;> "$LOGFILE"
 done</code></pre>
-    <figcaption>照抄自讲义第 85 页。</figcaption>
+    <figcaption>脚本取自原文。</figcaption>
   </figure>
   <ul>
     <li><code>while true</code>：循环永不结束。一次会话跑完，马上开始下一次。</li>
@@ -44,40 +44,40 @@ done</code></pre>
     <li><code>--dangerously-skip-permissions</code>：跳过所有权限询问，agent 做什么都不用等人批准。作者在原文里提醒：要在容器里运行，不要在自己的机器上运行。</li>
     <li>其余两行用当前提交的哈希给日志文件命名，把输出写进日志。</li>
   </ul>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：</b>作者明确说他没有用负责编排的 agent，也没有规定管理高层目标的流程，做什么由每个 agent 自己决定。多数时候 agent 会挑「下一个最明显」的问题去做。提示词里要求 agent 把问题拆成小块，记录自己在做什么，想清楚下一步做什么，一直做到完美为止。</div></div>
-  <p>对照<a href="orchestration.html#four">第二部分</a>：这里没有 orchestrator，agent 自己挑任务，通过共享仓库里的文件交换信息。这符合讲义对去中心方式的定义。它和论文里测的那种一轮一轮辩论的去中心方式不是一回事，所以论文的数字不能直接套到这个案例上，见<a href="orchestration.html#swarm">「去中心」的两种意思</a>。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>没有负责编排的 agent。</b>作者明确说他没有用负责编排的 agent，也没有规定管理高层目标的流程，做什么由每个 agent 自己决定。多数时候 agent 会挑「下一个最明显」的问题去做。提示词里要求 agent 把问题拆成小块，记录自己在做什么，想清楚下一步做什么，一直做到完美为止。</div></div>
+  <p>对照<a href="orchestration.html#four">第二部分</a>：这里没有 orchestrator，agent 自己挑任务，通过共享仓库里的文件交换信息。这符合去中心方式通常的定义。它和论文里测的那种一轮一轮辩论的去中心方式不是一回事，所以论文的数字不能直接套到这个案例上，见<a href="orchestration.html#swarm">「去中心」的两种意思</a>。</p>
 </section>
 
-<section class="sec" id="claims" data-p="87-88">
+<section class="sec" id="claims">
   <h2>协调：在 Git 里认领</h2>
-  {{slide 87 | 示意图参考了 <a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic 的文章</a>。}}
+  {{fig 87 | 示意图参考了 <a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic 的文章</a>。}}
   <figure class="plate">
     <ol class="steps">
-      <li><span class="n">1</span><div><h4>认领任务</h4><p>agent 在 <code>current_tasks/</code> 文件夹里写一个文本文件，相当于给这个任务上了锁。原文的例子是一个 agent 锁住 <code>current_tasks/parse_if_statement.txt</code>，另一个锁住 <code>current_tasks/codegen_function_definition.txt</code>。两个 agent 想认领同一个任务时，Git 的同步会让后到的那个失败，它就换一个任务。</p></div></li>
+      <li><span class="n">1</span><div><h4>认领任务</h4><p>agent 在 <code>current_tasks/</code> 文件夹里写一个文本文件，相当于给这个任务上了锁。原文的例子是一个 agent 锁住 <code>current_tasks/<wbr>parse_if_statement.txt</code>，另一个锁住 <code>current_tasks/<wbr>codegen_function_<wbr>definition.txt</code>。两个 agent 想认领同一个任务时，Git 的同步会让后到的那个失败，它就换一个任务。</p></div></li>
       <li><span class="n">2</span><div><h4>实现</h4><p>在本地修改并测试。</p></div></li>
       <li><span class="n">3</span><div><h4>拉取、合并、推送</h4><p>把别人的改动拉下来，合并，再把自己的改动推上去。作者说合并冲突很频繁，但 agent 自己能解决。</p></div></li>
       <li><span class="n">4</span><div><h4>释放认领</h4><p>任务做完，把锁文件删掉。</p></div></li>
       <li><span class="n">5</span><div><h4>开始新的会话</h4><p>循环在一个全新的容器里启动下一次会话，回到第 1 步。</p></div></li>
     </ol>
-    <figcaption>步骤整理自讲义第 87 页，例子和细节取自原文。</figcaption>
+    <figcaption>步骤整理自上面的图，例子和细节取自原文。</figcaption>
   </figure>
-  {{slide 88 | 示意图参考了 <a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic 的文章</a>。}}
+  {{fig 88 | 示意图参考了 <a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic 的文章</a>。}}
   <ul>
     <li><b>上面</b>是一个共享的裸 Git 仓库，路径是 <code>/upstream</code>。裸仓库只存历史，没有工作目录。里面有三样东西：代码、任务认领、进度记录。</li>
     <li><b>下面</b>是三个容器，每个容器里有一个 agent 和它自己的一份本地 clone，路径是 <code>/workspace</code>。</li>
     <li>每个容器和共享仓库之间只有拉取和推送。</li>
   </ul>
-  <p>对照<a href="coordination.html">第四部分</a>：<code>current_tasks/</code> 是一份很简单的任务台账，只回答「这件事有没有人在做」；每个 agent 一份 clone 是分开的工作区。讲义把后者叫作 worktree 隔离，严格说这里用的是容器里各自的 clone，不是 git 的 worktree 功能，作用相同。</p>
+  <p>对照<a href="coordination.html">第四部分</a>：<code>current_tasks/</code> 是一份很简单的任务台账，只回答「这件事有没有人在做」；每个 agent 一份 clone 是分开的工作区。后者在第四部分叫作 worktree 隔离，严格说这里用的是容器里各自的 clone，没有用 git 的 worktree 功能，作用相同。</p>
 </section>
 
-<section class="sec" id="progress" data-p="87">
+<section class="sec" id="progress">
   <h2>通信：只有文件</h2>
-  <p>讲义在上面那张图里用红字给「README 和进度文件」标了两个作用：agent 之间的通信，和共享记忆。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：</b>作者说，除了上面的认领办法，他还没有实现任何别的 agent 之间的通信方式。每个 agent 被放进一个全新的容器，没有任何上下文，在大项目上要花不少时间弄清状况。所以他在提示词里要求 agent 维护详细的 README 和进度文件，并且经常更新当前的状态。agent 被某个 bug 卡住时，常常会自己维护一份文档，记下试过哪些失败的办法、还剩哪些任务。</div></div>
+  <p>上一节的流程图里，「README 和进度文件」旁边用红字标了两个作用：agent 之间的通信，和共享记忆。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>为什么要有进度文件。</b>作者说，除了上面的认领办法，他还没有实现任何别的 agent 之间的通信方式。每个 agent 被放进一个全新的容器，没有任何上下文，在大项目上要花不少时间弄清状况。所以他在提示词里要求 agent 维护详细的 README 和进度文件，并且经常更新当前的状态。agent 被某个 bug 卡住时，常常会自己维护一份文档，记下试过哪些失败的办法、还剩哪些任务。</div></div>
   <p>对照<a href="communication.html#ladder">第三部分</a>的四种方式，这是一块用文件做的留言板：谁都能写，后来的 agent 都能读，而且一直留着。它没有消息格式，也没有订阅，只靠提示词里的一句要求来维持。</p>
 </section>
 
-<section class="sec" id="roles" data-p="86">
+<section class="sec" id="roles">
   <h2>几个职责互补的专门 agent</h2>
   <p>所有 agent 都在同一份编译器代码上工作，但各有各的职责。</p>
   <figure class="plate">
@@ -89,29 +89,27 @@ done</code></pre>
       <div class="card"><h4>生成代码的效率</h4><p>让编译出来的程序跑得更快。</p></div>
       <div class="card"><h4>Rust 的设计和代码质量</h4><p>审查并重构代码结构。</p></div>
     </div>
-    <figcaption>整理自讲义第 86 页。</figcaption>
   </figure>
-  <p>原文解释了为什么要有去重的 agent：模型写的代码经常重新实现已经有的功能。讲义的第六条经验「分配互补的目标」就来自这里。这些职责具体是怎样分配下去的，原文没有说明。</p>
-  <p>有一点要注意：分工本身挡不住<a href="failures.html#conformity">第五部分</a>说的趋同。下一节里，这些各有职责的 agent 照样都撞上了同一个 bug。</p>
+  <p>原文解释了为什么要有去重的 agent：模型写的代码经常重新实现已经有的功能。下面第六条经验「分配互补的目标」就来自这里。这些职责是作者指定给各个 agent 的；具体怎么指定，例如是否给它们用了不同的提示词，原文没有说明。所以平时挑哪个任务由 agent 自己决定，长期的职责由人事先定好。</p>
 </section>
 
 <section class="sec" id="kernel">
   <h2>并行什么时候失灵：编译 Linux 内核</h2>
-  <p>讲义的六条经验里有一条「为并行而设计」，只有一句话。原文里它背后有一段经过，是整个案例里最能说明问题的一段。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：原文的经过。</b>
+  <p>下面的六条经验里有一条「为并行而设计」。原文里它背后有一段经过，是整个案例里最能说明问题的一段。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>原文的经过。</b>
     <ul>
       <li><b>能拆开时，并行很容易。</b>失败的测试有很多个、彼此不同时，每个 agent 各挑一个去修。测试通过率到 99% 之后，每个 agent 各自去让一个不同的小型开源项目通过编译，例如 SQLite、Redis、Lua。</li>
       <li><b>拆不开时，并行没有用。</b>开始编译 Linux 内核时，agent 卡住了。内核不像测试集那样由几百个互相独立的测试组成，它是一整个大任务。每个 agent 都撞上同一个 bug，各自修掉，然后互相覆盖对方的修改。作者的原话是：跑 16 个 agent 没有帮助，因为每一个都卡在同一个任务上。</li>
-      <li><b>办法是把大任务拆开。</b>作者拿 GCC 当作已知正确的编译器来对照：随机挑大部分内核文件用 GCC 编译，只有剩下的文件用 Claude 写的编译器编译。内核能跑，说明问题不在这一批文件里；不能跑，就再缩小范围。这样每个 agent 可以在不同的文件上修不同的 bug，并行恢复了。</li>
+      <li><b>办法是把大任务拆开。</b>作者拿 GCC 当作已知正确的编译器来对照：随机挑大部分内核文件用 GCC 编译，只有剩下的文件用 Claude 写的编译器编译。内核能跑，说明问题不在这一批文件里；不能跑，就再缩小范围。这样每个 agent 可以在不同的文件上修不同的 bug，并行恢复了。原文补充说，这一步做完之后，还要再找出那些单独编译没问题、放在一起才出错的文件组合。</li>
     </ul></div></div>
   <p>这段经过和<a href="sas_vs_mas.html#task">第一部分</a>的证据说的是同一件事：agent 的数量帮不上忙，决定并行有没有用的是工作能不能拆成互不依赖的几块。这里更进一步的一点是，<mark>能不能拆开有时可以由人来创造</mark>，办法是换一种检验方式。</p>
 </section>
 
-<section class="sec" id="lessons" data-p="89">
+<section class="sec" id="lessons">
   <h2>六条经验</h2>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">讲义总结的经验</th><th scope="col">原文里对应的做法</th></tr></thead>
+      <thead><tr><th scope="col">经验</th><th scope="col">原文里对应的做法</th></tr></thead>
       <tbody>
         <tr><th scope="row">1. 可靠的测试引导自主工作</th><td>作者说任务的检验程序必须接近完美，否则 agent 会去解决一个错的问题。项目后期 agent 每加一个新功能就常常弄坏已有的功能，他为此建了持续集成，不让新提交弄坏已有的代码。</td></tr>
         <tr><th scope="row">2. 为并行而设计</th><td>把可以分开的失败或子任务暴露出来。见上一节 Linux 内核的例子。</td></tr>
@@ -121,20 +119,20 @@ done</code></pre>
         <tr><th scope="row">6. 分配互补的目标</th><td>给每个 agent 不同的职责，见上面的专门 agent。</td></tr>
       </tbody>
     </table>
-    <figcaption>左列译自讲义第 89 页，右列取自原文。</figcaption>
+    <figcaption>右列取自原文。</figcaption>
   </figure>
-  <p>六条里有四条（1、2、4、5）讲的都是 agent 周围的环境：测试、反馈、记录。作者自己也说，他大部分的精力花在设计 agent 周围的环境上，好让 agent 在没有人的情况下自己弄清方向。</p>
+  <p>六条里有四条（1、2、4、5）讲的都是 agent 周围的环境：测试、反馈、记录。第 2 条也算在里面，因为内核那一次的办法是换一套检验方式。作者自己也说，他大部分的精力花在设计 agent 周围的环境上，好让 agent 在没有人的情况下自己弄清方向。</p>
 </section>
 
 <section class="sec" id="limits">
   <h2>这个案例没有说明什么</h2>
-  <p>讲义把它当作成功的例子来讲。下面几点讲义没有提，前三点取自原文，后两点是我对照这一讲自己的标准加的。</p>
+  <p>这个案例做成了一个很大的项目，容易被当作多 agent 有效的证明。下面五点说的是它的限度，前三点取自原文，后两点是对照这一讲前面的标准得出的。</p>
   <ul>
     <li><b>成品有明显的局限。</b>它还不能直接替代真正的编译器。开启全部优化后生成的代码，效率还不如关闭全部优化的 GCC。它没有自己的汇编器和链接器，启动 Linux 需要的 16 位 x86 部分也要调用 GCC。</li>
     <li><b>到了能力的边界。</b>作者说这个编译器已经接近模型能力的极限，新功能和 bug 修复经常弄坏已有的功能。</li>
     <li><b>测试通过不等于做完了。</b>作者在结尾说，自主运行的系统很容易让人看到测试通过就以为完成了，而实际上很少如此。</li>
-    <li><b>没有和单 agent 比。</b>讲义在第一部分建议先做单 agent 基线并测量收益。这个案例没有这样的对照，所以它说明的是「这样做能做成」，说明不了「这样做比一个 agent 更好」。</li>
+    <li><b>没有和单 agent 比。</b>第一部分建议先做单 agent 基线并测量收益。这个案例没有这样的对照，所以它说明的是「这样做能做成」，说明不了「这样做比一个 agent 更好」。</li>
     <li><b>用的通信方式是最简单的一种。</b>只有共享的文件，相当于一块没有格式、没有订阅的留言板。第三部分讲的对话、交接、工具调用和 A2A 协议，这里都没有用到。所以这个案例说明不了那些方式好不好。</li>
   </ul>
-  <p class="next">回到<a href="index.html">总览</a>，看五个问题的答案和整条线。</p>
+  <p class="next">回到<a href="index.html">总览</a>，看五个问题的答案。</p>
 </section>

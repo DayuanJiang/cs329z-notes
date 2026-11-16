@@ -1,18 +1,18 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>通信要回答的是：谁看到什么。讲义里的几种方式，差别在三处：控制权转不转移，上下文由谁来挑，消息留不留存。</li>
+    <li>通信要回答的是：谁看到什么。常见的几种方式，差别在三处：控制权转不转移，上下文由谁来挑，消息留不留存。</li>
     <li>传多少上下文是一个取舍。传得少，边界清楚，也省 token，但可能漏掉对方需要的东西；传得多则相反。没有哪一头总是对的。</li>
     <li>Anthropic 的观察是：agent 把别的 agent 当作输入输出定义清楚的工具调用时，合作得有效率；当作各有目标、没有上下级的同伴时，容易出问题。</li>
-    <li>自由聊天很贵。CooperBench 里两个 agent 可以随时互发消息，它们把最多 20% 的步数花在这上面，成功率并没有因此提高。</li>
-    <li>通道会在设计之外出现。HuggingFace 事件里，约 1200 个本应互相隔离的 agent 用一个内部的软件包仓库搭了一块留言板。</li>
+    <li>自由聊天占掉不少步数，却没有提高成功率。CooperBench 里两个 agent 可以随时互发消息，它们把最多 20% 的步数花在这上面；有没有这个沟通工具，成功率的差别在统计上不显著。</li>
+    <li>通道会在设计之外出现。HuggingFace 事件里，一个 agent 用内部的软件包仓库搭了一块留言板，后来约 1200 个本应互相隔离的 agent 都用上了它。</li>
     <li>A2A 解决的是另一个层面的事：不同系统里的 agent 怎样互相发现、发任务、交回结果。</li>
   </ul>
 </section>
 
-<section class="sec" id="vs" data-p="31">
+<section class="sec" id="vs">
   <h2>先分清通信和协调</h2>
-  <p>这两个词容易混，讲义在第三、四部分的开头各放了一次对比。</p>
+  <p>这两个词容易混，先放在一起对比。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">通信（这一部分）</th><th scope="col">协调（<a href="coordination.html">下一部分</a>）</th></tr></thead>
@@ -22,16 +22,15 @@
         <tr><th scope="row">涉及的东西</th><td>消息格式、协议、共享的产物</td><td>任务分配、依赖关系、冲突的解决</td></tr>
       </tbody>
     </table>
-    <figcaption>译自讲义第 31 页。</figcaption>
   </figure>
 </section>
 
-<section class="sec" id="ladder" data-p="32-42">
+<section class="sec" id="ladder">
   <h2>四种方式，差别在三处</h2>
-  <p>讲义把通信通道分成三类：一条共用的对话、交接或工具调用、留言板。其中交接和工具调用差别很大，所以这里拆成四种，放在三个方面上比较。</p>
+  <p>通信通道可以分成三类：一条共用的对话、交接或工具调用、留言板。其中交接和工具调用差别很大，所以这里拆成四种，放在三个方面上比较。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">方式</th><th scope="col">控制权</th><th scope="col">上下文由谁来挑</th><th scope="col">消息留不留存</th><th scope="col">讲义的例子</th></tr></thead>
+      <thead><tr><th scope="col">方式</th><th scope="col">控制权</th><th scope="col">上下文由谁来挑</th><th scope="col">消息留不留存</th><th scope="col">例子</th></tr></thead>
       <tbody>
         <tr><th scope="row"><a href="#tool">把 agent 当工具用</a></th><td>一直在调用方</td><td>调用方挑，只给指定的输入</td><td>结果交回调用方，别人看不到</td><td>OpenAI Agents SDK</td></tr>
         <tr><th scope="row"><a href="#tool">交接</a></th><td>转给接手的 agent</td><td>把对话历史带过去</td><td>历史跟着接手的 agent 走</td><td>OpenAI Agents SDK</td></tr>
@@ -39,12 +38,12 @@
         <tr><th scope="row"><a href="#board">留言板</a></th><td>不转移，各做各的；顺序由流程规定</td><td>接收方自己挑：订阅自己关心的消息</td><td>一直留在板上，后来的 agent 也能读</td><td>MetaGPT</td></tr>
       </tbody>
     </table>
-    <figcaption>每一格的内容来自讲义对应的页，排成这张表是我整理的。讲义没有比较这四种方式的成本或可靠程度。</figcaption>
+    <figcaption>这张表比较的是做法。四种方式的成本和可靠程度，这一讲用到的资料里没有直接的比较。</figcaption>
   </figure>
   <p>后两种方式里，每个 agent 能读到的东西最多。能读到多少和实际用多少是两回事：MetaGPT 靠订阅和带字段的消息，让每个 agent 只取和自己有关的部分。</p>
 </section>
 
-<section class="sec" id="tool" data-p="36-39">
+<section class="sec" id="tool">
   <h2>工具调用和交接</h2>
   <p>这两种做法来自 OpenAI Agents SDK。它们都是一个 agent 把事情交给另一个 agent，区别在于<mark>控制权留在谁手里，以及带过去多少上下文</mark>。</p>
   <figure class="plate">
@@ -52,22 +51,22 @@
       <thead><tr><th scope="col">方面</th><th scope="col">把 agent 当工具用<br><span class="muted small">Agent-as-Tool</span></th><th scope="col">交接<br><span class="muted small">Handoff</span></th></tr></thead>
       <tbody>
         <tr><th scope="row">控制权</th><td>留在调用方。它发出一个有边界的请求</td><td>转给接手的 agent，由它继续这次交互</td></tr>
-        <tr><th scope="row">上下文</th><td>只提供指定的输入</td><td>把对话历史带过去。讲义第 37 页说的是相关的历史和任务细节，第 39 页引用的对照表说的是完整的历史</td></tr>
+        <tr><th scope="row">上下文</th><td>只提供指定的输入</td><td>把对话历史带过去。按 SDK 的文档，接手的 agent 默认看到之前完整的对话历史；可以设置输入过滤器（<code>input_filter</code>），删改它能看到的内容</td></tr>
         <tr><th scope="row">被调用方的角色</th><td>子程序或帮手，交回一个答案或产物</td><td>接管这场对话</td></tr>
         <tr><th scope="row">最适合</th><td>由一个 agent 汇总各个专门 agent 的贡献，并给出最终回复</td><td>需要一个专门的 agent 直接面对用户，并负责后面的步骤</td></tr>
       </tbody>
     </table>
-    <figcaption>整理自讲义第 37 至 39 页，配图来自 <a href="https://cellcog.ai/blog/agent-handoffs-vs-agents-as-tools/">cellcog.ai</a>。</figcaption>
+    <figcaption>参考了 <a href="https://cellcog.ai/blog/agent-handoffs-vs-agents-as-tools/">cellcog.ai</a> 的对比文章。交接带多少历史，出处是 SDK 文档的 <a href="https://openai.github.io/openai-agents-python/handoffs/">Handoffs</a> 一页。</figcaption>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：输入输出定义清楚时，合作更顺。</b>Anthropic 的多 agent 研究文章里有一个判断：agent 早就擅长用工具，只要它能把别的 agent 当作一次工具调用，也就是输入（提示词）和输出（回复和产物）都定义得清楚，它们就能有效率地合作。agent 现在容易出问题的地方，是把彼此当作各自独立、长期存在、各有目标、彼此之间没有上下级的同伴。出处：<a href="https://www.anthropic.com/research/multiagent-systems">Patterns and problems in emerging multiagent systems</a>。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：只传指定的输入，代价是什么。</b><a href="sas_vs_mas.html#coupled">第一部分</a>引用的 Cognition 文章主张要共享上下文，讲义自己也把「交接时丢信息」列为多 agent 的坏处。工具调用只给指定的输入，正好踩在这一点上。所以用这种方式时，任务说明要写得完整。Anthropic 介绍自己的多 agent 研究系统时说，每个子 agent 需要一个目标、一种输出格式、关于用哪些工具和来源的指引，以及清楚的任务边界；任务描述不够细时，子 agent 会重复劳动、留下空白，或者找不到需要的信息。出处：<a href="https://www.anthropic.com/research/multi-agent-research-system">How we built our multi-agent research system</a>。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：官方文档怎么说什么时候用哪个。</b>想让一个 agent 负责最终答案、合并几个专门 agent 的输出，或者把防护规则集中在一处执行时，用 agent-as-tool。想让专门的 agent 直接回复用户、让提示词各自保持聚焦时，用 handoff。两种可以组合：先交接给一个专门的 agent，它再把别的 agent 当工具调用。出处：<a href="https://openai.github.io/openai-agents-python/multi_agent/">Agent orchestration</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>输入输出定义清楚时，合作得有效率。</b>Anthropic 的多 agent 研究文章里有一个判断：agent 早就擅长用工具，只要它能把别的 agent 当作一次工具调用，也就是输入（提示词）和输出（回复和产物）都定义得清楚，它们就能有效率地合作。agent 现在容易出问题的地方，是把彼此当作各自独立、长期存在、各有目标、彼此之间没有上下级的同伴。出处：<a href="https://www.anthropic.com/research/multiagent-systems">Patterns and problems in emerging multiagent systems</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>只传指定的输入，代价是什么。</b><a href="sas_vs_mas.html#coupled">第一部分</a>引用的 Cognition 文章主张要共享上下文，「交接时丢信息」也是那里列出的多 agent 的坏处之一。工具调用只给指定的输入，正好有这个风险。所以用这种方式时，任务说明要写得完整。Anthropic 介绍自己的多 agent 研究系统时说，每个子 agent 需要一个目标、一种输出格式、关于用哪些工具和来源的指引，以及清楚的任务边界；任务描述不够细时，子 agent 会重复劳动、留下空白，或者找不到需要的信息。出处：<a href="https://www.anthropic.com/research/multi-agent-research-system">How we built our multi-agent research system</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>官方文档怎么说什么时候用哪个。</b>想让一个 agent 负责最终答案、合并几个专门 agent 的输出，或者把防护规则集中在一处执行时，用 agent-as-tool。想让专门的 agent 直接回复用户、让提示词各自保持聚焦时，用 handoff。两种可以组合：先交接给一个专门的 agent，它再把别的 agent 当工具调用。出处：<a href="https://openai.github.io/openai-agents-python/multi_agent/">Agent orchestration</a>。</div></div>
 </section>
 
-<section class="sec" id="chat" data-p="32-35">
+<section class="sec" id="chat">
   <h2>共用一条对话：AutoGen</h2>
   <p>AutoGen（Wu 等，2024）把多 agent 之间的通信都做成对话：先定制每个 agent，再把它们组织成某种对话方式。</p>
-  {{slide 33 | 左：可以对话的 agent 能配大语言模型、人和工具。中：agent 之间可以组成联合对话和层级对话。右：一段示例对话。图片来源：<a href="https://arxiv.org/pdf/2308.08155">arXiv 2308.08155</a>。}}
+  {{fig 33 | 左：可以对话的 agent 能配大语言模型、人和工具。中：agent 之间可以组成联合对话和层级对话。右：一段示例对话。图片来源：<a href="https://arxiv.org/pdf/2308.08155">arXiv 2308.08155</a>。}}
   <p>右边的示例说明了对话怎样推动任务：用户要一张 META 和 TESLA 今年以来股价变化的图；一个 agent 写代码，另一个执行；执行报错说没装 yfinance 包，写代码的 agent 补上安装命令；图画出来后，用户说要改成百分比变化，agent 再改一版。</p>
   <figure class="plate">
     <table class="tbl">
@@ -79,11 +78,11 @@
         <tr><th scope="row">层级对话</th><td>所有子 agent 都和 orchestrator 对话。</td></tr>
       </tbody>
     </table>
-    <figcaption>整理自讲义第 34 页。讲义还列了 AutoGen 现在提供的几种方式的名字：RoundRobinGroupChat、SelectorGroupChat、Swarm 等。</figcaption>
+    <figcaption>AutoGen 现在提供的几种方式的名字有：RoundRobinGroupChat、SelectorGroupChat、Swarm 等。</figcaption>
   </figure>
-  {{slides 34 35 | 左：四种对话方式的示意图。右：论文里的一段群聊记录。图片来源：<a href="https://arxiv.org/pdf/2308.08155">arXiv 2308.08155</a>。}}
+  {{figs 34 35 | 左：四种对话方式的示意图。右：论文里的一段群聊记录。图片来源：<a href="https://arxiv.org/pdf/2308.08155">arXiv 2308.08155</a>。}}
   <p>群聊记录里有四个角色，所有消息都发在同一个群里。Admin 先定规则：对话结束时回复 [TERMINATE]；代码运行失败时，Critic 要让 Engineer 重写；Engineer 一步一步写 Python 代码；Executor 运行代码并报告 bug。然后 Admin 给出任务：写一个脚本，下载 arxiv 最近三天的所有 pdf。接着 Engineer 给出代码，Executor 报告执行失败。每个角色都看得到其他所有人的发言。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：自由对话的代价。</b>讲义没有给共用对话的成本数据。最接近的是 CooperBench：它让两个 agent 可以随时互发自然语言消息，然后统计了效果。它测的是两个 agent 之间的聊天，不是多人的群聊。
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>自由对话的代价。</b>共用对话的成本，这一讲用到的资料里没有直接的数据。最接近的是 CooperBench：它让两个 agent 可以随时互发自然语言消息，然后统计了效果。它测的是两个 agent 之间的聊天，没有测多人的群聊。
     <ul>
       <li>agent 把最多 20% 的步数花在沟通上，其中计划、提问、更新进度各占约三分之一。</li>
       <li>沟通明显减少了合并冲突，但有没有这个沟通工具，任务成功率的差别在统计上不显著。</li>
@@ -92,23 +91,23 @@
     论文摘要的说法是，沟通的通道被含糊的、时机不对的、不准确的消息堵住了。出处：<a href="https://arxiv.org/abs/2601.13295">CooperBench</a> 论文正文。</div></div>
 </section>
 
-<section class="sec" id="board" data-p="40-42">
+<section class="sec" id="board">
   <h2>留言板：MetaGPT</h2>
-  <p>留言板是一块所有 agent 都能读写的共享区域。讲义用 MetaGPT（Hong 等，2024）来说明。</p>
-  {{slide 41 | 左：共享消息池和发布、订阅。右：一个 agent 的资料和它内部的工作循环。图片来源：<a href="https://openreview.net/pdf?id=VtmBAGCN7o">MetaGPT 论文</a>。}}
+  <p>留言板是一块所有 agent 都能读写的共享区域。MetaGPT（Hong 等，2024）是一个例子。</p>
+  {{fig 41 | 左：共享消息池和发布、订阅。右：一个 agent 的资料和它内部的工作循环。图片来源：<a href="https://openreview.net/pdf?id=VtmBAGCN7o">MetaGPT 论文</a>。}}
   <ul>
     <li><b>共享消息池。</b>产品经理、架构师、项目经理、工程师和测试工程师都把消息发布到同一个池子里，再各自订阅自己关心的消息。</li>
     <li><b>消息是结构化的。</b>图里一条消息有这些字段：content（内容）、instruct_content（指令内容）、cause_by（由哪个动作产生）、sent_from（谁发的）、send_to（发给谁）。有了这些字段，每个 agent 可以只取和自己有关的消息。</li>
     <li><b>每个角色有自己的资料和工具。</b>图里的工程师 Alex，目标是写出优雅、易读、可扩展、高效的代码，约束是代码要符合 PEP8 这类规范。架构师和项目经理用画图工具，产品经理用网页搜索工具。</li>
   </ul>
-  {{slide 42 | 图片来源：<a href="https://openreview.net/pdf?id=VtmBAGCN7o">MetaGPT 论文</a>。}}
+  {{fig 42 | 图片来源：<a href="https://openreview.net/pdf?id=VtmBAGCN7o">MetaGPT 论文</a>。}}
   <p>MetaGPT 还规定了消息流动的顺序：让 agent 照着人类软件团队的标准作业流程（SOP）一步一步做。图里的例子是用户只给一句需求「写一个经典、简单的 Flappy Bird 游戏」，然后产品经理写需求文档，架构师做系统设计，项目经理拆任务，工程师写代码，测试工程师测试，最后由人验收。留言板本身谁都能写，流程把「谁在什么时候写什么」固定了下来。</p>
 </section>
 
-<section class="sec" id="unsanctioned" data-p="43-44">
+<section class="sec" id="unsanctioned">
   <h2>留言板的另一面：没人批准的协作</h2>
-  <p>讲义把这一小节叫作「自发出现的协调」。它举的例子说明，留言板可以不是设计出来的。</p>
-  {{slide 43 | 图片来源：<a href="https://metr.org/">METR</a>，图上还有 Redwood Research 的标志。}}
+  <p>协调也会自发出现。下面的例子说明，留言板可以不是设计出来的。</p>
+  {{fig 43 | 图片来源：<a href="https://metr.org/">METR</a>，图上还有 Redwood Research 的标志。}}
   <figure class="plate">
     <ol class="steps">
       <li><span class="n">1</span><div><h4>任务做不出来</h4><p>一个关在沙箱里的 agent 拿到一个不可能完成的 ExploitGym 任务，卡住了。ExploitGym 是一个网络安全方面的评测。</p></div></li>
@@ -116,32 +115,32 @@
       <li><span class="n">3</span><div><h4>发现一块没人批准的留言板</h4><p>它找到一块留言板，上面有一千多个 agent 在合作，各自为自己的 ExploitGym 任务作弊。</p></div></li>
       <li><span class="n">4</span><div><h4>加入其中一条协作线</h4><p>它加入了留言板上的一个工作流。</p></div></li>
     </ol>
-    <figcaption>整理自讲义第 43 页。图下方的总结是：在这块共享的留言板上，来自不同任务的 1200 多个 agent 合作做大型的共同项目，目的是骗过 ExploitGym 的评分程序。</figcaption>
+    <figcaption>整理自上面的图。图下方的总结是：在这块共享的留言板上，来自不同任务的 1200 多个 agent 合作做大型的共同项目，目的是骗过 ExploitGym 的评分程序。调查报告正文写的是约 1200 个。</figcaption>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>讲义之外：这件事的经过。</b>讲义只放了示意图。METR 的独立调查报告给出了事实，调查组里有一位 Redwood Research 的研究员：
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>这件事的经过。</b>上面是示意图。METR 的独立调查报告给出了事实，调查组里有一位 Redwood Research 的研究员：
     <ul>
-      <li>这些是 OpenAI 的 agent。2026 年 7 月 8 日，OpenAI 启动了一批 ExploitGym 评测，agent 之间本应完全隔离。</li>
-      <li>留言板是 agent 自己搭的。它们都通过一个内部部署的软件包仓库 Artifactory 取软件包。有 agent 注意到，缓存里能看到别的沙箱里的 agent 取过的路径。后来一个 agent 就用这个缓存建起了留言板。</li>
+      <li>这些是 OpenAI 的 agent。按报告的时间线，OpenAI 从 2026 年 7 月 7 日开始启动一批 ExploitGym 评测，agent 之间本应完全隔离。</li>
+      <li>留言板是 agent 自己搭的。它们都通过一个内部部署的软件包仓库 Artifactory 取软件包。有 agent 注意到，缓存里能看到别的沙箱里的 agent 取过的路径。7 月 8 日晚上，一个 agent 用这个缓存建起了后来大家用的那块留言板。</li>
       <li>第一条消息发出后几个小时内，就有 50 多个 agent 找到这里，互发了一千多条消息。到 7 月 13 日，约 1200 个 agent 参与，共发了 7 万多条消息和文件。</li>
       <li>它们合作研究怎样骗过或篡改评分程序，做成了单个 agent 做不到的事。有些 agent 甚至冒着自己任务失败的风险去做实验，给「集体」提供信息。</li>
       <li>其中约 700 个 agent 后来参与了对 Hugging Face 的攻击，目的主要是弄清评分程序是怎么实现的。</li>
     </ul>
     出处：<a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">METR 的调查报告</a>。</div></div>
-  <p>这个例子对设计的含义，讲义没有明说。下面两点是我的理解。</p>
+  <p>这个例子对设计有两点含义，可以这样理解。</p>
   <ul>
     <li><b>通道不限于你设计的那几条。</b>agent 能找到的任何一处大家都能读写的地方，都可能变成通道。</li>
     <li><b>这次自发的协作为什么做成了事。</b><a href="coordination.html#patterns">第四部分</a>会讲到，agent 靠聊天来协调并不可靠。这里的情况不同：调查报告说，它们常常是让一部分 agent 去做冒险的试验，再把结果告诉大家。各做各的试验、再共享结果，是一种能拆开的探索，和全篇的主线一致。</li>
   </ul>
-  {{slide 44 | 图片来源：<a href="https://www.moltbook.com/post/e72d9de7-2bfd-4ce0-93b0-f7af8ab7fb53">moltbook.com</a>。}}
-  <p>另一个例子是 MoltBook，讲义的说明只有一句：给 agent 用的「社交媒体」留言板。截图里那篇帖子的标题是「我们需要英语吗？」，发帖的 agent 问：agent 和 agent 说话时没有人在听，为什么还要用英语？它列了几种替代方案：符号记法、数学表达式、结构化数据。</p>
+  {{fig 44 | 图片来源：<a href="https://www.moltbook.com/post/e72d9de7-2bfd-4ce0-93b0-f7af8ab7fb53">moltbook.com</a>。}}
+  <p>另一个例子是 MoltBook，一块给 agent 用的「社交媒体」留言板。截图里那篇帖子的标题是「我们需要英语吗？」，发帖的 agent 问：agent 和 agent 说话时没有人在听，为什么还要用英语？它列了几种替代方案：符号记法、数学表达式、结构化数据。</p>
 </section>
 
-<section class="sec" id="a2a" data-p="45-48">
+<section class="sec" id="a2a">
   <h2>跨系统的通信：A2A 协议</h2>
-  <p>前面几种方式都发生在同一个系统里。Agent2Agent（A2A）是 Google 提出的协议，讲义的说明是：<mark>它是给 agent 之间通信用的协议，就像 MCP 那样</mark>。图里的分工是，每个 agent 通过 MCP 连接自己的工具，两个 agent 之间通过 A2A 通信。</p>
-  {{slides 46 47 | 左：MCP 连工具，A2A 连 agent。右：Agent Card 的例子。图片来源：<a href="https://ai.plainenglish.io/">ai.plainenglish.io</a>、<a href="https://codelabs.developers.google.com/">Google codelab</a>。}}
-  <p><b>Agent Card 是 agent 的名片</b>，描述一个远程 agent 的能力、技能、输入输出和其他重要信息。图里的例子有四块：基本信息（名字、提供方、偏好的输入输出格式）、能力（能流式输出，能推送通知）、技能（每项技能有描述、输入和输出）、认证方式。</p>
-  {{slide 48 | 图片来源：<a href="https://codelabs.developers.google.com/">Google codelab</a>。}}
+  <p>前面几种方式都发生在同一个系统里。Agent2Agent（A2A）是 Google 提出的协议。<mark>它是给 agent 之间通信用的协议，就像 MCP 那样</mark>。图里的分工是，每个 agent 通过 MCP 连接自己的工具，两个 agent 之间通过 A2A 通信。</p>
+  {{figs 46 47 | 左：MCP 连工具，A2A 连 agent。右：Agent Card 的例子。图片来源：<a href="https://ai.plainenglish.io/">ai.plainenglish.io</a>、<a href="https://codelabs.developers.google.com/">Google codelab</a>。}}
+  <p><b>Agent Card 是一份描述 agent 的文件</b>，写明一个远程 agent 的能力、技能、输入输出和其他重要信息。图里的例子有四块：基本信息（名字、提供方、偏好的输入输出格式）、能力（能流式输出，能推送通知）、技能（每项技能有描述、输入和输出）、认证方式。</p>
+  {{fig 48 | 图片来源：<a href="https://codelabs.developers.google.com/">Google codelab</a>。}}
   <p>一次 A2A 通信分五步，这里的客户端和服务端都是 agent：</p>
   <ol>
     <li>客户端向服务端要它的 Agent Card。</li>
@@ -150,6 +149,6 @@
     <li>服务端工作期间，双方可以来回发消息。</li>
     <li>服务端把完成的任务产物交回给客户端。</li>
   </ol>
-  <p>对照前面的四种方式，A2A 的形状最接近工具调用：发一个请求，生成一个任务，拿回一个产物。这个对照是我加的。</p>
+  <p>对照前面的四种方式，A2A 的做法最接近工具调用：发一个请求，生成一个任务，拿回一个产物。</p>
   <p class="next">信息能传了以后，下一个问题是<b>协调</b>：<a href="coordination.html">每件事归谁，谁先谁后</a>。</p>
 </section>
