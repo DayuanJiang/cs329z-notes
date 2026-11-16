@@ -1,0 +1,239 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>一个任务有毛病，主要是两种情况：问题描述没有把要求说清楚；测试查的东西和问题描述对不上，会把正确的解法判成不通过。</li>
+    <li>请人检查最可靠，也最贵。SWE-bench Verified 请了 93 个开发者标注 1,699 个任务，筛掉了 68.3%。</li>
+    <li>要成批地造任务，检查就得自动化。APIGen 用三层检查：格式对不对，能不能执行，结果合不合提问的意图。三层按成本从低到高排，最贵的语言模型检查放在最后，只看前两层都通过的数据。</li>
+    <li>CodeMidas 把每个任务实际运行很多遍：起始代码必须不通过，参考答案必须通过；再让 agent 去找泄露的答案，去核对验证器的判定。22,575 个候选任务最后留下 5,545 个。</li>
+    <li>筛过的 5,545 个任务训练出的模型，在三个评测上都好于没筛过的约 8,000 个任务。</li>
+  </ul>
+</section>
+
+<section class="sec" id="loop">
+  <h2>挑任务的四步</h2>
+  <p>这里的任务，指 agent（能自己调用工具、分很多步去完成一个任务的语言模型系统）要去做的一件事，带着一个环境和一个验证器（verifier，判断任务有没有做成的程序，在编程任务里通常是一组不给 agent 看的测试）。强化学习（让模型自己反复去做任务，按验证器的判定得到奖励，再按奖励调整模型）用的就是这样的任务。</p>
+  <p>哪些任务值得拿来训练，可以分成四步来回答。第四步做完又回到前面，所以整个过程是一个循环。</p>
+  {{fig 14 | 四步从左到右。每一步下面是用来说明这一步的工作。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">第几步</th><th scope="col">做什么</th><th scope="col">用哪些工作来说明</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1</th><td>筛掉有毛病的、不可靠的任务</td><td>SWE-bench Verified</td><td rowspan="2">这一页</td></tr>
+        <tr><th scope="row">2</th><td>把任务实际运行一遍，检查它是不是有效</td><td>APIGen、CodeMidas</td></tr>
+        <tr><th scope="row">3</th><td>留下模型有时能做对的任务</td><td>DAPO、LEGO-RL</td><td rowspan="2"><a href="learnable.html">第三部分</a></td></tr>
+        <tr><th scope="row">4</th><td>模型变强之后重新挑</td><td>WebRL</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>这一页讲前两步，它们回答同一个问题：这个任务本身是对的吗。</p>
+</section>
+
+<section class="sec" id="broken">
+  <h2>一个有毛病的任务长什么样</h2>
+  <p>SWE-bench 是 2023 年发布的一个基准测试（benchmark，一组题目加一个打分的办法）。它的每个任务来自一个真实的 GitHub issue：把 issue 的文字和修复之前的代码仓库交给 agent，agent 改代码，再用当初修复这个 issue 时加进去的测试来判定改得对不对。agent 看不到这些测试。</p>
+  <p>其中一个任务来自 scikit-learn 仓库，编号 14520。</p>
+  {{fig 15 | 左：agent 能看到的全部信息，是一个用户提的问题。他发现 TfidfVectorizer 的一个方法有 copy 参数，但后面的代码没有用到它，问是不是自己漏看了什么。右：用来判定的测试。}}
+  <p>右边那段测试是这样的：</p>
+  <pre class="code"><code>def test_tfidf_vectorizer_deprecationwarning():
+    msg = ("'copy' param is unused and has been deprecated since "
+           "version 0.22. Backward compatibility for 'copy' will "
+           "be removed in 0.24.")
+    with pytest.warns(DeprecationWarning, match=msg):
+        tv = TfidfVectorizer()
+        train_data = JUNK_FOOD_DOCS
+        tv.fit(train_data)
+        tv.transform(train_data, copy=True)</code></pre>
+  <p>这个测试要求两件事，问题描述里一件都没有提。</p>
+  <ul>
+    <li><b>要发出一个弃用警告（DeprecationWarning）。</b>issue 只是问这个参数是不是没用，没有说该怎么处理它。删掉这个参数、让这个参数真正起作用，都是合理的改法，但都通不过测试。</li>
+    <li><b>警告的文字要和测试里的那一句一字不差。</b>这句话是当初修复的人在代码合并请求的讨论里商量出来的，agent 看不到那场讨论。</li>
+  </ul>
+  <p>所以一个真正理解了问题、也改对了代码的 agent，几乎不可能通过这个测试。把这样的任务放在基准测试里，模型的分数会比它的实际能力低。把它放进训练，模型做对了也拿不到奖励。</p>
+</section>
+
+<section class="sec" id="verified">
+  <h2>请人来查：SWE-bench Verified</h2>
+  <p>2024 年 8 月，OpenAI 和 SWE-bench 的作者一起做了 SWE-bench Verified，办法是请人把任务一个一个看过去。</p>
+  <h3>怎么标的</h3>
+  <p>他们找了 93 个有 Python 经验的软件开发者，从 SWE-bench 的测试集里随机抽出 1,699 个任务来标注（annotation，由人按一套固定的标准给数据打标签）。每个任务由 3 个人分别标。标注的人要回答两个主要的问题，各有 0 到 3 四档，数字越大问题越严重。</p>
+  {{fig 16 | 给标注的人看的两套标准。左：问题描述够不够清楚。右：测试的判定标准合不合理。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">档位</th><th scope="col">问题描述够不够清楚</th><th scope="col">测试会不会把正确的解法判错</th><th scope="col" class="nw">怎么处理</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">0</th><td>描述清楚，一个成功的解法需要做到什么很明确</td><td>测试完全覆盖了所有可能的解法</td><td rowspan="2">留下</td></tr>
+        <tr><th scope="row">1</th><td>有些地方要自己补，但有一种合理的理解</td><td>测试覆盖了大多数正确的解法，少数不常见的解法可能被判错</td></tr>
+        <tr><th scope="row">2</th><td>描述含糊，有歧义，看不出成功的解法应该是什么样</td><td>测试能用，但一些完全合理的解法会被判错</td><td rowspan="2">丢掉</td></tr>
+        <tr><th scope="row">3</th><td>没有更多信息的话，几乎不可能明白要做什么</td><td>测试太窄或太宽，或者查的东西和 issue 说的是两回事</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://openai.com/index/introducing-swe-bench-verified/">OpenAI，Introducing SWE-bench Verified</a>。标注的人还要标出有没有其他重大问题，并估计一个熟练的工程师修这个问题要花多久。</figcaption>
+  </figure>
+  <p>3 个人的标签不一样时，取最严重的那一个。也就是说，3 个人里只要有 1 个人认为有严重问题，这个任务就被丢掉。OpenAI 自己也说，这样做会多丢一些其实没问题的任务，换来的是对留下的任务更有把握。</p>
+  <h3>标出来的结果</h3>
+  {{fig 17 | 三张柱状图的纵轴都是占 1,699 个任务的百分比。左：问题描述一项的四档分布。中：测试一项的四档分布。右：有没有其他重大问题。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">标注的问题</th><th scope="col" class="r">0 档</th><th scope="col" class="r">1 档</th><th scope="col" class="r">2 档</th><th scope="col" class="r">3 档</th><th scope="col" class="r">2 档和 3 档合计</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">问题描述不清楚</th><td class="r">23.3%</td><td class="r">38.4%</td><td class="r">31.9%</td><td class="r">6.4%</td><td class="r">38.3%</td></tr>
+        <tr><th scope="row">测试会把正确的解法判错</th><td class="r">22.5%</td><td class="r">16.4%</td><td class="r">32.8%</td><td class="r">28.3%</td><td class="r">61.1%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每个数都是占 1,699 个被标注任务的比例，取 3 个标注者里最严重的一档。另有 7.9% 的任务被标出有其他重大问题。出处同上。</figcaption>
+  </figure>
+  <p>两项里任何一项是 2 档或 3 档，或者有其他重大问题，这个任务就被筛掉。三类有重叠，合起来一共筛掉了 68.3%。粗略估算，1,699 个任务里剩下大约 540 个。最后的 SWE-bench Verified 是其中的 500 个：先尽量放进估计要花 1 小时以上的较难任务，其余的随机抽。</p>
+  <h3>筛完之后分数怎么变</h3>
+  <p>OpenAI 用同一个模型（GPT-4o）和同一个开源的运行框架 Agentless 测了两边。运行框架（harness，也叫 scaffold）指包在模型外面、给它工具并管理多轮对话的程序。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">在哪一套题上测</th><th scope="col" class="r">GPT-4o 加 Agentless 解决的任务比例</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">原来的 SWE-bench</th><td class="r">16%</td></tr>
+        <tr><th scope="row">SWE-bench Verified</th><td class="r">33.2%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处同上。两个数都是 OpenAI 自己只跑一遍的结果。16% 是在 SWE-bench 的完整测试集上测的，还是在某个子集上测的，原文没有写明。</figcaption>
+  </figure>
+  <p>分数翻了一倍，有两种可能的原因：筛掉的是做不出来的题，或者筛掉的是难题。OpenAI 检查了这一点：按标注者估计的修复时间把任务分成几档，每一档内部的平均解决率也都上升了。比如估计 15 分钟以内能修好的任务，五个运行框架的平均解决率从 33.2% 升到 45.1%（这个 33.2% 和上面表里的 33.2% 是两个不同的数，只是碰巧相同）；15 分钟到 1 小时的，从 12.9% 升到 20.8%。这和「每一档里都去掉了做不出来的题」这个解释是一致的。</p>
+  <p class="lead-in">放到训练上，这件事的意思是：<mark>有毛病的任务在评测里会掩盖模型真实的能力，在训练里会给出错误的奖励。</mark></p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>人查过的也还有漏的。</b>2026 年 2 月 23 日，OpenAI 发文说不再报告 SWE-bench Verified 的分数。他们挑出 o3 模型在 64 次独立运行里不能稳定做对的 138 道题（占 500 道的 27.6%），每道题请至少 6 个有经验的工程师独立审查，发现其中 59.4% 在测试设计或问题描述上有实质的问题：35.5% 的测试太窄，强制要求某种特定的实现；18.8% 的测试太宽，查了问题描述里没有要求的功能；5.1% 是其他问题。这 138 道是专门挑出来的难题，所以 59.4% 不能当作整个基准测试的比例。OpenAI 当时建议改报 SWE-bench Pro，到 2026 年 7 月 8 日又撤回了这个建议，因为他们估计 SWE-bench Pro 里也有大约 30% 的任务有毛病。这一讲后面有几处实验用的正是 SWE-bench Verified 和 SWE-bench Pro，读那些分数时要记得这一点。出处：<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">OpenAI，2026 年 2 月</a>；<a href="https://openai.com/index/separating-signal-from-noise-coding-evaluations/">OpenAI，2026 年 7 月</a>。</div></div>
+</section>
+
+<section class="sec" id="apigen">
+  <h2>自动检查：APIGen 的三层</h2>
+  <p>请 93 个人看 1,699 个任务，这个办法没法用到几万、几十万个任务上。成批造出来的数据，要靠自动的检查来筛。</p>
+  <p>APIGen（Liu 等，2024，Salesforce）造的是函数调用的训练数据。一条数据是一个用户的提问，加上回答这个提问需要调用哪些 API、参数各是什么。生成的办法是：从 3,673 个可以真实执行的 API 里抽几个，加上几条示例，让一个语言模型写出提问和对应的调用。写出来的每一条都要过三层检查。</p>
+  {{fig 19 | 左：APIGen 的流程。上半部分是生成，下半部分的绿色框是三层检查，从右到左依次是格式检查、执行检查、语义检查。通过的数据会放回示例库。右上：一次函数调用的过程。右下：数据的格式。图片来源：<a href="https://arxiv.org/abs/2406.18518">Liu 等，2024</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">哪一层</th><th scope="col">查什么</th><th scope="col">谁来查</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">一 格式检查</th><td>输出是不是合法的 JSON，有没有提问和回答两个字段。调用的函数和参数是不是都在给出的 API 里，不在的直接丢掉</td><td>程序</td></tr>
+        <tr><th scope="row">二 执行检查</th><td>把每个调用真的执行一遍。Python 函数在单独的进程里运行，REST API 真的发请求。执行失败的丢掉</td><td>程序</td></tr>
+        <tr><th scope="row">三 语义检查</th><td>把提问、可用的函数、执行的结果一起交给另一个语言模型，让它判断结果是不是回答了提问。比如调用的次数和用户的意图对不上，或者结果和提问无关，都算不通过</td><td>语言模型</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2406.18518">Liu 等，2024</a>第 3.2 节和附录 B.2。</figcaption>
+  </figure>
+  <p>三层是按成本从低到高排的。前两层是程序，又快又便宜，结果也确定。最贵、也最可能出错的语言模型放在最后，只看前两层都通过的数据。这套办法能成立，靠的是函数调用这类数据的一个特点：答案可以直接执行，对不对一跑就知道。</p>
+  <h3>每一层筛掉多少</h3>
+  <p>论文用四个语言模型各生成 40,000 条数据，统计了每一层筛掉的条数。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">用来生成数据的模型</th><th scope="col" class="r">格式检查筛掉</th><th scope="col" class="r">执行检查筛掉</th><th scope="col" class="r">语义检查筛掉</th><th scope="col" class="r">三层都通过</th><th scope="col" class="r">通过的比例</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">DeepSeek-Coder-33B-Inst</th><td class="r">4,311</td><td class="r">15,496</td><td class="r">6,424</td><td class="r">13,769</td><td class="r">34.42%</td></tr>
+        <tr><th scope="row">Mixtral-8x7B-Inst</th><td class="r">3,311</td><td class="r">12,341</td><td class="r">7,963</td><td class="r">15,385</td><td class="r">38.46%</td></tr>
+        <tr><th scope="row">Mixtral-8x22B-Inst</th><td class="r">1,680</td><td class="r">5,073</td><td class="r">6,863</td><td class="r">26,384</td><td class="r">65.96%</td></tr>
+        <tr><th scope="row">DeepSeek-V2-Chat（236B）</th><td class="r">817</td><td class="r">3,359</td><td class="r">2,165</td><td class="r">33,659</td><td class="r">84.15%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2406.18518">Liu 等，2024</a>的表 1。通过的比例是三层都通过的条数除以 40,000。Mixtral-8x7B 那一行的四个数加起来是 39,000，比 40,000 少 1,000，论文没有解释。</figcaption>
+  </figure>
+  <p>从表里能看出两件事。第一，生成数据的模型越弱，筛掉的越多：最弱的一个只有三分之一左右通过，最强的一个有 84%。第二，较弱的两个模型，大部分数据是在执行检查这一层被筛掉的，也就是写出来的调用根本跑不通。最后公开的数据集只用了最强的两个模型的结果，约 6 万条。</p>
+  <h3>这些检查真的有用吗</h3>
+  <p>论文做了两种验证。</p>
+  <ul>
+    <li><b>请人抽查通过的数据。</b>三个人检查了公开数据集里的 600 条，其中 28 条有小问题，比如参数值不准确，或者调用的次数比需要的多。也就是约 95.3% 没有问题。</li>
+    <li><b>把筛掉的数据加回去训练。</b>先把语义检查筛掉的数据加回训练集，再把执行检查筛掉的也加回去，训练出的模型在 Berkeley 函数调用排行榜（BFCL）上的总准确率逐步下降。按论文的图 5 读出的数，7B 的模型先降 4.06 分、再降 5.94 分，1B 的模型先降 9.59 分、再降 12.17 分。小模型受坏数据的影响更大。</li>
+  </ul>
+  <p>用这批数据训练出的两个模型里，7B 的那个在 2024 年 6 月 15 日的 BFCL 排行榜上排第 6，总准确率 85.65，高于当时榜上 GPT-4o 的函数调用版本（82.94）。1B 的那个排第 24。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>第三层的语言模型，谁来检查它。</b>用语言模型当评审（LLM-as-judge）有一个避免不了的问题：评审自己也是语言模型，也会出错。Shankar 等人 2024 年的论文《Who Validates the Validators?》讨论的就是这件事，原话是：由语言模型生成的评审，继承了它要评的那些语言模型的全部问题，所以还得由人再验证一遍。他们做的工具 EvalGen 的办法是：语言模型先提出评分标准，再为每条标准生成几个候选的检查（一段代码，或者一段给评审模型的 prompt，也就是写给模型的指令）；同时请人给一部分输出打「好」或「坏」；最后每条标准留下和人的打分最一致的那个候选。他们在 9 个从业者身上观察到一个现象，叫标准漂移（criteria drift）：人需要先有标准才能给输出打分，可是给输出打分的过程又会让人修改标准。论文的结论是，在人看过实际输出之前，不可能把评分标准完全定下来。APIGen 请三个人抽查 600 条数据，下一部分的 WebRL 拿 100 条人工标注的运行来核对它的评审模型，做的都是这种「用人的判断来校准自动检查」的事。出处：<a href="https://arxiv.org/abs/2404.12272">Shankar 等，2024</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>APIGen 的适用范围。</b>论文自己写明了两条局限：只考虑了 REST API 和 Python 函数；只做了单轮的函数调用，也就是一问一答，没有多步的任务。所以它检查的是一条数据，离 agent 那种要做很多步的任务还有距离。下面的 CodeMidas 把同样的思路用到了完整的编程任务上。</div></div>
+</section>
+
+<section class="sec" id="codemidas">
+  <h2>把任务实际跑几遍：CodeMidas</h2>
+  <p>CodeMidas（Ye 等，2026，小米等）造的是编程任务的强化学习环境。它的特别之处是只需要源代码：不需要 issue，不需要代码合并请求，不需要提交历史，也不需要仓库里已有的测试。</p>
+  <h3>任务是怎么造出来的</h3>
+  <p>一个 agent 在现有的代码库里选一块有公开入口的功能，把它的核心实现删掉，再把剩下的代码整理成一个能说得通的起点。被删掉的那段原始实现留作参考答案。测试的期望值也来自原始实现：agent 用选好的输入去调用原来的代码，把输出记下来，测试就查新写的实现能不能给出同样的输出。</p>
+  <p>每个任务由三样组成：一段任务说明，一个装在容器（一个隔离的、可以整个重建的运行环境）里的开发环境，一个藏起来的验证器。验证器平时不在 agent 能看到的环境里，评分的时候才放进去，给出通过或不通过。</p>
+  {{fig 20 | 中间的漏斗是每一步之后留下的任务数。左边三个框是前三步：任务设计、构造测试、执行一致性检查。右边是运行之后的三种筛选。图片来源：<a href="https://arxiv.org/abs/2609.22068">Ye 等，2026</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">哪一步之后</th><th scope="col" class="r">留下的任务数</th><th scope="col" class="r">这一步筛掉的比例</th><th scope="col">这一步查什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">任务设计</th><td class="r">22,575</td><td class="r"></td><td>候选任务：有任务说明和起始代码</td></tr>
+        <tr><th scope="row">构造测试</th><td class="r">16,027</td><td class="r">29.0%</td><td>测试只查任务说明里写明的东西，见下面</td></tr>
+        <tr><th scope="row">执行一致性检查</th><td class="r">12,746</td><td class="r">20.5%</td><td>在六个全新的容器里各跑一遍，见下面</td></tr>
+        <tr><th scope="row">泄露检查</th><td class="r">11,930</td><td class="r">6.4%</td><td>答案能不能在环境里直接找到</td></tr>
+        <tr><th scope="row">判定复核</th><td class="r">8,173</td><td class="r">31.5%</td><td>验证器有没有判错</td></tr>
+        <tr><th scope="row">按运行结果筛选</th><td class="r">5,545</td><td class="r">32.2%</td><td>多次尝试的结果是不是有成有败</td></tr>
+      </tbody>
+    </table>
+    <figcaption>六个任务数来自论文的图 1。哪个数对应哪一步，是按图里的连线读出来的，论文正文没有逐步列出。筛掉的比例是按相邻两个数算的。最后留下的 5,545 个任务来自 3,185 个代码库，覆盖 23 种编程语言，占候选任务的 24.6%。</figcaption>
+  </figure>
+  <h3>测试只查任务说明里写明的东西</h3>
+  <p>这条规则针对的正是前面 <a href="#broken">scikit-learn 那个任务</a>的毛病。论文的说法是：任务说明里写死了的输出和性质，测试用参考实现的运行结果作为期望值；任务说明没有规定的方面，测试只查说明里写了的约束。论文举的例子是，测试可以要求抛出某种类型的异常，但不能把说明里没有规定的报错文字也写死。</p>
+  <p>按这条规则写的测试大致是下面这样。这段代码是为了说明规则而写的示意，不出自论文。</p>
+  <pre class="code"><code># Task: raise ValueError on bad input.
+# The message wording is not specified.
+with pytest.raises(ValueError):
+    parse_config(bad_input)</code></pre>
+  <p>它只要求抛出 ValueError，不管报错的文字怎么写。对照 scikit-learn 那个测试里的 <code>match=msg</code>，那一个把文字也写死了。</p>
+  <p>测试写好之后，还有一个 agent 把每一条断言再审一遍，找出任务说明里没有依据的限制，比如固定的措辞、碰巧的顺序、内部的数据结构，把它们换成只查行为的检查。</p>
+  <h3>六个全新的容器</h3>
+  {{fig 22 | 每个任务跑六遍。左边两遍用起始代码，必须不通过。右边四遍用参考答案，必须通过。}}
+  <p>这一步查两件事。第一，任务确实需要做：没改过的起始代码通不过测试。第二，任务确实能做成：放上参考答案就能通过。同样的检查重复两遍和四遍，是为了筛掉结果不稳定的任务，比如测试有时过、有时不过。六遍里有任何一遍和预期不符，这个任务就不要。</p>
+  <h3>运行之后的三种筛选</h3>
+  <p>前面的检查都只看任务自己。接下来的三种要让 agent 真的去做这些任务，再看做出来的结果。</p>
+  {{fig 23 | 候选任务从左到右经过三道筛选，每一道下面写着什么情况下丢掉。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">哪一种</th><th scope="col">怎么做</th><th scope="col">筛掉的是什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">泄露检查</th><td>让一个 agent 专门去找捷径：在它能看到的整个环境里搜，包括编译出来的文件、缓存、造任务的 agent 留下的文件、已经安装的目标项目的副本，看能不能不写代码就拿到答案。找到之后还有一次单独的复核</td><td>答案留在了环境里的任务</td></tr>
+        <tr><th scope="row">判定复核</th><td>一个编程 agent 把每个任务做 4 次。另一个负责审查的 agent 读提交的代码、测试的输出、任务说明、验证器和参考答案，判断验证器有没有判错</td><td>验证器会把错的实现判成通过，或者把对的实现判成不通过的任务</td></tr>
+        <tr><th scope="row">按运行结果筛选</th><td>一个前沿模型把每个任务做若干次，由验证器评分</td><td>每次都通过，或者每次都不通过的任务</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2609.22068">Ye 等，2026</a>第 3.4 节。第三种里每个任务做几次、用的是哪个模型，论文里没有写明。</figcaption>
+  </figure>
+  <p>第三种筛选值得多说一句。每次都通过或每次都不通过，可能是因为任务太容易或太难，也可能是因为任务还有没查出来的毛病，比如测试太弱，或者任务说明漏了要求。论文说，只看结果分不出是哪一种原因，所以两种都不要，只留下有成有败的任务。这一条同时也是下一部分要讲的难度筛选。</p>
+  <h3>筛过的和没筛过的，训练出来差多少</h3>
+  <p>论文用强化学习训练小米的 MiMo-V2.5 模型，奖励只有通过和不通过两种。训练用的任务换了四批，其余设置不变。</p>
+  {{fig 24 | 三张小图是三个评测。横轴是训练用的任务：蓝、粉、绿三个点是筛过的 1 千、3 千和全部 5,545 个任务，橙色的点是没筛过的约 8,000 个任务。纵轴是得分。图片来源：<a href="https://arxiv.org/abs/2609.22068">Ye 等，2026</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">训练用的任务</th><th scope="col" class="r">SWE-bench Pro</th><th scope="col" class="r">DeepSWE</th><th scope="col" class="r">CodeMidas Val</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">筛过的，随机取 1 千个</th><td class="r">52.86</td><td class="r">17.57</td><td class="r">41.30</td></tr>
+        <tr><th scope="row">筛过的，随机取 3 千个</th><td class="r">54.02</td><td class="r">19.05</td><td class="r">43.22</td></tr>
+        <tr><th scope="row">筛过的，全部 5,545 个</th><td class="r">54.40</td><td class="r">21.70</td><td class="r">44.73</td></tr>
+        <tr><th scope="row">没筛过的，约 8,000 个</th><td class="r">53.81</td><td class="r">17.11</td><td class="r">40.24</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字是通过率，单位是百分比。DeepSWE 是另一个考修复 issue 的基准测试。CodeMidas Val 是从 CodeMidas 的任务里另外留出的 200 个，不在训练用的 5,545 个里面。没筛过的那一批，取自筛选之前，没有做环境清理、六个容器的检查和后面三种筛选。出处：<a href="https://arxiv.org/abs/2609.22068">Ye 等，2026</a>第 5.1 节和图 8。</figcaption>
+  </figure>
+  <p>筛过的全部任务比没筛过的约 8,000 个，在三个评测上分别高 0.59、4.59 和 4.49 个百分点。筛过的 3 千个也在三个评测上都高于没筛过的约 8,000 个。任务数少了一半以上，结果反而更好。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读这张表时要注意的三点。</b>
+    <ul>
+      <li><b>差距有大有小。</b>SWE-bench Pro 上，3 千个筛过的只比 8,000 个没筛过的高 0.21 个百分点，全部筛过的高 0.59 个百分点。论文没有给这张图报告误差范围，也没有报告重复训练的结果，所以这一列的差距是否可靠还不能确定。在另外两列上，3 千个和全部筛过的任务比没筛过的高 1.94 到 4.59 个百分点，筛过的 1 千个只高 0.46 和 1.06 个百分点。筛过的 1 千个在 SWE-bench Pro 上比没筛过的低 0.95 个百分点。</li>
+      <li><b>看不出是哪一步筛选起的作用。</b>没筛过的那一批同时少了环境清理、六个容器的检查和三种运行后的筛选，所以这个对比说明的是整套筛选合起来的效果。</li>
+      <li><b>各批取的训练步数不一样。</b>论文正文给出的 CodeMidas Val 分数，1 千个的是第 30 步，3 千个的是第 65 步，全部的是第 70 步。按什么规则选的步数，论文里没有写明。</li>
+    </ul></div></div>
+  <p>用全部 5,545 个任务训练之后，MiMo-V2.5 在 SWE-bench Pro 上从 50.3 升到 54.4，在 DeepSWE 上从 10.0 升到 21.7。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">办法</th><th scope="col">谁来查</th><th scope="col">查了多少</th><th scope="col">留下的比例</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">SWE-bench Verified</th><td>93 个开发者，每个任务 3 个人</td><td>1,699 个任务</td><td>31.7%</td></tr>
+        <tr><th scope="row">APIGen</th><td>两层程序，一层语言模型</td><td>每个生成模型 40,000 条数据</td><td>34% 到 84%，看生成数据的模型有多强</td></tr>
+        <tr><th scope="row">CodeMidas</th><td>程序加几种 agent</td><td>22,575 个候选任务</td><td>24.6%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>SWE-bench Verified 的 31.7% 是 100% 减去筛掉的 68.3%。</figcaption>
+  </figure>
+  <ul>
+    <li>SWE-bench Verified 和 CodeMidas 筛掉了约七成到四分之三。APIGen 筛掉 16% 到 66%，生成数据的模型越弱，筛掉得越多。</li>
+    <li>筛掉的比例会高于真正有毛病的比例：SWE-bench Verified 的规则会多丢一些其实没问题的任务，CodeMidas 的最后一步把没有毛病、只是难度不合适的任务也一起去掉了。</li>
+    <li>检查的顺序是先便宜后贵：先查格式，再实际运行，最后才用语言模型或 agent 去判断。</li>
+    <li>CodeMidas 的最后一步已经在看模型做得怎么样了。一个任务就算完全没有毛病，模型每次都做对或者每次都做错，也学不到东西。</li>
+  </ul>
+  <p>下一部分讲这最后一条：<a href="learnable.html">怎样按难度筛选任务</a>。</p>
+</section>

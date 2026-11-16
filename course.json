@@ -126,7 +126,8 @@
           "date": "11 月 2 日",
           "title": "数据的挑选和质量",
           "summary": "找出信息量最大的数据；筛选策略；小而有针对性的评测集；标注和质量评估；用 agent 的运行记录做数据集。",
-          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture12.pdf"
+          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture12.pdf",
+          "dir": "lecture12"
         }
       ]
     },
