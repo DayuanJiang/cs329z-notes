@@ -105,7 +105,8 @@
           "date": "10 月 26 日",
           "title": "嘉宾讲座：Terminal-Bench",
           "summary": "Terminal-Bench 的两位作者 Ryan Marten 和 Alex Shaw 讲怎样评测 agent 在终端里完成真实任务的能力。",
-          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture10.pdf"
+          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture10.pdf",
+          "dir": "lecture10"
         }
       ]
     },
