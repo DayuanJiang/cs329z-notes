@@ -1,0 +1,88 @@
+{
+  "brand": "第 8 讲 · 多 agent 系统",
+  "nav": [
+    [
+      "index",
+      "总览"
+    ],
+    [
+      "sas_vs_mas",
+      "一 要不要用"
+    ],
+    [
+      "orchestration",
+      "二 编排"
+    ],
+    [
+      "communication",
+      "三 通信"
+    ],
+    [
+      "coordination",
+      "四 协调"
+    ],
+    [
+      "failures",
+      "五 失败"
+    ],
+    [
+      "case_study",
+      "案例"
+    ]
+  ],
+  "pages": {
+    "index": {
+      "eyebrow": "Stanford CS329Z: Engineering AI Agents · Lecture 8 · 讲义共 92 页",
+      "title": "多 agent 系统：<br>一笔用协调换并行的交易",
+      "lede": "这是 CS329Z 第 8 讲的中文学习笔记。讲义讲了多 agent 系统的搭法和失败方式；这里把它整理成一条线，对着论文原文核对了数字，并补上讲义没有放的内容。"
+    },
+    "sas_vs_mas": {
+      "eyebrow": "第一部分 · 讲义第 7 至 15 页，另用到第 23、73 至 75 页",
+      "title": "要不要用多个 agent：<br>看工作能不能拆开",
+      "lede": "多个 agent 换来并行和分工，付出协调的成本。这一部分先说换来什么、付出什么，再用三处证据说明什么时候划算，最后给出判断标准。"
+    },
+    "orchestration": {
+      "eyebrow": "第二部分 · 讲义第 16 至 29 页",
+      "title": "编排：<br>谁分派任务，谁做决定",
+      "lede": "决定用多个 agent 之后，先要定它们之间的指挥关系。两个选择分出四种方式，每种方式的代价不同，适合的任务也不同。",
+      "chips": [
+        [
+          "独立 Independent",
+          "--d-ops"
+        ],
+        [
+          "集中 Centralized",
+          "--d-fin"
+        ],
+        [
+          "去中心 Decentralized",
+          "--d-inno"
+        ],
+        [
+          "混合 Hybrid",
+          "--d-cust"
+        ]
+      ]
+    },
+    "communication": {
+      "eyebrow": "第三部分 · 讲义第 30 至 49 页",
+      "title": "通信：<br>谁看到什么",
+      "lede": "指挥关系定了，接着要定信息怎么传。几种方式的差别在于接收方能看到多少：看到的越多越灵活，也越难控制。"
+    },
+    "coordination": {
+      "eyebrow": "第四部分 · 讲义第 50 至 68 页",
+      "title": "协调：<br>每件事归谁，谁先谁后",
+      "lede": "信息能传了，还要让互相依赖的工作不撞车。这一部分讲系统可以提供的三样东西，以及 agent 自己商量出来的做法为什么不能当作依靠。"
+    },
+    "failures": {
+      "eyebrow": "第五部分 · 讲义第 69 至 82 页",
+      "title": "失败：<br>哪里会出问题",
+      "lede": "三组研究各回答一个问题：一般怎样失败，协调有多贵，agent 的行为有什么毛病。最后把每种失败和前面讲过的设计对上。"
+    },
+    "case_study": {
+      "eyebrow": "案例 · 讲义第 83 至 91 页",
+      "title": "案例：<br>16 个 agent 写出一个 C 编译器",
+      "lede": "Anthropic 让一组并行运行的 Claude 写 C 编译器。它用最简单的办法回答了前面的每个问题，也用一段卡住的经过说明了并行什么时候没有用。"
+    }
+  }
+}
