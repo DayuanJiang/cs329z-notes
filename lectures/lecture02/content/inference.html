@@ -1,0 +1,168 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>推理分两个阶段。prefill 是读 prompt：整段输入的所有 token 一次并行算完。decode 是写回答：一次只生成一个 token。prompt 是交给模型的那段输入文字，token 是模型处理文字的最小单位。</li>
+    <li>注意力层为每个 token 算出的 key 和 value 两个向量，算过一次就存下来，后面生成新 token 时直接用。存下来的这部分叫 KV cache，它随上下文变长而变大。</li>
+    <li>两个阶段受限的资源不同。prefill 受 GPU 的算力限制，decode 受内存带宽限制。对应的两个指标是首个 token 的等待时间和每个输出 token 的时间。</li>
+    <li>推测解码用一个小模型先起草几个 token，再让大模型一次检查完。在 2023 年的一篇论文里，三项测试上解码分别快了 1.92、2.01 和 2.46 倍，输出的分布不变。</li>
+  </ul>
+</section>
+
+<section class="sec" id="gpu">
+  <h2>先看硬件：GPU 擅长什么</h2>
+  <p>语言模型的计算几乎全是矩阵相乘，跑在 GPU 上。GPU 和 CPU 的设计目标不同。</p>
+  {{fig 121 | CPU 和 GPU 内部的示意。左边的 CPU 有一个大的控制单元、四个算术逻辑单元（ALU）和一大块缓存。右边的 GPU 是一大片排得很密的小计算单元，控制和缓存只占左边窄窄的一条。两者下面都接着内存（DRAM）。图片来源：<a href="https://developer.nvidia.com/blog/cuda-refresher-reviewing-the-origins-of-gpu-computing/">NVIDIA 开发者博客</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">CPU</th><th scope="col">GPU</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">重点</th><td>控制：把一条条指令分派给少数几个算术逻辑单元，能灵活地处理分支和判断</td><td>算力：把大量同样的运算同时丢给非常多的计算单元</td></tr>
+        <tr><th scope="row">适合的工作</th><td>步骤复杂、前后依赖多的程序</td><td>可以拆成大量并行小运算的工作，比如矩阵相乘</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="roofline">
+  <h2>屋顶线模型：算力和内存带宽，哪一个先到头</h2>
+  <p>一段程序在一块芯片上最快能跑多快，受两样东西限制。屋顶线模型（Roofline model）把这两个限制画在一张图上。</p>
+  {{fig 122 | 屋顶线模型。横轴是算术强度，纵轴是能达到的每秒浮点运算次数。粉色的水平线是芯片算力的上限，蓝色的斜线由内存带宽决定。紫色的折线是两者合起来的上限，形状像屋顶。绿色虚线左边是受带宽限制的区域，右边是受算力限制的区域。图片来源：<a href="https://docs.nersc.gov/tools/performance/roofline/">NERSC 的文档</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">图上的词</th><th scope="col">意思</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Peak FLOP/s<br><span class="muted small">算力上限</span></th><td>芯片每秒最多能做多少次浮点运算。可以粗略理解成每秒能做多少次乘法</td></tr>
+        <tr><th scope="row">Bandwidth GB/s<br><span class="muted small">内存带宽</span></th><td>每秒能在内存和计算单元之间搬运多少数据。要计算，先得把数据（模型的权重、中间结果）从内存里读出来</td></tr>
+        <tr><th scope="row">Arithmetic Intensity<br><span class="muted small">算术强度</span></th><td>一段程序每搬运一个字节的数据，要做多少次浮点运算</td></tr>
+        <tr><th scope="row">Bandwidth-bound<br><span class="muted small">受带宽限制</span></th><td>算术强度低：每读一点数据只做很少的计算。计算单元在等数据，速度由内存带宽决定</td></tr>
+        <tr><th scope="row">Compute-bound<br><span class="muted small">受算力限制</span></th><td>算术强度高：读进来的数据要做大量计算。数据供得上，速度由芯片的算力决定</td></tr>
+      </tbody>
+    </table>
+    <figcaption>定义按 NERSC 的文档。</figcaption>
+  </figure>
+  <p>这张图在这里的用处是：推理的两个阶段，正好分别落在折点的两边。</p>
+</section>
+
+<section class="sec" id="phases">
+  <h2>两个阶段：prefill 和 decode</h2>
+  <p>假设你把一篇作文贴给聊天助手，请它帮忙修改。模型要做两件性质不同的事。</p>
+  {{fig 123 | 上面一行是 prompt「The quick brown fox」，四个 token 在 prefill 阶段一起处理，各自产生一组 KV 向量。之后进入 decode 阶段，每一步生成一个 token（jumps、over），每个新 token 也产生一组 KV 向量。最上面的虚线表示前面的 KV 向量被保存下来，供后面每一步使用。图片来源：<a href="https://huggingface.co/blog/tngtech/llm-performance-prefill-decode-concurrent-requests">TNG 在 Hugging Face 上的文章</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">阶段</th><th scope="col">做什么</th><th scope="col">能不能并行</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">prefill</th><td>处理整段 prompt，算出第一个输出 token</td><td>能。prompt 里所有 token 一开始就都在手里，过一遍模型全部算完</td></tr>
+        <tr><th scope="row">decode</th><td>生成后面的每一个输出 token</td><td>单个请求内部不能。第二个输出 token 要等第一个出来才能算</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>prefill 做的计算，就是<a href="transformer.html#attention">第二部分</a>里四个 token 一起算的那个过程，仍然是在预测下一个 token。</p>
+  {{fig 124 | prefill。四个 token 同时进入注意力层，Q、K、V 各有四行，注意力的方阵是完整的 4 乘 4（右上角被因果掩码盖住，因果掩码规定每个 token 只能看它前面的 token）。}}
+  <p>prefill 结束时，prompt 里每个 token 的 key 和 value 都已经算好。接下来的 decode 阶段，就是在这些结果的基础上一个一个地往后生成。</p>
+</section>
+
+<section class="sec" id="kvcache">
+  <h2>decode 时哪些要重算：KV cache</h2>
+  <p class="lead-in">生成新 token 时，前面的 token 不用重新算。<mark>每个 token 的 key 和 value 算一次就存下来</mark>，后面每一步直接拿来用。</p>
+  <p>下面的图沿用「The class was about」这四个 token 来演示。实际情况是 prompt 已经由 prefill 处理完，decode 接着往后一个一个生成，过程是一样的。</p>
+  {{fig 131 | decode 到第四个 token「about」的那一步。Q 里只有 about 自己的一行。K 和 V 里有四个 token 的内容：前三个是之前存下来的，新加的是 about 的。注意力的分数只有最下面一行，输出也只有一行。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">这一步的东西</th><th scope="col">怎么来的</th><th scope="col">这一步之后</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">新 token 的 query</th><td>现算</td><td>清掉</td></tr>
+        <tr><th scope="row">新 token 的 key 和 value</th><td>现算，接在已保存的 key 和 value 后面</td><td>保存</td></tr>
+        <tr><th scope="row">前面所有 token 的 key 和 value</th><td>从保存的地方读出来，不重算</td><td>继续保存</td></tr>
+        <tr><th scope="row">注意力的分数、加权汇总的结果、这一层的输出</th><td>现算，都只有新 token 的一行</td><td>传给下一层后清掉</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>每一步算完，除了 key 和 value，其余的中间结果都可以清掉。</p>
+  {{fig 133 | 四个 token 处理完之后留下来的只有 K 和 V 两块，这就是 KV cache。}}
+  <p>关于 KV cache 有三点要记住。</p>
+  <ul>
+    <li><b>它在每一层都有一份。</b>图里画的是一个注意力层。模型有很多层，每一层、每个头都要保存各自的 key 和 value。</li>
+    <li><b>它随上下文线性增长。</b>每多一个 token，每一层就多存一组 key 和 value。上下文越长，KV cache 占的内存越多。这是 decode 阶段内存不断增长的来源。</li>
+    <li><b>它依赖前面所有的内容。</b>某个 token 的 key 和 value 是在它前面那些 token 的基础上算出来的。前面的内容一变，后面的缓存就全部作废。这一点对怎样安排上下文影响很大，见<a href="context.html#cache">第八部分</a>。</li>
+  </ul>
+  <p>对比一下<a href="linear.html#compare">第三部分</a>的线性注意力：它不存每个 token 的 key 和 value，只存一个固定大小的状态。</p>
+</section>
+
+<section class="sec" id="bound">
+  <h2>为什么 prefill 受算力限制，decode 受内存带宽限制</h2>
+  <p>把两个阶段放回屋顶线模型的图上。</p>
+  {{fig 134 | 同一张屋顶线图，加上了两个标签：Decode 在受带宽限制的一侧，Prefill 在受算力限制的一侧。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">阶段</th><th scope="col">每读一次数据做多少计算</th><th scope="col">结果</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">prefill</th><td>模型的权重读进来一次，就要和 prompt 里所有 token 的向量做矩阵相乘。数据不算多，计算非常多</td><td>受算力限制。一个长 prompt 的请求就能把 GPU 的算力用满</td></tr>
+        <tr><th scope="row">decode</th><td>每生成一个 token，都要把模型的权重和已有的 KV cache 读一遍，但只为一个 token 做计算</td><td>受内存带宽限制。算力用不满，速度取决于数据从内存里读出来有多快</td></tr>
+      </tbody>
+    </table>
+    <figcaption>TNG 的文章这样描述 decode：单个输出 token 的 decode 步骤用到的算力很少，速度通常受 GPU 内存带宽的限制，也就是模型权重和包括 key、value 在内的中间结果能多快从 GPU 内存里读出来。</figcaption>
+  </figure>
+  <p>decode 阶段算力有富余，所以服务方会把很多个请求合成一批一起 decode，把空着的算力用起来。下面讲的推测解码，用的也是这份富余。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这里的带宽指内存带宽。</b>它说的是数据在 GPU 自己的内存和计算单元之间搬运的速度，和把数据从别处传到 GPU 上是两回事。NERSC 文档的说法是：受带宽限制，指速度取决于数据能多快地在内存系统里移动，和计算单元能算多快无关。</div></div>
+</section>
+
+<section class="sec" id="metrics">
+  <h2>两个指标，和它们对价格的影响</h2>
+  <p>两个阶段各自对应一个衡量快慢的指标。把一次请求从发出到结束的时间画出来，是下面这样。</p>
+  {{fig 135 | 一次请求的时间线。橙色的一段是 prefill，对应的指标是首个 token 的时间。蓝色的一串点是 decode，每个点是一个输出 token，对应的指标是每个输出 token 的时间。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">指标</th><th scope="col">量的是什么</th><th scope="col">由哪个阶段决定</th><th scope="col">交互式应用的常见目标</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">time to first token<br><span class="muted small">首个 token 的时间</span></th><td>从发出请求到看到第一个输出 token 要等多久</td><td>prefill</td><td>3 秒以内</td></tr>
+        <tr><th scope="row">time per output token<br><span class="muted small">每个输出 token 的时间</span></th><td>之后每生成一个 token 要多久</td><td>decode 的单步</td><td>100 到 300 毫秒，相当于每秒 3 到 10 个 token，不慢于人阅读的速度</td></tr>
+      </tbody>
+    </table>
+    <figcaption>目标值来自 TNG 的文章，是他们对聊天类应用的经验值。</figcaption>
+  </figure>
+  <p>这两个阶段的差别也反映在价格上。按 token 算，prefill 处理一个输入 token，比 decode 生成一个输出 token 快得多。TNG 的文章指出，这就是商业 API 的输入 token 比输出 token 便宜很多的原因。</p>
+  <p>对搭 agent 的人来说有两条直接的推论。agent 是能自己调用工具、分很多步去完成一个任务的语言模型系统，它每一步都要把很长的上下文读一遍，再写出不长的一段输出。第一条：读得多、写得少，这种用法在价格上是划算的。第二条：如果每一步的上下文开头都和上一步相同，前面那部分的 KV cache 可以直接接着用，prefill 只需要处理新增的部分。</p>
+</section>
+
+<section class="sec" id="speculative">
+  <h2>推测解码：小模型起草，大模型一次检查</h2>
+  <p>decode 慢，是因为一次只能出一个 token，而且算力用不满。推测解码（speculative decoding）想办法让大模型一次处理好几个 token。</p>
+  {{fig 136 | 左边：一个小的起草模型（Draft Model）从「Once」开始，一个接一个地生成 upon、a、time、there。右边：目标模型（Target Model）把「Once upon a time」一次读进去，同时给出每个位置上它自己的判断。前三个和起草的一致，打勾；第四个 there 不一致，打叉。}}
+  <ol>
+    <li><b>起草。</b>用一个很小、很快的模型，按普通的方式一个一个地生成 K 个 token。</li>
+    <li><b>检查。</b>把这 K 个 token 交给真正要用的大模型。因为这些 token 已经都在手里，大模型可以像 prefill 那样一次并行算完，得到每个位置上它自己的概率分布。</li>
+    <li><b>接受或拒绝。</b>从前往后比。拿 greedy 解码（每一步都选概率最高的 token）来说：起草的 token 如果正是大模型在这个位置上概率最高的那个，就接受。遇到第一个不一致的位置，就在那里换成大模型自己的选择，后面的草稿作废，再从这里重新起草。</li>
+  </ol>
+  <p>如果草稿全被接受，大模型过一遍就得到了 K 个 token，本来要过 K 遍。大模型并行检查几个 token 花的时间，和它自己生成一个 token 差不多，因为 decode 阶段的算力本来就有富余。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>输出和只用大模型时是一样的。</b>用 greedy 时，结果和大模型自己解码完全相同。用抽样时，DeepMind 的论文设计了一种修改过的拒绝抽样规则，在数值精度以内，最后的输出仍然服从大模型自己的分布。小模型只影响速度，不影响质量。出处：<a href="https://arxiv.org/abs/2302.01318">Chen 等，2023</a>。同一时期提出同样想法、并起了 speculative decoding 这个名字的是 <a href="https://arxiv.org/abs/2211.17192">Leviathan 等，2022</a>。</div></div>
+  <h3>实际快了多少</h3>
+  {{fig 137 | 三张小图的横轴都是每轮起草的 token 数 K。左：生成 128 个 token 的平均时间。中：草稿被接受的比例。右：一轮起草加检查的总时间。蓝线是 HumanEval（写代码的测试），橙线是 XSum（写摘要的测试）。图上方的红字写的是：有些领域比别的领域更好预测。图片来源：<a href="https://arxiv.org/abs/2302.01318">Chen 等，2023</a>。}}
+  <p>这篇论文用的大模型是 700 亿参数的 Chinchilla，起草的小模型有 40 亿参数。K 取 4 时的结果如下。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">任务和解码方式</th><th scope="col" class="r">普通解码，每个 token 的时间</th><th scope="col" class="r">推测解码，每个 token 的时间</th><th scope="col" class="r">加速</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">XSum 摘要，top-p 抽样</th><td class="r">14.1 毫秒</td><td class="r">7.52 毫秒</td><td class="r">1.92 倍</td></tr>
+        <tr><th scope="row">XSum 摘要，greedy</th><td class="r">14.1 毫秒</td><td class="r">7.00 毫秒</td><td class="r">2.01 倍</td></tr>
+        <tr><th scope="row">HumanEval 代码，top-p 抽样</th><td class="r">14.1 毫秒</td><td class="r">5.73 毫秒</td><td class="r">2.46 倍</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字照论文的表 1 列出，论文摘要把这组结果概括为快 2 到 2.5 倍。第一行用表里的两个耗时相除约为 1.88，和表里写的 1.92 倍略有出入，论文没有说明原因。top-p 抽样是只在累计概率达到 p 的那几个最可能的 token 里随机抽。</figcaption>
+  </figure>
+  <p>从图和表里能读出两件事。</p>
+  <ul>
+    <li><b>代码比摘要更好预测。</b>中间那张图里，HumanEval 的接受率一直高于 XSum，所以代码任务加速更多。代码里有大量小模型也能猜对的内容。</li>
+    <li><b>K 有一个合适的范围。</b>K 越大，草稿越靠后的 token 越容易被拒绝，一轮花的时间也越长。左图的曲线先降后平，XSum 那条在 K 大了之后还略有回升。</li>
+  </ul>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>prefill 并行读完 prompt，受算力限制；decode 逐个生成，受内存带宽限制。</li>
+    <li>KV cache 让 decode 不用重算前面的 token，代价是内存随上下文线性增长，并且前面的内容一变，缓存就作废。</li>
+    <li>输入 token 便宜，输出 token 又贵又慢。</li>
+    <li>推测解码这类办法，是在不改变输出的前提下，把 decode 阶段富余的算力用起来。</li>
+  </ul>
+  <p>这一部分讲的是怎样让同样的输出来得更快。下一部分反过来：<a href="scaling.html">推理时多花算力，换更好的答案</a>。</p>
+</section>

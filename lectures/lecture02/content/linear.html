@@ -1,0 +1,180 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>标准的注意力（attention）要算一个边长等于 token 个数的方阵，计算量随长度的平方增长。token 是模型处理文字的最小单位，大致是一个词或半个词。</li>
+    <li>线性注意力换一个相乘的顺序：先把 key 和 value 乘起来，累加成一个固定大小的状态。每来一个 token，只更新这个状态。计算量随长度线性增长，生成时占的内存不随长度增长。</li>
+    <li>代价是整段历史都要存进这个固定大小的状态里。需要从很长的上下文里准确找回某一条信息的任务，它做得比标准注意力差。</li>
+    <li>注意力的计算本身没有规定上下文最长是多少。实际能用的长度主要受训练限制：超出训练时见过的长度，模型的表现通常明显变差。</li>
+    <li>现在的做法是混着用：大部分层用线性注意力，隔几层放一层标准注意力。选模型时，值得先弄清它用的是哪一种。</li>
+  </ul>
+</section>
+
+<section class="sec" id="idea">
+  <h2>换一个相乘的顺序</h2>
+  <p><a href="transformer.html#attention">第二部分</a>的注意力公式是 <code>softmax(Q × K转置 ÷ √dk) × V</code>。注意力层为每个 token 算出三个向量：query 表示它在找什么，key 表示它有什么，value 表示它能提供什么。Q、K、V 分别是所有 token 的 query、key、value 叠成的矩阵。softmax 是把一组分数变成加起来等于 1 的权重的函数。先算 Q 乘 K 的转置，得到一个 n 乘 n 的方阵，n 是 token 的个数。平方级的计算量就出在这个方阵上。</p>
+  {{fig 67 | 把 softmax 去掉之后，红框里只剩下矩阵相乘。左边的三句话是：现在这里全是线性的运算；可以改变相乘的结合顺序；改成先乘 K 和 V。图里只画了一个 token，所以 Q、K、V 各只有一行。}}
+  <p>softmax 夹在中间，三个矩阵只能按这个顺序算。去掉 softmax 之后，剩下的是三个矩阵连乘。矩阵连乘可以改变结合的顺序，结果不变：</p>
+  <p><code>(Q × K转置) × V = Q × (K转置 × V)</code></p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">先乘哪两个</th><th scope="col">中间结果有多大</th><th scope="col">它随上下文变长会怎样</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">先乘 Q 和 K 的转置<br><span class="muted small">标准注意力</span></th><td>n 乘 n，n 是 token 的个数</td><td>token 越多，方阵越大</td></tr>
+        <tr><th scope="row">先乘 K 的转置和 V<br><span class="muted small">线性注意力</span></th><td>d 乘 d，d 是 key 和 value 的维度</td><td>大小固定，和 token 的个数无关</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>第二部分的图里，四个 token 算出来的是 4 乘 4 的方阵。换成线性注意力，中间结果是 3 乘 3，因为图里 key 和 value 的维度画的是 3。再来一千个 token，它还是 3 乘 3。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>论文里的做法比「去掉 softmax」多两样。</b>提出线性注意力的论文是 Katharopoulos 等人 2020 年的《Transformers are RNNs》。它先用一个函数 φ 把 query 和 key 各自变换一下，用变换后的点积来代替 softmax 里的指数运算，论文用的是 <code>φ(x) = elu(x) + 1</code>，保证结果是正数。它还保留了一个归一化的分母，让每个 token 分出去的权重加起来仍然等于 1。交换相乘顺序这个核心想法，和上面讲的一样。出处：<a href="https://arxiv.org/abs/2006.16236">Katharopoulos 等，2020</a>。</div></div>
+</section>
+
+<section class="sec" id="update">
+  <h2>一个不断更新的状态</h2>
+  <p class="lead-in">线性注意力在生成文字时，<mark>只需要保存一个固定大小的状态</mark>。下面沿用上一节「直接去掉 softmax」的简化写法，状态是一个矩阵，记作 S。每来一个 token，就把这个 token 的信息加进 S。</p>
+  {{fig 72 | 处理第一个 token「The」。它的 key 和 value 相乘，得到 3 乘 3 的状态 S1；它的 query 乘以 S1，得到这一层的输出；再经过 WO 投影和残差连接。}}
+  <p>处理完第一个 token，Q、K、V 这些中间结果都可以清掉，只留下 S1。下一个 token 来的时候，重复同样的事，只多一步相加。</p>
+  {{fig 82 | 处理到第四个 token「about」。about 的 key 和 value 相乘，得到一个新的 3 乘 3 矩阵，加到上一步保存的 S3 上，成为 S4；about 的 query 乘以 S4，得到输出。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">来了哪个 token</th><th scope="col">状态怎么更新</th><th scope="col">这一步的输出</th><th scope="col">算完之后留下什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">The</th><td>S1 等于 The 的 key 和 value 相乘</td><td>The 的 query 乘以 S1</td><td>S1</td></tr>
+        <tr><th scope="row">class</th><td>S2 等于 S1 加上 class 的 key 和 value 相乘</td><td>class 的 query 乘以 S2</td><td>S2</td></tr>
+        <tr><th scope="row">was</th><td>S3 等于 S2 加上 was 的 key 和 value 相乘</td><td>was 的 query 乘以 S3</td><td>S3</td></tr>
+        <tr><th scope="row">about</th><td>S4 等于 S3 加上 about 的 key 和 value 相乘</td><td>about 的 query 乘以 S4</td><td>S4</td></tr>
+      </tbody>
+    </table>
+    <figcaption>写成公式：<code>S(t) = S(t-1) + k(t)转置 × v(t)</code>，输出是 <code>q(t) × S(t)</code>。k(t)、v(t)、q(t) 是第 t 个 token 的 key、value、query。</figcaption>
+  </figure>
+  <p>这是简化的写法。Katharopoulos 等人的论文里，query 和 key 都先经过 φ 变换，并且除了 S 还要保存第二个状态 Z，它是各个 token 变换后的 key 的累加，用来做归一化：输出是 query 乘以 S 的结果，再除以 query 和 Z 的点积。两个状态的大小都是固定的，所以下面的结论不变。</p>
+  <p>有两点值得注意。</p>
+  <ul>
+    <li><b>不需要因果掩码。</b>因果掩码是标准注意力里的一条规定：每个 token 只能看它前面的 token。这里算第 t 个 token 的时候，状态里只有前 t 个 token 的信息，后面的 token 还没有加进来。</li>
+    <li><b>这就是一个循环神经网络。</b>读一个 token，更新一次状态，再用状态算输出，和<a href="transformer.html#history">第二部分</a>说的循环神经网络是同一种形式。论文标题《Transformers are RNNs》说的就是这件事：带因果掩码的 Transformer 层，可以写成一个「给一个输入，修改内部状态，再给出输出」的模型。</li>
+  </ul>
+</section>
+
+<section class="sec" id="gain">
+  <h2>好处：快，占的内存少</h2>
+  <p>因为不用再算那个 n 乘 n 的方阵，线性注意力的时间和内存都随长度线性增长。</p>
+  {{fig 83 | 两张图的横轴都是序列长度，从 2 的 9 次方到 2 的 16 次方。左图的纵轴是一次前向加反向计算的时间（毫秒），右图的纵轴是占用的 GPU 内存（MB），两个纵轴都是对数刻度。黑线是线性注意力，红色虚线是标准的 softmax 注意力，蓝色的三条是另一种省计算的方法 Reformer。图片来源：<a href="https://arxiv.org/abs/2006.16236">Katharopoulos 等，2020</a>。}}
+  <p>图里的红线只画到 2 的 12 次方，也就是长度 4,096。原因写在论文里：实验用的是一块 11 GB 显存的 GTX 1080 Ti，每种方法都测到显存放不下为止，标准注意力到 4,096 就放不下了。从图上看，线性注意力一直画到了 65,536。</p>
+  <p>生成的时候好处更大。标准注意力每生成一个 token，都要回头和前面所有 token 的 key、value 算一遍，这些 key 和 value 还得一直存着（见<a href="inference.html#kvcache">第五部分</a>的 KV cache）。线性注意力只存一个 S。论文摘要里说，在很长的序列上做逐个生成时，线性注意力最多快 4000 倍。这个数来自逐个像素生成图片的实验。</p>
+</section>
+
+<section class="sec" id="cost">
+  <h2>代价：长上下文里找东西更难</h2>
+  <p>把整段历史存进一个固定大小的矩阵，一定会丢信息。丢得最明显的，是需要从上下文里原样找回某条信息的任务。</p>
+  {{fig 84 | 左边的表是 RULER 基准测试里三种「找数字」的任务。右边的图比较了三个模型在不同长度下的准确率：Llama2-7b（标准注意力的 Transformer）、RWKV-v5-7b 和 Mamba-2.8b-slimpj。虚线表示这个长度超出了模型训练时的长度。图片来源：<a href="https://arxiv.org/abs/2404.06654">Hsieh 等，2024</a>。}}
+  <p>左边表里的任务叫 needle in a haystack：在一篇很长的文章中间插一句「长上下文的特殊魔法数字是 12345」，后面接着是更多的文章，最后问「刚才提到的特殊魔法数字是多少」。</p>
+  <p>可以这样理解两种结构的差别。标准注意力的模型在被问到的时候，可以回头去看整段上下文，找到那句话。线性注意力的模型没有回头看的机会。它必须在读到那句话的时候就把数字记进状态里，并且在后面读几千个无关的 token 的过程中一直把它保留在状态里。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这张图不能直接读成「线性注意力不如标准注意力」，有三点要注意。</b>
+    <ul>
+      <li><b>Mamba 用的是另一种结构。</b>RWKV 的论文说自己用了一种线性注意力。Mamba 是状态空间模型，它的论文明确说结构里没有注意力。两者和线性注意力的共同点是：都用一个固定大小的状态来记住读过的内容。RULER 的论文把它们统称为「非 Transformer 结构」。</li>
+      <li><b>纵轴是 RULER 全部 13 个任务的平均准确率。</b>找数字只是其中一类，另外还有多步追踪、汇总和问答。</li>
+      <li><b>三个模型之间的差别不只有结构。</b>它们的大小和训练数据都不同，Mamba 只有 28 亿个参数，另外两个是 70 亿。</li>
+    </ul>
+    论文自己的结论是：两个非 Transformer 的模型在 4K 以内都明显落后于 Llama2-7B，扩展到 8K 时成绩大幅下降。出处：<a href="https://arxiv.org/abs/2404.06654">RULER</a>；<a href="https://arxiv.org/abs/2305.13048">RWKV</a>；<a href="https://arxiv.org/abs/2312.00752">Mamba</a>。</div></div>
+  <p>图里还有一个细节：Llama2-7b 那条线在 4K 时是 85.6%，到 8K 时从图上看掉到了接近 0。这和注意力的种类无关，下一节讲原因。</p>
+</section>
+
+<section class="sec" id="length">
+  <h2>上下文长度的上限是从哪里来的</h2>
+  <p>不管是标准注意力还是线性注意力，注意力的计算本身都没有哪一处规定「最多只能处理多少个 token」。注意力的方阵可以任意大，线性注意力的状态可以一直更新下去。</p>
+  <p>限制来自两处。第一处是位置信息的给法（见<a href="transformer.html#input">第二部分</a>）。如果位置向量是一张按位置查的表，表有多少行，模型最多就能处理多少个位置。GPT-2 沿用上一代 GPT 的做法，用的就是这样一张训练出来的表，上下文是 1,024 个 token。用公式算位置编码的模型没有这个硬上限，2017 年的论文选公式的一个理由，就是它也许能让模型处理比训练时更长的序列。</p>
+  <p>第二处是训练时见过的长度，它对各种位置编码都起作用。怎样使用位置的信息是训练出来的，训练时最长只见过 4,096 个 token 的模型，没有学过第 5,000 个位置该怎么处理。所以实际能用的上下文长度，<mark>主要受训练时用过的长度限制</mark>。上一节图里 Llama2-7b 在 8K 处的那段虚线是一个例子：它超出了训练时的长度，从图上看准确率掉到接近 0。RULER 的论文对此的说法是，Llama2 外推到更长序列时表现很差。出处：<a href="https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf">Radford 等，2018</a>；<a href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf">Radford 等，2019</a>；<a href="https://arxiv.org/abs/1706.03762">Vaswani 等，2017</a>；<a href="https://arxiv.org/abs/2404.06654">RULER</a>。</p>
+  <h3>训练时怎样把长度加上去</h3>
+  <p>长的序列训练起来很贵，所以通常先用短的序列训练大部分时间，再专门用长文档把长度加上去。这一步叫长上下文扩展。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col">训练时序列长度的变化</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2505.09388">Qwen3</a></th><td>前面的阶段用 4,096 个 token 的序列，之后专门有一个阶段把最大长度从 4,096 加到 32,768</td></tr>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2607.24653">Kimi K3</a></th><td>分四个阶段：预训练期间从 8K 加到 64K，收尾的冷却阶段从 256K 加到 100 万</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字来自两个模型各自的技术报告。</figcaption>
+  </figure>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>不用位置向量的模型也要做这一步。</b>Kimi K3 的技术报告说，它没有显式的位置编码，位置的信息由线性注意力层里的门控和衰减机制隐含地带出来，所以不需要为了更长的上下文去改位置编码。但它仍然分阶段把训练的长度加到 100 万，并且专门准备了长文档的数据。可以这样理解：训练时见过多长的序列，本身就是一个独立的限制。出处：<a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>。</div></div>
+</section>
+
+<section class="sec" id="compare">
+  <h2>两种注意力放在一起比</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">标准注意力<br><span class="muted small">也叫全局注意力、softmax 注意力</span></th><th scope="col">线性注意力</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">计算量和上下文长度 n 的关系</th><td>和 n 的平方成正比</td><td>和 n 成正比</td></tr>
+        <tr><th scope="row">新的 token 怎样用到前面的内容</th><td>直接去看前面的每一个 token</td><td>只能和一个固定大小的状态打交道，前面的内容都汇总在这个状态里</td></tr>
+        <tr><th scope="row">对长上下文的影响</th><td>有利：需要的信息在多远都能直接找到</td><td>不利：信息得先存进状态，之后还要一直保留在状态里</td></tr>
+        <tr><th scope="row">生成时要保存什么</th><td>前面所有 token 的 key 和 value，也就是 KV cache，随 n 线性增长</td><td>一个状态，大小固定</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="hybrid">
+  <h2>实际的做法：两种混着用</h2>
+  <p>既然一种省、一种准，自然的做法是混在一个模型里：大部分层用线性注意力，少数几层用标准注意力。</p>
+  {{fig 88 | 两种混合的办法，例子里的线性注意力层是 DeltaNet。左：DeltaNet 层和滑动窗口注意力层（SWA）一层隔一层地放，旁边的小方格图表示每个 token 只看它前面相邻的几个 token。右：大部分是 DeltaNet 层，中间插两层全局注意力，旁边的小方格图表示每个 token 能看前面所有的 token。图片来源：<a href="https://sustcsonglin.github.io/blog/2024/deltanet-3/">Songlin Yang 的文章</a>。}}
+  <p>DeltaNet 是线性注意力的一个改进版，改的是状态的更新规则。滑动窗口注意力是标准注意力的省钱版：每个 token 只看前面固定个数的 token。下面是这两种混合模型的成绩。</p>
+  {{fig 89 | 三个模型的成绩。Wiki. ppl 是在维基百科文字上的困惑度（衡量模型预测下一个 token 时有多拿不准的指标），越低越好。Avg. Common-sense 是几个常识类任务的平均准确率，Avg. Retrieval 是几个从上下文里抽取信息的任务的平均准确率，都是越高越好。图片来源：同上。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">维基百科上的困惑度</th><th scope="col" class="r">常识类任务的平均准确率</th><th scope="col" class="r">抽取信息类任务的平均准确率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Transformer++<br><span class="muted small">全部是标准注意力，作为参照</span></th><td class="r">28.39</td><td class="r">41.2</td><td class="r">28.6</td></tr>
+        <tr><th scope="row">DeltaNet<br><span class="muted small">全部是线性注意力</span></th><td class="r">28.24</td><td class="r">42.1</td><td class="r">22.7</td></tr>
+        <tr><th scope="row">DeltaNet 加滑动窗口注意力</th><td class="r">27.06</td><td class="r">42.1</td><td class="r">30.2</td></tr>
+        <tr><th scope="row">DeltaNet 加两层全局注意力</th><td class="r">27.51</td><td class="r">42.1</td><td class="r">32.7</td></tr>
+      </tbody>
+    </table>
+    <figcaption>两列准确率的单位都是百分比，困惑度没有单位。这些都是 3.4 亿个参数、在 150 亿个 token 上训练的小模型。数字来自 <a href="https://arxiv.org/abs/2406.06484">Yang 等，2024</a> 的表 1 和上面那篇文章。抽取信息类的三个任务是 SWDE、SQuAD 和 FDA。</figcaption>
+  </figure>
+  <p>怎么读这张表：</p>
+  <ul>
+    <li><b>常识类任务不受影响。</b>三种 DeltaNet 的模型都是 42.1。这类题问的是很简单的问题，不需要回头去上下文里找东西。</li>
+    <li><b>抽取信息类任务差别很大。</b>纯线性注意力的 DeltaNet 是 22.7，比全用标准注意力的 Transformer++ 低 5.9 个百分点。加上滑动窗口注意力到 30.2，加上两层全局注意力到 32.7，都超过了 Transformer++。</li>
+  </ul>
+  <p>文章对两种混合办法的评价是：滑动窗口那一种的计算量仍然低于平方级，但窗口以外的信息还是只能靠状态；插两层全局注意力那一种，计算量严格说回到了平方级，但因为只有两层要保存 key 和 value，占的内存比全用标准注意力的模型少得多。</p>
+</section>
+
+<section class="sec" id="kimi">
+  <h2>一个大模型的例子：Kimi K3</h2>
+  <p>Kimi K3 是月之暗面（Moonshot AI）的 Kimi 团队在 2026 年公开权重的模型。看过前面的内容，它的结构图里的每个部件都能认出来。</p>
+  {{fig 90 | Kimi K3 的结构图，右边彩色的框和文字是后加的标注。一个大的模块里从下往上画了两对层：下面一对是「线性注意力（图里叫 KDA）加前馈网络」，旁边标着 3×，表示重复三次；上面一对是「多头注意力（图里叫 Gated MLA）加前馈网络」，标着 1×。左边两个虚线框分别是前馈网络和 KDA 的内部结构。图片来源：<a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">图里的名字</th><th scope="col">是什么</th><th scope="col">技术报告里怎么说</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">KDA<br><span class="muted small">Kimi Delta Attention</span></th><td>线性注意力的一种。在 DeltaNet 那种更新规则上加了门，可以按通道决定状态里旧的内容保留多少</td><td>用一个固定大小的状态，代替标准注意力里不断变大的 KV cache</td></tr>
+        <tr><th scope="row">Gated MLA<br><span class="muted small">Multi-head Latent Attention</span></th><td>标准的全局注意力的一种。每个 token 的 key 和 value 先变成一个低维的向量再保存</td><td>在保留 token 对 token 的全局注意力的同时，减少 KV cache 占的内存</td></tr>
+        <tr><th scope="row">Stable LatentMoE</th><td>前馈网络的位置上用的部件。里面有很多个「专家」子网络，每个 token 只走其中的一小部分</td><td>每个 token 从 896 个专家里实际用到 16 个</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>整个模型里，每个模块是 3 层 KDA 之后跟 1 层 Gated MLA，线性和全局的比例是 3 比 1。一共 69 层 KDA 和 24 层 MLA：69 层 KDA 对应 23 个模块，各带 1 层 MLA，技术报告说在主干的末尾又额外加了 1 层 MLA，保证最后一层是全局注意力。它的上一代 Kimi K2 用的是 61 层 MLA，没有线性注意力。Kimi K3 一共有 2.8 万亿个参数，每个 token 实际用到 1040 亿个，上下文窗口（一次能放进模型的 token 数的上限）是 100 万个 token。</p>
+</section>
+
+<section class="sec" id="agents">
+  <h2>这些和搭 agent 有什么关系</h2>
+  <p>agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。它和模型结构的关系有四条。</p>
+  <ul>
+    <li><b>agent 的上下文可以非常长。</b>对话历史、工具的返回结果、读进来的文件，全都在上下文里。</li>
+    <li><b>推理的效率是设计 agent 系统时要考虑的一项。</b>每一步都要调用模型，上下文越长，每一步越贵、越慢。</li>
+    <li><b>了解模型的结构，有助于给应用选对模型。</b>要处理很长的上下文、又要从里面准确找回信息的任务，值得先问一句：这个模型用的是线性注意力，还是全局注意力，还是混合的。</li>
+    <li><b>围绕具体模型的长处和短处来设计运行框架。</b>运行框架（harness，也叫 scaffold）是包在模型外面、给它工具并管理多轮对话的程序。知道模型在哪里弱，就知道运行框架该在哪里补。</li>
+  </ul>
+  <p>这些词也是和别人讨论、自己做试验时要用到的共同语言。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>线性注意力用一个固定大小、不断更新的状态，代替标准注意力里那个随长度变大的方阵。</li>
+    <li>它快而且省内存，但从长上下文里找回信息的能力弱一些。</li>
+    <li>上下文长度的上限来自训练时见过的长度，训练时要专门把它加上去。</li>
+    <li>大模型已经在混用两种注意力，Kimi K3 的比例是 3 比 1。</li>
+  </ul>
+  <p>模型的结构讲完了。下一部分讲这些权重是怎么来的：<a href="training.html">一个模型是怎么训练出来的</a>。</p>
+</section>

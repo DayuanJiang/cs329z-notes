@@ -1,0 +1,171 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>语言模型是一个给一串 token 算概率的模型。token 是模型处理文字的最小单位，大致是一个词或半个词。算法是：依次算出「前面这些 token 之后，下一个是某个 token」的概率，再把这些概率连乘。</li>
+    <li>每一步，模型都给词表里的每一个 token 一个概率。从里面挑一个接到后面，再算下一步，就是生成文字。怎么挑叫解码策略，常用的有 greedy、top-k、top-p 和 beam search。</li>
+    <li>temperature 是挑之前对概率分布做的一次调整。它越低，结果越接近「每次都选最可能的那个」。它越高，结果越多样。</li>
+    <li>选哪种策略看任务和预算。数学和代码用低的 temperature，写作可以高一些。beam search 更花时间和内存。</li>
+  </ul>
+</section>
+
+<section class="sec" id="stack">
+  <h2>这一讲在整套技术里的位置</h2>
+  <p>和大语言模型（LLM）有关的技术可以分成三层。最下面一层是把模型造出来，中间一层是让模型适应某个场景，最上面一层是在模型之上搭应用。</p>
+  {{fig 2 | 三层技术和三门课各自覆盖的范围。蓝色圈是 CS336（从零造语言模型），绿色圈是 CS224N（自然语言处理入门），粉色圈是这门课（CS329Z），右上角的框列出了它后面要讲的题目。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">哪一层</th><th scope="col">做什么</th><th scope="col">包含的题目</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">模型工程<br><span class="muted small">LLM Engineering</span></th><td>把模型造出来</td><td>分布式计算、GPU 上的底层计算程序、模型结构、规模和效果之间的规律、分词器、预训练、后训练、强化学习</td></tr>
+        <tr><th scope="row">模型适配<br><span class="muted small">LLM Adaptation</span></th><td>让模型在你的场景里好用</td><td>fine-tuning（用自己的数据接着训练模型）、蒸馏（让一个模型去学另一个模型的输出）、在上下文里给例子、LoRA（只训练少量附加参数的 fine-tuning 办法）、从反馈里学习</td></tr>
+        <tr><th scope="row">模型应用<br><span class="muted small">LLM Applications</span></th><td>在模型之上搭东西</td><td>聊天机器人、检索增强生成（RAG）、agent</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。这门课站在最上面一层，其余各讲只是调用模型。这一讲是例外，它要讲清两件事。</p>
+  <ul>
+    <li>训练和推理一个现代 LLM 时，有哪些核心的设计决定。</li>
+    <li>这些决定带来了哪些限制，这些限制又怎样影响应用使用 LLM 的方式。</li>
+  </ul>
+  <p>举两个例子。知道 KV cache（推理时保存下来重复使用的中间结果，见<a href="inference.html#kvcache">第五部分</a>）是怎么工作的，就知道往对话历史的开头插入内容为什么会变慢、变贵。知道模型用的是哪一种注意力，就能判断它适不适合很长的上下文。</p>
+</section>
+
+<section class="sec" id="definition">
+  <h2>语言模型就是一个算概率的公式</h2>
+  <p class="lead-in">语言模型的定义是一个公式：<mark>一串 token 的概率，等于每个 token 在它前面所有 token 之后出现的概率的乘积</mark>。</p>
+  <p>写出来是 <code>P(x1, …, xT) = P(x1) × P(x2 | x1) × … × P(xT | x1, …, xT-1)</code>。各个符号的意思如下。</p>
+  <ul>
+    <li><code>x1</code> 到 <code>xT</code> 是这串文字里的第 1 个到第 T 个 token。</li>
+    <li><code>P(xt | x1, …, xt-1)</code> 读作：已经有了前 t-1 个 token，第 t 个 token 是 <code>xt</code> 的概率。竖线后面是条件。</li>
+    <li>等号左边是整串文字的概率，右边是 T 个条件概率连乘。</li>
+  </ul>
+  <p>下面用一句话走一遍。</p>
+  {{fig 8 | 句子「The class was about agents.」的概率是怎么算出来的。每一行是一个条件概率，最右边一列把它们列出来连乘，结果是 1.2e-17。图上没有标出这些概率是哪个模型算的。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">要算的 token</th><th scope="col">它前面已有的 token</th><th scope="col" class="r">条件概率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">The</th><td>没有</td><td class="r">0.0377</td></tr>
+        <tr><th scope="row">class</th><td>The</td><td class="r">0.0001</td></tr>
+        <tr><th scope="row">was</th><td>The class</td><td class="r">0.0344</td></tr>
+        <tr><th scope="row">about、agents</th><td>各自前面的全部 token</td><td class="r">图上省略了</td></tr>
+        <tr><th scope="row">句号</th><td>The class was about agents</td><td class="r">0.0252</td></tr>
+      </tbody>
+    </table>
+    <figcaption>六个条件概率相乘，得到整句话的概率 1.2e-17，也就是小数点后面先有 16 个零。</figcaption>
+  </figure>
+  <p>这么小的数连乘下去，计算机的浮点数很快就表示不了。所以实际计算时取每个概率的对数再相加，结果和连乘是一回事，数值上稳定得多。</p>
+  <h3>token 和词表</h3>
+  <p>上面把 token 当成了词。实际上，文字先被切成小块，每一小块是一个 token，可以是一个词、半个词或一个标点。所有可能的 token 组成一个固定的集合，叫词表（vocabulary）。词表有多大是模型设计时定下的。例如 GPT-2 的词表有 50,257 个 token，Llama 3 的词表有 12.8 万个。任何文字都能用词表里的 token 拼出来，模型的概率就是在这个固定的集合上算的。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>出处和延伸阅读。</b>GPT-2 的词表大小见 <a href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf">Radford 等，2019</a>；Llama 3 的见 <a href="https://github.com/meta-llama/llama3/blob/main/MODEL_CARD.md">Meta 的模型说明</a>。分词器是怎么把文字切成 token 的，可以读 Hugging Face 课程里的<a href="https://huggingface.co/learn/llm-course/en/chapter2/4">分词器一节</a>。</div></div>
+</section>
+
+<section class="sec" id="generative">
+  <h2>生成式模型和判别式模型</h2>
+  <p>机器学习模型常被分成两类。语言模型属于生成式的那一类，这决定了可以从它里面抽样。</p>
+  {{fig 11 | 左：判别式模型学的是一条把两类数据分开的线。右：生成式模型学的是每一类数据各自的分布。图片来源：Akanksha Malhotra，medium.com。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">类型</th><th scope="col">学的是什么</th><th scope="col">拿猫和狗的图片举例</th><th scope="col">例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">判别式<br><span class="muted small">Discriminative</span></th><td>怎样把不同的类别分开</td><td>学一条分界线，回答「这张图是猫还是狗」</td><td>逻辑回归、支持向量机</td></tr>
+        <tr><th scope="row">生成式<br><span class="muted small">Generative</span></th><td>数据本身的分布</td><td>能回答「这一组像素是一只猫的可能性有多大」，也能画出一张猫的图</td><td>朴素贝叶斯、扩散模型</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>按上一节的公式算概率的语言模型，是生成式的还是判别式的？通行的答案是生成式的。理由是：给它任意一串 token，它都能算出这串 token 的概率，也就是说它在对整个 token 序列的分布建模。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这两类的界线有些模糊。</b>公式右边的每一项，是在整个词表里决定下一个 token 是哪一个，看上去很像一个分类问题。如果专门训练一个模型，只判断下一个词是 to 还是 as，那它更像判别式模型。语言模型被归为生成式，是因为它在整个词表上给出概率，并且这些概率连乘起来就是整段文字的概率。</div></div>
+  <p>生成式带来一个直接的后果：<mark>可以从模型里抽样</mark>。下一节就讲怎么抽。生成式模型更系统的介绍，可以读斯坦福深度生成模型课程的<a href="https://deepgenerativemodels.github.io/notes/introduction/">导论笔记</a>。</p>
+</section>
+
+<section class="sec" id="sampling">
+  <h2>从模型里抽出下一个 token</h2>
+  <p>已经有了「The class was about」这四个 token。模型给词表里的每个 token 算出它接在后面的概率，然后从里面挑一个。</p>
+  {{fig 17 | 「The class was about」之后，概率最高的十个 token 和它们的概率。橙色框标出的是概率最高的 to。}}
+  <p>图里列出的十个概率加起来是 0.4996。剩下的一半左右的概率，分散在词表里其余的 token 上。这里挑了概率最高的 to，把它接在后面，再对「The class was about to」算一次。</p>
+  {{fig 18 | 「The class was about to」之后概率最高的十个 token。橙色框标出的是这一步选中的 begin，它的概率 0.0855 排在第二位。}}
+  <p>这一步没有选概率最高的 be，选的是排第二的 begin。再往下走一步选中句号，最后得到「The class was about to begin.」。这说明：每一步拿到的是一个概率分布，从里面怎么挑是可以选择的。</p>
+</section>
+
+<section class="sec" id="strategies">
+  <h2>四种解码策略</h2>
+  <p>从概率分布里挑 token 的办法叫解码策略（decoding strategy），也叫抽样策略。下面的表用上一节两张图里的数字来演示。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">策略</th><th scope="col">怎么挑</th><th scope="col">用图里的数字演示</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">greedy<br><span class="muted small">贪心</span></th><td>每一步都选概率最高的 token</td><td>第一步选 to，第二步选 be</td></tr>
+        <tr><th scope="row">top-k</th><td>只在概率最高的 k 个 token 里，按它们的相对概率随机抽一个</td><td>k 取 5 时，第二步的候选是 be、begin、go、start、get。把这五个的概率重新归一化，抽中它们的机会依次约为 38.8%、22.1%、16.2%、12.8%、10.1%</td></tr>
+        <tr><th scope="row">top-p<br><span class="muted small">也叫 nucleus</span></th><td>把 token 按概率从高到低排好，从头往后加，累计概率达到 p 就停，只在这些 token 里随机抽</td><td>p 取 0.3 时，第一步只有 to 一个候选，因为它自己的概率 0.3171 已经超过 0.3。第二步有 be、begin、go、start 四个候选，因为前三个加起来是 0.2983，加上第四个才到 0.3479</td></tr>
+        <tr><th scope="row">beam search<br><span class="muted small">束搜索</span></th><td>同时保留几条候选的序列，每一步都把它们各自往后延伸，最后选整条序列得分最高的</td><td>见下面的<a href="#beam">束搜索</a>一节</td></tr>
+      </tbody>
+    </table>
+    <figcaption>归一化之后的百分比是按图上的概率算出来的。top-k 和 top-p 的定义见 <a href="https://arxiv.org/abs/1904.09751">Holtzman 等，2019</a>。</figcaption>
+  </figure>
+  <p>top-k 和 top-p 的差别在候选的个数。top-k 的候选永远是 k 个。top-p 的候选个数跟着分布变：模型很有把握的时候候选很少，模型拿不准的时候候选很多。上表里同一个 p 在两步里分别选出了 1 个和 4 个候选，就是这个意思。</p>
+</section>
+
+<section class="sec" id="temperature">
+  <h2>temperature：把分布调尖或调平</h2>
+  <p>temperature 是一个可以调的数，记作 T。它在抽样之前改变概率分布的形状。T 低，概率集中到最可能的几个 token 上；T 高，概率在各个 token 之间分得更平均。</p>
+  {{fig 20 | 同一个 prompt（交给模型的那段输入文字）「I am tired, I will take a ___」在四个 temperature 下的下一个 token 的分布。T 等于 0.1 时 nap 几乎占了全部的概率，T 等于 2.0 时五个候选词的概率已经比较接近。右边的红字是对算法的一句简化的描述，准确的算法见下面的正文。图片来源：<a href="https://towardsdatascience.com/decoding-the-temperature-parameter-in-llms/">Towards Data Science</a>。这组数是哪个模型算的，没有在原文里核对到。}}
+  <p>具体的算法要从 logits 说起。模型最后一层输出的是一组没有归一化的分数，词表里每个 token 一个，叫 logits。把 logits 送进 softmax 函数（把一组分数变成加起来等于 1 的概率），才得到概率。<mark>temperature 作用在 logits 上：先把每个 logit 除以 T，再做 softmax。</mark></p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>除的是 logits，除概率没有用。</b>上图右边的红字写的是「把所有概率除以 T，再重新归一化到加起来等于 1」。照这句话的字面去做，分布不会有任何变化：所有概率同除以一个数，归一化之后又回到原样。实际的做法是在 softmax 之前把 logits 除以 T。出处：<a href="https://arxiv.org/abs/1503.02531">Hinton 等，2015</a> 里带 temperature 的 softmax；<a href="https://huggingface.co/blog/mlabonne/decoding-strategies">Hugging Face 上讲解码策略的文章</a>。</div></div>
+  <p>下面是一个算出来的小例子。假设词表里只有三个 token，它们的 logits 是 2、1、0。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="r">temperature</th><th scope="col" class="r">第一个 token 的概率</th><th scope="col" class="r">第二个 token 的概率</th><th scope="col" class="r">第三个 token 的概率</th></tr></thead>
+      <tbody>
+        <tr><td class="r">0.5</td><td class="r">86.7%</td><td class="r">11.7%</td><td class="r">1.6%</td></tr>
+        <tr><td class="r">1.0</td><td class="r">66.5%</td><td class="r">24.5%</td><td class="r">9.0%</td></tr>
+        <tr><td class="r">2.0</td><td class="r">50.6%</td><td class="r">30.7%</td><td class="r">18.6%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>按「logits 除以 T 再做 softmax」算出的示例，三个 logits 是为演示假设的。T 等于 1 时分布保持模型原来的样子。</figcaption>
+  </figure>
+  <h3>关于 temperature 的四个问题</h3>
+  <ul>
+    <li><b>它有固定的取值范围吗？</b>没有。它只是一个缩放的系数，「temperature 等于 5 意味着什么」没有直观的解释。T 等于 1 保持原样，T 越接近 0 越接近 greedy。</li>
+    <li><b>它是训练出来的吗？</b>通常不是。训练时用不到它，它是训练之后在推理时设定的。有一个例外的场合：用强化学习训练模型时，要让模型自己生成很多次尝试，这时也要给抽样设一个 temperature。</li>
+    <li><b>生成到一半可以换一个值吗？</b>可以这样理解：temperature 只作用在最后一步的 logits 上，前面各层已经算好并保存下来的中间结果不受影响，所以中途换值在技术上没有障碍。实际这样做的不多。</li>
+    <li><b>它对会先写推理过程的模型有影响吗？</b>有。推理过程也是一个 token 一个 token 抽出来的。给这类模型定 temperature，同样是一个设计决定。这类模型见<a href="scaling.html#reasoning">第六部分</a>。</li>
+  </ul>
+</section>
+
+<section class="sec" id="beam">
+  <h2>束搜索：往后多看几步再决定</h2>
+  <p>前面三种策略每一步只决定一个 token。束搜索同时保留几条候选的序列，往后多走几步，再决定留下哪一条。</p>
+  {{fig 21 | 一棵束搜索的树。从 start 出发，绿色的节点是被保留下来、继续往后延伸的候选，灰色的节点是被放弃的。例如第一步保留了 arrived 和 the，之后在这两条线上分别往后延伸。图片来源：<a href="https://medium.com/@chawthirisan/beam-search-navigating-possibilities-with-controlled-exploration-dde901e9baa7">Chaw Thiri San，medium.com</a>。}}
+  <p>保留几条候选叫束宽（beam width）。每一步，每条候选都往后延伸出若干个新的 token，然后从所有延伸出来的序列里，再挑出得分最高的那几条留下。</p>
+  <h3>几条候选之间怎么比</h3>
+  <p>最常用的得分是模型自己给的：把这条序列上每个 token 的对数概率加起来，通常再除以序列的长度，这样长的序列不会因为长而得分偏低。也可以用模型之外的东西来打分。例如在解数学题时，用一个外部的验证程序或者一个估值函数来判断哪一条更有希望。</p>
+  <h3>代价</h3>
+  <p>束搜索要同时保存多条序列各自的中间状态，每一步要算的东西也成倍增加，所以时间和内存的开销都比前三种大。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>延伸阅读。</b>Hugging Face 上的文章 <a href="https://huggingface.co/blog/mlabonne/decoding-strategies">Decoding Strategies in Large Language Models</a> 用 GPT-2 把 greedy、束搜索、top-k、top-p 各实现了一遍，并画出了每一步的树。</div></div>
+</section>
+
+<section class="sec" id="choose">
+  <h2>怎么选</h2>
+  <p>每种策略各有取舍，没有哪一种在所有场合都最好。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">要考虑的事</th><th scope="col">怎么影响选择</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">要不要多样性</th><td>temperature、top-p、top-k 都是用来调多样性的。调高 temperature、调大 p 或 k，输出更多样</td></tr>
+        <tr><th scope="row">任务是什么</th><td>数学和代码的下一个 token 比较好预测，用低的 temperature。创意写作可能受益于更高的多样性</td></tr>
+        <tr><th scope="row">预算有多少</th><td>束搜索的时间和内存开销更大，预算紧的时候不合适</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>搭 agent 的时候，这些策略无处不在。agent 每调用一次模型，都要从模型里抽出一段文字。用强化学习训练模型时，也要让模型抽出一条条完整的尝试。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>语言模型给一串 token 算概率，算法是把每个 token 的条件概率连乘。</li>
+    <li>它是生成式的模型，所以可以一步一步地从它里面抽出文字。</li>
+    <li>解码策略决定每一步怎么挑。temperature 通过缩放 logits 来调多样性。</li>
+  </ul>
+  <p>到这里，模型内部怎样算出下一个 token 的概率还没有讲。下一部分讲 <a href="transformer.html">Transformer 是怎么算出这个概率的</a>。</p>
+</section>

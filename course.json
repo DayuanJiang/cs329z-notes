@@ -24,7 +24,8 @@
           "title": "给搭建者讲的 LLM",
           "summary": "解码策略、注意力和上下文长度、从预训练到后训练的流程、推理时的扩展、结构化输入输出和约束解码、上下文工程。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture02.pdf",
-          "video": "https://youtu.be/Vr1NzH8bT44"
+          "video": "https://youtu.be/Vr1NzH8bT44",
+          "dir": "lecture02"
         }
       ]
     },
