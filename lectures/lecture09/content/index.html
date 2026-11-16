@@ -1,0 +1,106 @@
+<section class="sec" id="thesis">
+  <h2>一句话的结论</h2>
+  <p class="lead-in">优化就是<mark>用数据和评估说明你想要什么，再让算法去改系统</mark>。能改的主要有两样：上下文（prompt 里的指令和示例）和模型的权重。改上下文便宜、快、需要的运行次数少，适合先做；它不够用时再改权重。不管用哪一种，算法只会把你给的那个评估分数做高，所以评估本身最要紧。</p>
+  <p>这里的 prompt 指发给语言模型的那段输入文字，权重指模型内部的参数。这一讲先说什么时候值得优化，然后分别讲两条线上的具体算法，再讲让 agent（能自己调用工具、分很多步去完成任务的语言模型系统）来当优化器，最后讲两条线怎么选。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">上下文优化</th><th scope="col">权重优化</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">改的是什么</th><td>prompt 里的两部分：用文字说明任务的指令，和做好了的例子（示例）。模型本身不动</td><td>模型的权重。这种在已有模型上继续训练的做法叫 fine-tuning（微调）</td></tr>
+        <tr><th scope="row">代表的办法</th><td>给示例排顺序；让程序自己生成示例再搜索组合；让语言模型看着结果改写指令：OPRO、MIPROv2、TextGrad、GEPA</td><td>监督微调：照着教师模型的运行轨迹学。强化学习：自己做任务，按结果给奖励，算法有 PPO 和 GRPO。on-policy 蒸馏：教师给学生写下的每个 token 打分</td></tr>
+        <tr><th scope="row">需要多少数据<br><span class="muted small">粗略归纳</span></th><td>几千次运行</td><td>监督微调从几百条到十万条轨迹，强化学习通常要几万次运行</td></tr>
+        <tr><th scope="row">一个结果</th><td>在一个 8B（约 80 亿个参数）的开源模型上，GEPA 在六个任务上的平均分比不优化高 9.62 个百分点，每个任务用 1,839 到 7,051 次运行</td><td>用 10 万条教师的轨迹微调 Qwen3-32B，七个 agent 基准测试（benchmark，一组题目加一个打分的办法）的平均成绩从 22.8% 升到 44.8%</td></tr>
+        <tr><th scope="row">什么时候选它</th><td>模型只能通过 API 调用；需要经常、快速地重新优化；每次运行都很贵</td><td>改 prompt 不起作用；有强的教师、想要更便宜的模型；prompt 已经太长</td></tr>
+        <tr><th scope="row">在哪一页</th><td><a href="fewshot.html">第二</a>、<a href="instructions.html">第三部分</a></td><td><a href="sft.html">第四</a>、<a href="rl.html">第五部分</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>token 是模型处理文字的最小单位，大致是一个词或半个词。运行轨迹是系统做一次任务时每一步的动作和看到的结果的完整记录。「需要多少数据」一行是根据这一讲的几个实验粗略归纳的：GEPA 每个任务用 1,839 到 7,051 次运行；监督微调的两个例子分别用 500 条和 10 万条轨迹；GEPA 的论文说强化学习通常需要几万次运行，它的对照实验用了 24,000 次。两个结果分别来自 Agrawal 等人的 GEPA 论文和 Raoof 等人的 OpenThoughts-Agent 论文，细节见<a href="choose.html#efficiency">第七部分</a>和<a href="sft.html#ota">第四部分</a>。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="story">
+  <h2>七个问题</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="when.html">一 什么时候<br>值得优化？</a></th><td>要同时有数据、一个可以改的系统、一个能打分的评估。通用的模型解决大部分问题，优化负责把它调到适合你的具体场景</td><td>三句意思相近的 prompt，让同一个模型做同一批数学题，准确率是 71.8%、80.2% 和 74.5%。哪一句最好，人很难猜对</td></tr>
+        <tr><th scope="row"><a href="fewshot.html">二 prompt 里的示例<br>怎么选、怎么排？</a></th><td>顺序的影响很大，可以不靠额外的标注挑出较好的顺序。带推理过程的示例可以让程序自己生成，只留通过检查的，再搜索最好的组合</td><td>同样 4 个示例，换一个顺序，情感分类的准确率可以从 85% 以上掉到 50% 左右。在 GPT-3.5 的数学题开发集上，程序自己生成的示例达到 80.3%，人写的推理是 78.6%</td></tr>
+        <tr><th scope="row"><a href="instructions.html">三 prompt 里的指令<br>怎么改？</a></th><td>让一个语言模型来写新指令。给它看的东西越具体越好：从只看以往的分数，到看程序和数据的概括，再到读每次运行的完整记录和文字反馈</td><td>GEPA 只优化指令，在 GPT-4.1 Mini 上六个任务的平均分比不优化高 12.19 个百分点，同时优化指令和示例的 MIPROv2 是 5.64 个百分点</td></tr>
+        <tr><th scope="row"><a href="sft.html">四 怎样让小模型<br>学会大模型的做法？</a></th><td>监督微调：让强的教师模型去做任务，把运行轨迹当训练数据。数据怎么造比用多少更要紧，其中任务从哪里来影响最大</td><td>500 条 GPT-4 的轨迹让 Llama-2-13B 的问答成绩从 21.2 升到 34.4，比只用 prompt 的 GPT-3.5 的 31.4 高 3.0 分。粗略估算，这个差距大约是一个标准误</td></tr>
+        <tr><th scope="row"><a href="rl.html">五 没有现成的示范<br>怎么办？</a></th><td>强化学习：学生自己做任务，做成了给奖励。PPO 和 GRPO 是两种强化学习算法。GRPO 用同一个问题的一组输出互相比，省掉了 PPO 里的价值模型（一个预测后面还能拿到多少奖励的模型）。有强的教师时，on-policy 蒸馏让教师逐个 token 地给学生反馈</td><td>Qwen3 的一组对照里，on-policy 蒸馏在 AIME'24（一项数学竞赛的题）上是 74.4%，强化学习是 67.6%，前者用的 GPU 时间约是后者的十分之一</td></tr>
+        <tr><th scope="row"><a href="agents.html">六 能不能让 agent<br>来做优化？</a></th><td>能。给它一个可以读结果、改代码、跑实验的环境，它可以优化任何写成代码的东西。这时人能控制的主要是评估指标</td><td>Darwin Gödel Machine 让编程 agent 改自己的代码，80 轮后在 200 道题上的解决率从 20.0% 升到 50.0%。同一篇论文也记录了 agent 删掉检测代码来拿满分的例子</td></tr>
+        <tr><th scope="row"><a href="choose.html">七 改 prompt<br>还是改权重？</a></th><td>通常先改 prompt，不够再改权重，两者可以接着用</td><td>9 种模型和任务的搭配里，7 种是两者都用的做法最好。哪种先后顺序最好没有定论</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的六件事</h2>
+  <p>下面六件事，常见的说法都比实际情况简单。每一件在对应的页面里有出处和细节。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>让模型「深吸一口气」能提高它的数学成绩</td><td>这句话是一个语言模型（PaLM 2-L-IT）搜索出来的，它只是对另一个模型（PaLM 2-L）在 GSM8K 这个数据集上最好，准确率 80.2%。换一个做题的模型，搜出来的最好的句子是别的</td><td><a href="instructions.html#opro">优化指令</a></td></tr>
+        <tr><td>prompt 优化比强化学习省 35 倍的样本</td><td>35 倍是六个任务里最好的一个。按总预算算，GEPA 用的运行次数是强化学习的 3.4 分之一到 13 分之一（粗略估算）。平均分高约 6 个百分点，有一个任务上强化学习更高</td><td><a href="choose.html#efficiency">怎么选</a></td></tr>
+        <tr><td>GRPO 的效果比 PPO 好</td><td>DeepSeek-R1 论文里的对照显示，PPO 的一个参数仔细调过之后，成绩接近 GRPO。GRPO 的主要好处是不用训练和存放价值模型，也不用调这个参数</td><td><a href="rl.html#r1">强化学习与蒸馏</a></td></tr>
+        <tr><td>教师模型越强，训练出来的学生越好</td><td>OpenThoughts-Agent 比较了五个教师，基准测试分数最高的那个模型训练出来的学生最差</td><td><a href="sft.html#ota">监督微调</a></td></tr>
+        <tr><td>on-policy 蒸馏比强化学习又好又省</td><td>它需要一个已经会做这件事的教师，还要能拿到教师给每个 token 的概率。它的目标是追上教师。在 Qwen3 的例子里，教师自己是经过强化学习训练出来的</td><td><a href="rl.html#opd">强化学习与蒸馏</a></td></tr>
+        <tr><td>最好的顺序是先优化 prompt，再微调权重，再优化一次 prompt</td><td>这个顺序在 9 种搭配里的 3 种上最好，「先权重、再 prompt」也在 3 种上最好。论文的原话是几种组合之间没有明显的赢家</td><td><a href="choose.html#together">怎么选</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="colors">
+  <h2>页面里三种颜色的框</h2>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲只有一处。</div></div>
+</section>
+
+<section class="sec" id="modules">
+  <h2>按部分阅读</h2>
+  <div class="modlist">
+    <a href="when.html"><span class="m">第一部分</span><span><b>什么时候值得做优化</b><p>一个小测验；优化是什么；缺一不可的三样东西；什么情况下值得优化；这一讲的地图。</p></span></a>
+    <a href="fewshot.html"><span class="m">第二部分</span><span><b>优化示例：放哪些例子，按什么顺序放</b><p>示例顺序的影响；不用标注挑顺序的办法；带推理的示例；STaR；DSPy 的 bootstrap。</p></span></a>
+    <a href="instructions.html"><span class="m">第三部分</span><span><b>优化指令：让语言模型看着结果改 prompt</b><p>OPRO；MIPROv2 的三步，用一个例子走一遍；TextGrad；GEPA 的流程、例子和结果。</p></span></a>
+    <a href="sft.html"><span class="m">第四部分</span><span><b>监督微调：让学生模型照着教师的轨迹学</b><p>交叉熵损失；指令微调；agent 的监督微调；OpenThoughts-Agent；FireAct；局限。</p></span></a>
+    <a href="rl.html"><span class="m">第五部分</span><span><b>强化学习和 on-policy 蒸馏</b><p>agent 的强化学习；PPO 的四个模型；GRPO 的目标函数逐块看；DeepSeek-R1；on-policy 蒸馏。</p></span></a>
+    <a href="agents.html"><span class="m">第六部分</span><span><b>让 agent 来当优化器</b><p>Darwin Gödel Machine；Meta-Harness；autoresearch；指标出问题的三个例子。</p></span></a>
+    <a href="choose.html"><span class="m">第七部分</span><span><b>改 prompt 还是改权重：怎么选</b><p>BetterTogether；需要多少次运行；数据多了以后；两张理由表；整讲的小结。</p></span></a>
+  </div>
+</section>
+
+<section class="sec" id="sources">
+  <h2>资料</h2>
+  <h3>主要的三篇</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Agrawal 等<br><span class="muted small">2025 年上传，ICLR 2026</span></th><td><a href="https://arxiv.org/abs/2507.19457">GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning</a>：让语言模型读运行记录来改写指令，并保留在不同题目上各自最好的多个候选。和 MIPROv2、TextGrad、GRPO 作了比较</td><td>三、七</td></tr>
+        <tr><th scope="row">Opsahl-Ong 等，2024</th><td><a href="https://arxiv.org/abs/2406.11695">Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs</a>：提出 MIPRO，为多模块的语言模型程序同时优化指令和示例</td><td>二、三</td></tr>
+        <tr><th scope="row">Shao 等，2024</th><td><a href="https://arxiv.org/abs/2402.03300">DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models</a>：一个数学领域的语言模型，GRPO 这个强化学习算法是在这篇论文里提出的</td><td>五</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>各部分用到的其他论文和文章</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">部分</th><th scope="col">资料</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">一、三</th><td><a href="https://arxiv.org/abs/2309.03409">Yang 等，Large Language Models as Optimizers</a>（OPRO，ICLR 2024）</td></tr>
+        <tr><th scope="row">二</th><td><a href="https://arxiv.org/abs/2005.14165">Brown 等，2020</a>（GPT-3，few-shot 的定义）；<a href="https://arxiv.org/abs/2104.08786">Lu 等，2022</a>（示例的顺序）；<a href="https://arxiv.org/abs/2201.11903">Wei 等，2022</a>（chain-of-thought）；<a href="https://arxiv.org/abs/2203.14465">Zelikman 等，2022</a>（STaR）；<a href="https://arxiv.org/abs/2310.03714">Khattab 等，2023</a>（DSPy）</td></tr>
+        <tr><th scope="row">三</th><td><a href="https://dspy.ai/api/optimizers/MIPROv2/">DSPy 的 MIPROv2 文档</a>；<a href="https://arxiv.org/abs/2406.07496">Yuksekgonul 等，2024</a>（TextGrad）；<a href="https://arxiv.org/abs/2410.17127">Li Siyan 等</a>（PAPILLON）</td></tr>
+        <tr><th scope="row">四</th><td><a href="https://arxiv.org/abs/2210.11416">Chung 等，2022</a>（指令微调）；<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>（OpenThoughts-Agent）；<a href="https://arxiv.org/abs/2310.05915">Chen 等，2023</a>（FireAct）</td></tr>
+        <tr><th scope="row">五</th><td><a href="https://arxiv.org/abs/1707.06347">Schulman 等，2017</a>（PPO）；<a href="https://arxiv.org/abs/2501.12948">DeepSeek-AI，2025</a>（DeepSeek-R1）；<a href="https://thinkingmachines.ai/blog/on-policy-distillation/">Thinking Machines Lab，On-Policy Distillation</a>（2025 年 10 月）；<a href="https://arxiv.org/abs/2505.09388">Qwen3 技术报告</a></td></tr>
+        <tr><th scope="row">六</th><td><a href="https://arxiv.org/abs/2505.22954">Zhang 等</a>（Darwin Gödel Machine，ICLR 2026）；<a href="https://arxiv.org/abs/2603.28052">Lee 等，2026</a>（Meta-Harness）；<a href="https://github.com/karpathy/autoresearch">autoresearch 的代码仓库</a>；<a href="https://www.cerebras.ai/blog/how-to-stop-your-autoresearch-loop-from-cheating">Cerebras，How to stop your autoresearch loop from cheating</a>（2026 年 3 月）</td></tr>
+        <tr><th scope="row">七</th><td><a href="https://arxiv.org/abs/2407.10930">Soylu 等，2024</a>（BetterTogether）</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>

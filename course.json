@@ -99,7 +99,8 @@
           "date": "10 月 21 日",
           "title": "优化",
           "summary": "优化 prompt 和上下文的方法、优化模型权重的方法、让 agent 自己做优化，以及该优化 prompt 还是权重。",
-          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture09.pdf"
+          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture09.pdf",
+          "dir": "lecture09"
         },
         {
           "n": 10,

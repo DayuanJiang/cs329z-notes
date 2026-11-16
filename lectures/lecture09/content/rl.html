@@ -1,0 +1,186 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>强化学习（reinforcement learning，简称 RL）让学生模型自己去做任务，做完之后由外部的检查给一个奖励，再更新权重，让得到奖励的做法更容易再次出现。前提是任务做没做成可以自动检查。</li>
+    <li>PPO 这种常用的算法，训练时内存里要放四个模型，其中两个要一起训练。GRPO 去掉了其中的价值模型：对同一个问题生成一组输出，拿组内的平均奖励当作比较的基准。</li>
+    <li>DeepSeek-R1 用 GRPO 加上按规则计算的奖励训练推理能力。按论文现在的版本，只做强化学习的那个模型在 AIME 2024 上的准确率从 15.6% 升到 77.9%。</li>
+    <li>on-policy 蒸馏让学生自己写，让教师给学生写下的每个 token 打分。它同时具备两个好处：数据来自学生自己，反馈细到每个 token。Qwen3 的一组对照里，它的成绩高于强化学习，用的 GPU 时间约是十分之一。它需要一个已经会做这件事的教师。</li>
+  </ul>
+</section>
+
+<section class="sec" id="rl-agents">
+  <h2>强化学习用在 agent 上</h2>
+  <p><a href="sft.html#limits">上一部分</a>的监督微调让学生照着教师的记录学，它是 fine-tuning（微调，在已有模型上用新数据继续训练、更新权重）的一种。强化学习不需要教师的记录，流程是一个循环。</p>
+  {{fig 81 | 右边是循环：agent 去做任务，得到运行轨迹；评估这些轨迹，得到奖励；按奖励更新权重，再去做任务。左边是四个要点。}}
+  <ul>
+    <li><b>让学生自己去做任务。</b>agent 是能自己调用工具、分很多步去完成任务的语言模型系统。把它在一个任务上从头到尾跑一次叫一次 rollout，留下的完整记录叫运行轨迹（trajectory）。训练数据由正在被训练的模型自己产生，这种情况叫 on-policy。</li>
+    <li><b>做成了就给奖励。</b>奖励（reward）是一个数，最简单的情况是做成了给 1，没做成给 0。</li>
+    <li><b>重点是变化环境和任务的难度。</b>任务太容易，每次都成功，学不到东西；太难，从不成功，也学不到东西。</li>
+    <li><b>能不能验证是关键。</b>奖励必须由程序自动算出来，而且要算得对。</li>
+  </ul>
+  {{fig 82 | 一次 rollout 的例子。任务是找出名字以 .example.com 结尾的文件，把命令的输出存进指定的文件。agent 发出命令，终端返回结果，agent 宣布完成。最下面是验证程序：把 agent 产出的文件和参考答案逐字节比较，完全一致，奖励是 1。}}
+  <p>图里的奖励只在最后出现一次，中间的每一步没有任何反馈。训练时，同一个任务要让学生跑很多次，这些次合成一组；很多组再合成一批，用来更新一次权重。为什么要成组，下面讲 GRPO 时会看到。</p>
+  <p>强化学习里把被训练的模型叫策略（policy）：它在每个局面下给各种下一步动作分配概率。对语言模型来说，一步动作就是写出一个 token（模型处理文字的最小单位，大致是一个词或半个词）。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>强化学习需要一个过得去的起点。</b>OpenThoughts-Agent 的论文在 Qwen3-8B 上试过：没有先做监督微调、直接做强化学习，成绩没有实质的提高，比如在 Terminal-Bench 2.0 上是 1.9%，没有训练的模型是 1.5%；先用 1 万条轨迹做监督微调再做强化学习，效果最好。论文的解释是，原始的 Qwen3-8B 在 agent 任务上做得太差，拿不到足够的奖励来学习。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>第 5 节。</div></div>
+</section>
+
+<section class="sec" id="ppo">
+  <h2>PPO：内存里要放四个模型</h2>
+  <p>只凭一个最后的奖励来更新权重，有一个基本的困难：一段输出有几千个 token，奖励只有一个，不知道功劳该算在哪些 token 头上。PPO（Proximal Policy Optimization，Schulman 等，2017）是解决这个问题的常用算法，在语言模型的强化学习阶段用得很广。下面的图来自提出 GRPO 的 DeepSeekMath 论文，上半部分是 PPO。</p>
+  {{fig 83 | 上：PPO。下：GRPO。黄色的框是要训练的模型，蓝色的框是冻结的模型。q 是问题，o 是策略模型生成的输出，r 是奖励，v 是价值，A 是优势。图片来源：<a href="https://arxiv.org/abs/2402.03300">Shao 等，2024</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col">做什么</th><th scope="col">是否训练</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">策略模型<br><span class="muted small">Policy Model</span></th><td>被训练的模型。读问题 q，生成输出 o</td><td>训练</td></tr>
+        <tr><th scope="row">参照模型<br><span class="muted small">Reference Model</span></th><td>通常是强化学习开始之前的那个模型。用来算 KL 散度：策略模型给每个 token 的概率和参照模型差多远。差得越远，罚得越多，这样策略不会离起点太远</td><td>冻结</td></tr>
+        <tr><th scope="row">打分模型<br><span class="muted small">Reward Model</span></th><td>给输出一个奖励</td><td>冻结</td></tr>
+        <tr><th scope="row">价值模型<br><span class="muted small">Value Model</span></th><td>对输出的每一个位置，预测「从这里往后，预期能拿到多少奖励」</td><td>训练</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>价值模型是用来解决「功劳算在谁头上」的。有了它，就可以算每个 token 的优势（advantage）：写下这个 token 之后，实际的结果比写之前的预期好了多少。优势是正的，就提高这个 token 的概率；是负的，就降低。图里的 GAE（Generalized Advantage Estimation）是算优势的一种具体办法，它把实际拿到的奖励和价值模型的预测按一定比例结合起来。</p>
+  {{fig 84 | 图上标出了每一步的粒度。策略模型生成一段输出。打分模型给整段输出一个奖励。参照模型给每个 token 一个 KL 值，加到奖励里。价值模型给每个 token 一个价值。GAE 把这些合成每个 token 的优势。}}
+  <p>PPO 的代价有三条。</p>
+  <ul>
+    <li><b>内存里要同时放四个模型。</b></li>
+    <li><b>每一步要训练两个模型。</b>策略模型和价值模型都要更新。DeepSeekMath 的论文指出，价值模型通常和策略模型一样大，这带来很大的内存和计算负担。</li>
+    <li><b>有好几样东西要逐个 token 地算。</b>KL 惩罚、价值、优势都是每个 token 一个数。奖励通常只在最后一个 token 上有。</li>
+  </ul>
+  <p>价值模型还有一个更根本的困难。DeepSeek-R1 的论文指出：只有最后的结果有奖励时，要从半截输出预测最后的奖励本来就很难。输出越长，模型越可能在后面推翻前面写的内容，半截输出就更说明不了最后的结果。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>PPO 名字里的「近端」指什么。</b>PPO 的目标函数不鼓励新策略离旧策略太远。做法是看「新策略给这个 token 的概率，是旧策略的多少倍」，计算目标时把这个倍数截断在 1 − ε 到 1 + ε 之间。倍数朝着有利的方向超出这个区间之后，目标不再增加，继续往这个方向改就没有好处。这个限制写在目标函数里，实际的倍数仍然可能超出区间。PPO 原论文举的 ε 是 0.2。GRPO 保留了这个做法。出处：<a href="https://arxiv.org/abs/1707.06347">Schulman 等，2017</a>。</div></div>
+</section>
+
+<section class="sec" id="grpo">
+  <h2>GRPO：用一组输出互相比</h2>
+  <p class="lead-in">GRPO（Group Relative Policy Optimization，Shao 等，2024）去掉了价值模型。它的办法是：<mark>对同一个问题生成一组输出，一个输出好不好，和同组的其他输出比</mark>。</p>
+  {{fig 88 | GRPO 的三步。策略模型对同一个问题生成一组输出 o<sub>1</sub> 到 o<sub>G</sub>。打分模型给每个输出一个奖励。「Group Computation」把一组奖励换算成每个输出的优势。参照模型仍然用来算每个 token 的 KL。}}
+  <p>优势的算法很简单：一个输出的奖励，减去这一组奖励的平均值，再除以这一组奖励的标准差。这在统计里叫 z 分数。这个输出里的每一个 token 都用这同一个优势。</p>
+  {{fig 92 | 优势的计算公式：每个输出的奖励减去组内平均，除以组内标准差。}}
+  <p>举一个例子。一组 4 个输出，奖励是 1、0、0、1。平均值是 0.5，标准差也是 0.5。两个做对的输出优势是正 1，两个做错的是负 1。训练会提高前两个输出里每个 token 的概率，降低后两个的。可以这样理解：如果一组输出全对或者全错，奖励都一样，每个输出减去平均值都是零，标准差也是零，公式里的除法算不出结果。常见的开源实现（比如 Hugging Face 的 <a href="https://github.com/huggingface/trl/blob/main/trl/trainer/grpo_trainer.py">TRL 库</a>）会在分母上加一个很小的正数，这样算出来的优势全是零，这个问题在这一步就提供不了学习信号。这也是前面说任务不能太容易也不能太难的原因。</p>
+  <p>和 PPO 相比，三条代价都变了。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">PPO</th><th scope="col">GRPO</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">内存里的模型</th><td>四个：策略、参照、打分、价值</td><td>三个：策略、参照、打分。其中「打分模型」可以是一段规则或一个检查程序，不必是模型</td></tr>
+        <tr><th scope="row">每一步要训练的模型</th><td>两个：策略和价值</td><td>一个：策略</td></tr>
+        <tr><th scope="row">比较的基准从哪来</th><td>价值模型的预测，每个 token 一个</td><td>同组输出的平均奖励，每个问题一个</td></tr>
+        <tr><th scope="row">奖励和优势的粒度</th><td>优势是每个 token 一个</td><td>奖励和优势都是每个输出一个</td></tr>
+        <tr><th scope="row">每个问题要生成几个输出</th><td>一个就可以</td><td>一组。DeepSeekMath 的实验是 64 个，DeepSeek-R1 是 16 个</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>把目标函数拆开看</h3>
+  <p>GRPO 训练时要让下面这个目标函数尽可能大。它看上去复杂，拆开来每一块的作用都很明确。</p>
+  {{fig 93 | GRPO 的目标函数，每一块用一种颜色标出，旁边是它的作用。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">公式里的哪一块</th><th scope="col">意思</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">最前面的期望 E</th><td>从数据集里取一个问题，用更新之前的策略为它采样一组输出</td></tr>
+        <tr><th scope="row">1/G 乘以对 i 求和</th><td>对组里的 G 个输出取平均</td></tr>
+        <tr><th scope="row">1/|o<sub>i</sub>| 乘以对 t 求和</th><td>对一个输出里的所有 token 取平均</td></tr>
+        <tr><th scope="row">两个 π 相除</th><td>新策略给这个 token 的概率，是旧策略的多少倍。提高这个倍数，就是让这个 token 更容易被写出来</td></tr>
+        <tr><th scope="row">Â</th><td>优势。它乘在倍数上：优势为正，目标鼓励提高这个 token 的概率；为负，鼓励降低</td></tr>
+        <tr><th scope="row">min 和 clip</th><td>计算目标时把倍数截断在 1 − ε 到 1 + ε 之间。倍数朝着有利的方向超出这个区间之后，目标不再增加，所以目标不鼓励在一个 token 上改得更多</td></tr>
+        <tr><th scope="row">减去 β 乘以 KL</th><td>策略离参照模型越远，目标越低。β 控制这一项的分量</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2402.03300">Shao 等，2024</a>的公式 3。</figcaption>
+  </figure>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「GRPO 里只有 KL 是逐个 token 算的」这个说法要细一点看。</b>按每个输出一个数来算的是奖励和优势，所以不再需要逐个 token 的价值估计。从上面的表可以看到，概率的倍数和它的截断仍然是对每个 token 算、再取平均的，KL 也是。DeepSeekMath 的论文还有一个变体，在每个推理步骤结束时给一次奖励，这时优势在不同的 token 上也不一样。</div></div>
+  <p>DeepSeekMath 论文里的实验：从一个已经做过监督微调的 7B（约 70 亿个参数）数学模型出发，用约 14.4 万道题做 GRPO。这次实验的奖励来自一个训练出来的打分模型。结果是 GSM8K 上的准确率从 82.9% 升到 88.2%，MATH 上从 46.8% 升到 51.7%。</p>
+</section>
+
+<section class="sec" id="r1">
+  <h2>实际的例子：DeepSeek-R1</h2>
+  <p>DeepSeek-R1 是用 GRPO 训练推理能力的一个有名的例子。它的训练过程交替使用了监督微调和强化学习。</p>
+  {{fig 94 | DeepSeek-R1 的训练过程。紫色是模型，深蓝色的小框是训练算法（RL 或 SFT），浅蓝色是训练用的问题和奖励，灰色是训练用的问答数据。最左边一列是只用强化学习训练的 R1-Zero。后面几列里，前一个模型生成的数据经过筛选和修改，成为下一个模型监督微调的数据，然后再做强化学习，最后得到 R1。图片来源：<a href="https://arxiv.org/abs/2501.12948">DeepSeek-AI，2025</a>。}}
+  <p>最左边的 R1-Zero 最能说明强化学习本身能做到什么。它从基础模型出发，没有任何监督微调。</p>
+  <ul>
+    <li><b>奖励按规则算，不用打分模型。</b>奖励有两部分。准确性：数学题要求把最后的答案按规定的格式写出来，程序直接核对；编程题用编译器跑事先准备的测试。格式：要求把推理过程放在规定的标记之间。论文说不用神经网络打分模型的原因是，大规模强化学习时它容易被钻空子（reward hacking，不完成任务本身，靠利用评分办法的漏洞拿到分数），而且重新训练它要花很多计算。</li>
+    <li><b>规模。</b>每个问题采样 16 个输出，每步 32 个问题，一共 10,400 步。每 400 步，把参照模型换成最新的策略模型。</li>
+    <li><b>结果。</b>在数学竞赛题 AIME 2024 上，只尝试一次的平均准确率从 15.6% 升到 77.9%。对多次采样的答案取多数之后是 86.7%。</li>
+  </ul>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这个数有两个版本。</b>2025 年 1 月的第一版论文写的是从 15.6% 升到 71.0%，很多地方引用的是这个数。2026 年 1 月更新的版本篇幅长得多，带有补充材料，写的是 77.9%。取多数之后的 86.7% 在两个版本里相同。两个版本为什么不同，没有在原文里核对到。</div></div>
+  <h3>GRPO 和 PPO 比，效果怎么样</h3>
+  <p>GRPO 省掉了价值模型，那么最终的效果和 PPO 比如何？DeepSeek-R1 的论文里有一组直接的对照。</p>
+  {{fig 95 | 数学数据集 MATH 上，准确率随训练步数的变化。绿线是 GRPO，两条蓝线是 PPO 在 λ 这个参数取 0.95 和 1.0 时的结果。图片来源：<a href="https://arxiv.org/abs/2501.12948">DeepSeek-AI，2025</a>的补充材料。}}
+  <p>这张图来自 DeepSeek-R1 论文更新后的版本。实验是在一个较小的模型（DeepSeek-Coder-V2-Lite）上做的，没有用 R1 本身。λ 是 GAE 里的一个参数，决定算优势时多大程度上依赖价值模型的预测。从图上读，训练结束时 GRPO 约 0.555，λ 取 1.0 的 PPO 约 0.536，λ 取 0.95 的 PPO 约 0.50。</p>
+  <p>论文的结论分两层。λ 用多数开源实现的默认值 0.95 时，PPO 明显差于 GRPO。把 λ 仔细调到 1.0 之后，PPO 接近 GRPO。所以 GRPO 的主要好处是省事和省资源：不用调 λ，不用训练和存放一个价值模型。它在最终效果上的领先很小。</p>
+</section>
+
+<section class="sec" id="opd">
+  <h2>on-policy 蒸馏：让教师给学生的每个 token 打分</h2>
+  <p>蒸馏（distillation）指让一个学生模型学习一个教师模型的行为。<a href="sft.html#agents">第四部分</a>里用教师的轨迹做监督微调，就是一种蒸馏，因为数据来自教师，叫 off-policy 蒸馏。on-policy 蒸馏把数据的来源换成学生自己。Thinking Machines Lab 2025 年 10 月的一篇文章把三种方法放在一起比较。</p>
+  {{fig 98 | 同一个问题「5 + (2 × 3) 等于几」上的三种训练方式。第一行是监督微调：轨迹是教师写的，每个 token 下面是学生给它的概率，学生朝着提高这些概率的方向更新。第二行是强化学习：轨迹是学生自己写的，它先算了 5 + 2，答案是 21，整条轨迹只得到一个奖励 0。第三行是 on-policy 蒸馏：轨迹同样是学生写的，每个 token 下面是教师给它的概率，颜色越深表示教师越不认同。图上的概率很可能是为了说明而写的数，文章没有说它们来自实测。图片来源：<a href="https://thinkingmachines.ai/blog/on-policy-distillation/">Thinking Machines Lab</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方法</th><th scope="col">轨迹是谁写的</th><th scope="col">反馈有多细</th><th scope="col">弱点</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">监督微调</th><td>教师<br><span class="muted small">off-policy</span></td><td>每个 token 都有<br><span class="muted small">dense</span></td><td>学生学的是教师会遇到的局面。学生自己犯了教师不会犯的错之后，就进入训练里没见过的局面，之后离训练时见过的局面越来越远</td></tr>
+        <tr><th scope="row">强化学习</th><td>学生自己<br><span class="muted small">on-policy</span></td><td>整条轨迹一个奖励<br><span class="muted small">sparse</span></td><td>不管轨迹多长，一次只得到很少的信息，也不知道是哪一步出的错</td></tr>
+        <tr><th scope="row">on-policy 蒸馏</th><td>学生自己<br><span class="muted small">on-policy</span></td><td>每个 token 都有<br><span class="muted small">dense</span></td><td>需要一个教师，而且要能拿到教师给每个 token 的概率</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://thinkingmachines.ai/blog/on-policy-distillation/">Thinking Machines Lab 的文章</a>。</figcaption>
+  </figure>
+  <p>上面图里的第三行说明了它是怎么工作的。学生写的是「5 + 2 is 7, and 7 × 3 is 21」。教师在读到「5 +」之后，认为下一个 token 是「2」的可能只有 5%，因为应该先算括号里的。教师对后面「is」的认同度也很低。而「7」「21」这些 token，在前面已经写错的前提下是顺理成章的，教师给的概率很高。所以反馈准确地指向了出错的那一步。</p>
+  {{fig 97 | 一个下棋软件的截图：分析引擎给棋手自己走的每一步评了等级。}}
+  <p>文章举了学下国际象棋的例子，三种学法得到的反馈各不相同。</p>
+  <ul>
+    <li><b>自己下棋，没有教练。</b>局面是自己走出来的，但每盘只在结束时知道输赢，不知道哪几步起了决定作用。强化学习得到的就是这一种反馈。</li>
+    <li><b>看高手下棋。</b>看到的每一步都是好棋，但那些局面新手自己很少走得到。监督微调用的就是这一种数据。</li>
+    <li><b>请教练给自己下过的每一步评分。</b>局面是自己走出来的，每一步又都有评价。上面的截图就是这种情形，on-policy 蒸馏得到的就是这一种反馈。</li>
+  </ul>
+  <h3>损失函数</h3>
+  <p>on-policy 蒸馏的训练目标可以写成一个公式。</p>
+  {{fig 100 | on-policy 蒸馏的损失。红框：对学生自己采样出来的回答取期望。蓝框：每个 token 上，学生给它的对数概率减去教师给它的对数概率。}}
+  <p>这个量是学生的分布相对于教师的分布的 KL 散度。KL 散度量的是两个概率分布差多远，两者相同时是零。训练的目标是让它变小：在学生自己走到的每一个局面里，都让学生的下一步接近教师会做的选择。</p>
+  <p>实现上，它可以直接借用强化学习的代码：把每个 token 的优势设成这个差值的相反数。文章说，在已经带 KL 惩罚的强化学习实现上，这只是一行的改动。它也比强化学习省：不需要等一次 rollout 跑完才能算奖励，可以用不完整的 rollout；教师只需要做一次前向计算，生成由更小、更便宜的学生来做；也不需要另外的打分模型。</p>
+  {{fig 101 | 一个真实的例子。题目问：往煎锅里放冰块，第三分钟结束时锅里有几块完整的冰块。正确答案是 0，因为冰块在煎锅里会化掉。学生把它当成纯算术题，答了 20。颜色越深的 token，教师给的惩罚越重。图片来源：<a href="https://thinkingmachines.ai/blog/on-policy-distillation/">Thinking Machines Lab</a>。}}
+  <p>这个例子里，学生是 Qwen3-4B，教师是 Qwen3-235B，教师自己能答对这道题。被重罚的是那些把学生引向错误方向的短语开头的 token。最后那个错误的答案几乎没有被罚，因为在前面的推理已经写成那样之后，这个答案完全在预料之中。</p>
+  <h3>效果</h3>
+  <p>on-policy 蒸馏已经用在实际的模型上。Qwen3 系列里，大的旗舰模型走的是四个阶段的训练，其中两个阶段是强化学习；小的模型用的是从大模型蒸馏。</p>
+  {{fig 102 | Qwen3 系列的训练流程。上半部分是旗舰模型的四个阶段。下半部分是轻量模型：以旗舰模型为教师做「从强到弱的蒸馏」。图片来源：<a href="https://arxiv.org/abs/2505.09388">Qwen3 技术报告</a>。}}
+  <p>「从强到弱的蒸馏」分两步：先做 off-policy 蒸馏，用教师的输出训练学生；再做 on-policy 蒸馏，让学生自己生成，再对齐教师的输出分布。Qwen3 的技术报告在 8B 的模型上做了一个对照：从同一个做完第一步的模型出发，一路接着做强化学习，另一路接着做 on-policy 蒸馏。</p>
+  {{fig 103 | 对照的结果。第一行是出发点。后两行是从它出发的两种后续训练，二选一。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">训练方式</th><th scope="col" class="r">AIME'24</th><th scope="col" class="r">GPQA-Diamond</th><th scope="col" class="r">用的 GPU 小时</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">只做 off-policy 蒸馏（出发点）</th><td class="r">55.0%</td><td class="r">55.6%</td><td class="r">没有报告</td></tr>
+        <tr><th scope="row">接着做强化学习</th><td class="r">67.6%</td><td class="r">61.3%</td><td class="r">17,920</td></tr>
+        <tr><th scope="row">接着做 on-policy 蒸馏</th><td class="r">74.4%</td><td class="r">63.3%</td><td class="r">1,800</td></tr>
+      </tbody>
+    </table>
+    <figcaption>学生是 Qwen3-8B，名字里的 8B 指模型有约 80 亿个参数。GPU 小时是把每块 GPU 运行的小时数加在一起的总数。AIME'24 是一项数学竞赛 2024 年的题，GPQA-Diamond 是一组研究生水平的理科选择题。出处：<a href="https://arxiv.org/abs/2505.09388">Qwen3 技术报告</a>的表 21。这一组对照具体用的是哪个教师，报告里没有在表旁边写明。</figcaption>
+  </figure>
+  <p>on-policy 蒸馏的两项成绩都更高，用的 GPU 时间约是强化学习的十分之一。Thinking Machines Lab 的文章自己也做了一次：一个监督微调到 AIME'24 上 60% 的 8B 模型，再做约 150 步 on-policy 蒸馏，升到 70%。文章估计，只靠监督微调达到同样的成绩需要 5 倍的数据，on-policy 蒸馏的计算花费是它的 9 分之一到 30 分之一。这个估计里的「5 倍数据」是按趋势外推的，没有实际训练。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「on-policy 蒸馏比强化学习又好又省」有前提。</b>
+    <ul>
+      <li><b>得有一个已经会做这件事的教师。</b>上面的对照里，教师是更大的 Qwen3 模型，而这些大模型自己是经过强化学习训练出来的。训练目标的最优点是学生和教师的行为一致，所以这个方法本身的目标是追上教师。</li>
+      <li><b>要能拿到教师给每个 token 的概率。</b>只返回文字的 API 模型当不了这种教师。</li>
+      <li><b>学生要有合适的起点。</b>文章指出，如果学生完全不具备相关的知识，它生成教师想要的 token 的概率一开始就是零。这时要先用监督微调把知识教进去。</li>
+    </ul>
+    文章对两者关系的说法是：强化学习把大部分计算花在搜索上，也就是试各种做法、看哪种能成；一旦找到了好的做法，用蒸馏来学会它要省得多。出处：<a href="https://thinkingmachines.ai/blog/on-policy-distillation/">Thinking Machines Lab 的文章</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>另一个用处：找回微调时丢掉的能力。</b>文章的第二个实验是让一个 8B 的模型学会公司内部文档里的知识。直接在文档上训练之后，内部知识问答的成绩从 18% 升到 43%，但遵循指令的评测成绩从 85% 掉到 45%。混入 30% 的普通对话数据能缓解，成绩是 36% 和 79%。在这之后，用训练之前的那个模型当教师做一轮 on-policy 蒸馏，两项成绩变成 41% 和 83%。教师在这里的作用是把学生原有的行为找回来。出处：<a href="https://thinkingmachines.ai/blog/on-policy-distillation/">Thinking Machines Lab 的文章</a>。</div></div>
+</section>
+
+<section class="sec" id="summary">
+  <h2>权重优化的小结</h2>
+  <p>第四、第五部分的三种方法，可以按「轨迹从哪来」和「学习信号是什么」放进一张表。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方法</th><th scope="col">轨迹从哪来</th><th scope="col">学习信号</th><th scope="col">训练目标</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">监督微调</th><td>事先收集的示范，通常来自教师</td><td>示范里的每个 token 和动作</td><td>让模型复现示范的可能性最大</td></tr>
+        <tr><th scope="row">强化学习</th><td>学生自己生成</td><td>任务的奖励</td><td>让预期的奖励最大</td></tr>
+        <tr><th scope="row">on-policy 蒸馏</th><td>学生自己生成</td><td>在学生写出的每一段上文之后，教师给下一个 token 的概率</td><td>在学生自己生成的轨迹上，让学生和教师的差距最小</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>实际的训练流程经常把三者接起来用：先用监督微调给一个起点，再用强化学习在能自动验证的任务上继续提高，训练小模型时用蒸馏代替强化学习。DeepSeek-R1 和 Qwen3 的流程都是这样的组合。</p>
+  <p>到这里为止，优化的算法都是人设计好的固定流程。下一部分讲<a href="agents.html">把优化本身交给一个 agent</a>。</p>
+</section>
