@@ -36,7 +36,8 @@
           "title": "检索增强生成（RAG）",
           "summary": "检索为什么有用；从建索引、检索、重排到生成的整条流程；agentic RAG；常见的失败方式。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture03.pdf",
-          "video": "https://youtu.be/psLc-46GqY0"
+          "video": "https://youtu.be/psLc-46GqY0",
+          "dir": "lecture03"
         },
         {
           "n": 4,
