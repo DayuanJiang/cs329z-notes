@@ -109,8 +109,8 @@ def build_lecture(src):
     for slug, page in meta["pages"].items():
         raw = (src / "content" / f"{slug}.html").read_text()
         content = expand_slides(add_section_heads(raw), src / "img")
-        if page.get("credit"):
-            content += f'\n<p class="muted small credit">{page["credit"]}</p>'
+        if meta.get("credit"):
+            content += f'\n<p class="muted small credit">{meta["credit"]}</p>'
         toc = "".join(f'<li><a href="#{m[1]}"><span>{strip_tags(m[3])}</span></a></li>' for m in SEC_RE.finditer(raw))
         body = (f'{topbar(meta["brand"], meta["nav"], slug, "../index.html")}\n{hero(page)}\n'
                 f'<div class="wrap"><nav class="toc" aria-label="本页目录"><div class="toc-title">本页内容</div><ol>{toc}</ol></nav>\n'
@@ -126,9 +126,9 @@ def build_home():
     for i, mod in enumerate(course["modules"], 1):
         rows = []
         for lec in mod["lectures"]:
-            links = f'<a href="{lec["slides"]}">讲义 PDF</a>'
+            links = f'<a href="{lec["slides"]}">课程 PDF</a>'
             if lec.get("video"):
-                links += f'，<a href="{lec["video"]}">课堂视频</a>'
+                links += f'，<a href="{lec["video"]}">课程视频</a>'
             text = f'<b>{lec["title"]}</b><p>{lec["summary"]}</p><p class="small">原始材料：{links}</p>'
             label = f'第 {lec["n"]} 讲 · {lec["date"]}'
             if lec.get("dir"):

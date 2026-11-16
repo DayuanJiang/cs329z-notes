@@ -4,13 +4,13 @@
     <li>十二个基准测试里，最早的是 2018 年的文字游戏，最新的是 2026 年的机器学习研究任务。它们的环境有模拟的也有真实的，问题描述有写明一切的也有只给目标的，各自的组合不同。</li>
     <li>评分办法大多是检查最后的结果：跑测试，或者看环境的最终状态。少数用连续的分数，或者和对手、和人比。</li>
     <li>其中几个在发布的时候，最好的系统成功率很低：SWE-bench 是 1.96%，OSWorld 是 12.24%，WebArena 是 14.41%。也有发布时就不低的，Terminal-Bench 2.0 是 63%。</li>
-    <li>后来的研究在其中几个基准测试的评分办法里查出了问题，分数有被高估的，也有被低估的。讲义的案例介绍里没有提这些。</li>
+    <li>后来的研究在其中几个基准测试的评分办法里查出了问题，分数有被高估的，也有被低估的。</li>
   </ul>
 </section>
 
-<section class="sec" id="formulation" data-p="39-50">
+<section class="sec" id="formulation">
   <h2>任务定义：问题描述、环境、验证</h2>
-  <p>讲义每个案例只有一句话和一张论文里的图。下面按<a href="anatomy.html#two">第二部分</a>的三样，把每个基准测试的论文原文里的说法填进去。顺序和讲义一致。</p>
+  <p>下面按<a href="anatomy.html#two">第二部分</a>的三样，列出每个基准测试的论文原文里的说法。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">基准测试</th><th scope="col">问题描述：要 agent 做什么</th><th scope="col">环境：在哪里做</th><th scope="col">验证：怎么评分</th></tr></thead>
@@ -29,23 +29,23 @@
         <tr><th scope="row"><a href="https://arxiv.org/abs/2602.06855">AIRS-Bench</a><br><span class="muted small">2026</span></th><td>给一个研究问题、一个数据集和一个指标，从零写代码训练模型，交出对测试集的预测</td><td>一个容器，数据已经下载好，有一块 GPU，每次运行 24 小时</td><td>用任务自己的指标在隐藏的测试标签上算分，再和文献里人类的最好成绩比，折算成一个相对的分数</td></tr>
       </tbody>
     </table>
-    <figcaption>例子和细节来自各自的论文。年份是讲义引用时标的年份。</figcaption>
+    <figcaption>例子和细节来自各自的论文。</figcaption>
   </figure>
 </section>
 
-<section class="sec" id="slides" data-p="39-50">
-  <h2>讲义的十二页原图</h2>
-  {{slides 39 40 | 左：TextWorld。左下是一段游戏过程，agent 输入「打开冰箱」「拿胡萝卜」「向东走」，游戏返回文字。右：ALFWorld。同一个任务在文字游戏和 3D 模拟器里各做一遍。}}
-  {{slides 41 42 | 左：WebShop。agent 在搜索页、结果页、商品页之间跳转，选好颜色后点购买，得到一个 0 到 1 的分数。右：SWE-bench。issue 和代码库交给语言模型，生成一个补丁，再看单元测试在打补丁前后的变化。}}
-  {{slides 43 44 | 左：WebArena。图里的任务要先在维基百科上查匹兹堡的美术馆，在地图上规划路线，再把结果写进 GitLab 仓库的说明文件。右：τ-bench。agent 一边调用工具，一边和模拟的用户对话，还要遵守写在 prompt 里的规定。}}
-  {{slides 45 46 | 左：Terminal-Bench。交给 agent 的只有任务说明和容器，测试和参考答案不给它看。右：OSWorld。表里每一行是一个任务的初始状态、任务说明和评分脚本。}}
-  {{slides 47 48 | 左：CodeClash。每一轮先改代码，再比赛，日志留给下一轮。表里是八个模型在六种游戏上的 Elo 分。右：BrowseComp。三个例题和题目的主题分布。}}
-  {{slides 49 50 | 左：Vending-Bench。主 agent 通过工具发邮件、查库存，补货这类动作交给一个子 agent 去做。右：AIRS-Bench。一个任务由问题、数据集、指标三样定义，agent 交出的预测由评分脚本和人类的最好成绩比较。}}
+<section class="sec" id="slides">
+  <h2>十二个基准测试的图</h2>
+  {{figs 39 40 | 左：TextWorld。左下是一段游戏过程，agent 输入「打开冰箱」「拿胡萝卜」「向东走」，游戏返回文字。右：ALFWorld。同一个任务在文字游戏和 3D 模拟器里各做一遍。}}
+  {{figs 41 42 | 左：WebShop。agent 在搜索页、结果页、商品页之间跳转，选好颜色后点购买，得到一个 0 到 1 的分数。右：SWE-bench。issue 和代码库交给语言模型，生成一个补丁，再看单元测试在打补丁前后的变化。}}
+  {{figs 43 44 | 左：WebArena。图里的任务要先在维基百科上查匹兹堡的美术馆，在地图上规划路线，再把结果写进 GitLab 仓库的说明文件。右：τ-bench。agent 一边调用工具，一边和模拟的用户对话，还要遵守写在 prompt 里的规定。}}
+  {{figs 45 46 | 左：Terminal-Bench。交给 agent 的只有任务说明和容器，测试和参考答案不给它看。右：OSWorld。表里每一行是一个任务的初始状态、任务说明和评分脚本。}}
+  {{figs 47 48 | 左：CodeClash。每一轮先改代码，再比赛，日志留给下一轮。表里是八个模型在六种游戏上的 Elo 分。右：BrowseComp。三个例题和题目的主题分布。}}
+  {{figs 49 50 | 左：Vending-Bench。主 agent 通过工具发邮件、查库存，补货这类动作交给一个子 agent 去做。右：AIRS-Bench。一个任务由问题、数据集、指标三样定义，agent 交出的预测由评分脚本和人类的最好成绩比较。}}
 </section>
 
 <section class="sec" id="protocol">
   <h2>评估协议和发布时的成绩</h2>
-  <p>讲义的案例页没有写评估协议。下面是各篇论文自己实验时用的设置。没有找到的格子，写的是「论文里没有找到」，意思是我读过的章节里没有。</p>
+  <p>下面是各篇论文自己实验时用的设置。没有找到的格子，写的是「论文里没有找到」，意思是查阅过的章节里没有。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">基准测试</th><th scope="col">任务数</th><th scope="col">每个任务跑几次</th><th scope="col">什么时候停</th><th scope="col">用谁的运行框架</th></tr></thead>
@@ -87,7 +87,7 @@
     </table>
     <figcaption>来自各自的论文。这些是论文发表时的数，现在的系统在其中多数基准测试上已经高得多。</figcaption>
   </figure>
-  <p>对照<a href="anatomy.html#protocol">第二部分的五个问题</a>看第一张表，有两点值得注意。这两点是我的观察。</p>
+  <p>对照<a href="anatomy.html#protocol">第二部分的五个问题</a>看第一张表，有两点值得注意。</p>
   <ul>
     <li><b>早期的论文很少把协议写全。</b>WebArena 和 OSWorld 的论文里找不到每个任务跑几次。到 2026 年的 Terminal-Bench，论文同时报告了成功率的 95% 置信区间（一种误差范围，解释见<a href="trust.html#transparent">第五部分</a>）、花费、token 数和轮数。</li>
     <li><b>运行框架固定不固定，各家的选择不同。</b>CodeClash 和 Vending-Bench 固定运行框架，比的是模型。Terminal-Bench 和 BrowseComp 不规定，比的是「模型加运行框架」的整体。读分数时要先弄清比的是哪一种。</li>
@@ -95,29 +95,29 @@
 </section>
 
 <section class="sec" id="notes">
-  <h2>讲义的一句话需要补充的地方</h2>
-  <p>对照论文原文，讲义的概括大体准确。下面八处需要加条件或补信息。</p>
+  <h2>几个容易说错的细节</h2>
+  <p>这些基准测试常被一句话概括。下面八处，一句话的说法需要加条件或补信息。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">基准测试</th><th scope="col">讲义的说法</th><th scope="col">论文原文补充了什么</th></tr></thead>
+      <thead><tr><th scope="col">基准测试</th><th scope="col">常见的简化说法</th><th scope="col">论文原文怎么说</th></tr></thead>
       <tbody>
-        <tr><th scope="row">τ-bench<br><span class="muted small">第 44、36 页</span></th><td>按最终的数据库状态评分</td><td>评分是两项相乘：数据库的最终状态要对，agent 回复用户的话里还要有必须告知的信息。论文自己也说，拿到满分的一次对话仍然可能违反了规定，比如没等用户明确同意就办了退货</td></tr>
-        <tr><th scope="row">OSWorld<br><span class="muted small">第 46、36 页</span></th><td>看截图来操作；评分属于通过或不通过一类</td><td>截图是四种输入方式里的一种。发布时最好的 12.24%，是 GPT-4 只读无障碍树（操作系统提供给读屏软件的界面元素清单，是文字）得到的；只看截图的成绩是 5.26% 到 5.80%。评分可以是小于 1 的小数，表示部分完成</td></tr>
-        <tr><th scope="row">Terminal-Bench<br><span class="muted small">第 45 页</span></th><td>89 个来自真实工作流程的难任务，完全在终端里完成</td><td>89 个任务指的是 2.0 版，现在的排行榜已经是 4.0 版，任务数不同。论文的说法是任务「受真实工作流程里的问题启发」。论文还明确说，虽然名字里有终端，但并不要求 agent 只用终端，它可以用任何方式操作容器</td></tr>
-        <tr><th scope="row">SWE-bench<br><span class="muted small">第 35 页</span></th><td>环境是 Docker 容器，手里有真实的仓库和工具</td><td>这是现在用 agent 跑 SWE-bench 时的样子。2023 年的论文里，模型没有工具，也不和环境交互：它拿到 issue 和检索出来的文件，一次写出补丁。论文搭测试环境用的是 conda（一种管理 Python 环境的工具），全文没有出现 Docker</td></tr>
-        <tr><th scope="row">WebArena<br><span class="muted small">第 43、36 页</span></th><td>真实网站的副本；按结果评分，归在「检查状态」一类</td><td>网站是作者用开源软件自己搭的，再导入抽样的真实数据。查信息的那部分任务，评的是文字答案对不对，其中一种比对办法是让 GPT-4 判断意思是否相同</td></tr>
-        <tr><th scope="row">TextWorld<br><span class="muted small">第 36 页</span></th><td>按游戏得分评分，属于连续分数一类</td><td>只有人写的那 50 个老游戏是按游戏得分算的。自动生成的游戏只在通关时给奖励</td></tr>
-        <tr><th scope="row">Vending-Bench<br><span class="muted small">第 49 页</span></th><td>经营很多天，按最后的净资产评分</td><td>运行的长度是按消息条数封顶的，所以不同的模型经营的天数不一样。人的基线只有一个人。净资产里没卖出的货按进价算，所以论文同时报告了卖出的件数</td></tr>
-        <tr><th scope="row">AIRS-Bench<br><span class="muted small">第 50 页</span></th><td>20 个任务，和人类的最好成绩比</td><td>这 20 个是从大约 100 个任务里挑出来的。折算时，人类的最好成绩记为 100%，所有被测 agent 里最差的一次记为 0，所以分数也和「一起参加评测的有谁」有关</td></tr>
+        <tr><th scope="row">τ-bench</th><td>按最终的数据库状态评分</td><td>评分是两项相乘：数据库的最终状态要对，agent 回复用户的话里还要有必须告知的信息。论文自己也说，拿到满分的一次对话仍然可能违反了规定，比如没等用户明确同意就办了退货</td></tr>
+        <tr><th scope="row">OSWorld</th><td>看截图来操作；评分属于通过或不通过一类</td><td>截图是四种输入方式里的一种。发布时最好的 12.24%，是 GPT-4 只读无障碍树（操作系统提供给读屏软件的界面元素清单，是文字）得到的；只看截图的成绩是 5.26% 到 5.80%。评分可以是小于 1 的小数，表示部分完成</td></tr>
+        <tr><th scope="row">Terminal-Bench</th><td>89 个来自真实工作流程的难任务，完全在终端里完成</td><td>89 个任务指的是 2.0 版，现在的排行榜已经是 4.0 版，任务数不同。论文的说法是任务「受真实工作流程里的问题启发」。论文还明确说，虽然名字里有终端，但并不要求 agent 只用终端，它可以用任何方式操作容器</td></tr>
+        <tr><th scope="row">SWE-bench</th><td>环境是 Docker 容器，手里有真实的仓库和工具</td><td>这是现在用 agent 跑 SWE-bench 时的样子。2023 年的论文里，模型没有工具，也不和环境交互：它拿到 issue 和检索出来的文件，一次写出补丁。论文搭测试环境用的是 conda（一种管理 Python 环境的工具），全文没有出现 Docker</td></tr>
+        <tr><th scope="row">WebArena</th><td>真实网站的副本；按结果评分，归在「检查状态」一类</td><td>网站是作者用开源软件自己搭的，再导入抽样的真实数据。查信息的那部分任务，评的是文字答案对不对，其中一种比对办法是让 GPT-4 判断意思是否相同</td></tr>
+        <tr><th scope="row">TextWorld</th><td>按游戏得分评分，属于连续分数一类</td><td>只有人写的那 50 个老游戏是按游戏得分算的。自动生成的游戏只在通关时给奖励</td></tr>
+        <tr><th scope="row">Vending-Bench</th><td>经营很多天，按最后的净资产评分</td><td>运行的长度是按消息条数封顶的，所以不同的模型经营的天数不一样。人的基线只有一个人。净资产里没卖出的货按进价算，所以论文同时报告了卖出的件数</td></tr>
+        <tr><th scope="row">AIRS-Bench</th><td>20 个任务，和人类的最好成绩比</td><td>这 20 个是从大约 100 个任务里挑出来的。折算时，人类的最好成绩记为 100%，所有被测 agent 里最差的一次记为 0，所以分数也和「一起参加评测的有谁」有关</td></tr>
       </tbody>
     </table>
-    <figcaption>右列来自各自的论文。讲义第 34 页上 WebShop、SWE-bench、CodeClash 三句带引号的例子，在论文正文里没有找到原话。SWE-bench 那一句看上去是数据集里一道真实题目的标题，另外两句可以当作讲者举的示意。</figcaption>
+    <figcaption>右列来自各自的论文。</figcaption>
   </figure>
 </section>
 
 <section class="sec" id="flaws">
-  <h2>讲义之外：后来在这些基准测试里查出的问题</h2>
-  <p>课程给这一讲指定的必读论文是 Zhu 等人 2025 年的《Establishing Best Practices for Building Rigorous Agentic Benchmarks》。他们挑了 10 个常用的 agent 基准测试逐项检查，其中四个是讲义的案例或案例的后续版本。</p>
+  <h2>后来在这些基准测试里查出的问题</h2>
+  <p>Zhu 等人 2025 年的论文《Establishing Best Practices for Building Rigorous Agentic Benchmarks》挑了 10 个常用的 agent 基准测试逐项检查，其中四个是这一讲的案例或案例的后续版本。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">基准测试</th><th scope="col">查出的问题</th><th scope="col">分数往哪边偏，偏多少</th></tr></thead>
@@ -136,7 +136,7 @@
     <li><b>任务有效性（task validity）。</b>一个任务，应该在 agent 具备目标能力时才做得成，而且具备能力时一定做得成。有捷径可走，或者任务本身做不到，都算违反。</li>
     <li><b>结果有效性（outcome validity）。</b>任务做成了就应该判通过，没做成就应该判不通过。把错的判成对的，或者把对的判成错的，都算违反。</li>
   </ul>
-  <p>对照<a href="anatomy.html#two">第二部分</a>的拆法，任务有效性主要和问题描述、环境有关，结果有效性和验证有关。这个对应是我做的。论文自己的归类也不完全一致：τ-bench 里什么都不做也能通过的那个问题，引言把它当作任务有效性的例子，后面的章节又把它记在结果有效性的检查项下面。</p>
+  <p>对照<a href="anatomy.html#two">第二部分</a>的拆法，任务有效性主要和问题描述、环境有关，结果有效性和验证有关。论文自己的归类也不完全一致：τ-bench 里什么都不做也能通过的那个问题，引言把它当作任务有效性的例子，后面的章节又把它记在结果有效性的检查项下面。</p>
   <p>他们检查的 10 个基准测试里，7 个在结果有效性上有问题，7 个在任务有效性上有问题。论文说，这些问题会让 agent 的成绩被高估或低估，相对幅度最高可达 100%。</p>
   <h3>出题的人自己做过哪些检查</h3>
   <p>这些论文的作者自己也检查过评分，并写下了它的局限。下面几处来自各篇论文。</p>
@@ -146,12 +146,11 @@
     <li><b>BrowseComp。</b>作者在评测过程中发现 21 道题的参考答案有问题，或者答案的格式和题目要求的对不上，这些题被删掉了。论文也承认，不能保证每道题只有参考答案这一个正确答案。</li>
     <li><b>Terminal-Bench。</b>每个任务平均经过大约三小时的人工审查。检查项里包括：让一个什么都不做的 agent 去跑，它必须不通过；让一个专门找漏洞的 agent 去跑，看能不能作弊通过。论文的结论里仍然写着，验证这些任务的正确性极其困难。</li>
   </ul>
-  <p>Terminal-Bench 做的第一项检查，就是 Zhu 等人建议所有基准测试都报告的那一项。如果 τ-bench 发布前也让一个什么都不做的 agent 跑一遍，38% 这个数当时就会被看到。后一句是我的推断。</p>
+  <p>Terminal-Bench 做的第一项检查，就是 Zhu 等人建议所有基准测试都报告的那一项。如果 τ-bench 发布前也让一个什么都不做的 agent 跑一遍，38% 这个数很可能当时就会被看到。</p>
 </section>
 
 <section class="sec" id="patterns">
   <h2>把十二个案例放在一起看</h2>
-  <p>下面三点是我对着上面几张表做的归纳，讲义没有这一节。</p>
   <ul>
     <li><b>两条轴上的各种位置都有人做。</b>环境有文字游戏、模拟的网店、自己搭的网站、完整的操作系统和真实的互联网。问题描述有写明所有条件的购物要求、真实的 bug 报告和只有一个目标的比赛。新的基准测试并不都更真实：2025 年的 Vending-Bench 用的仍然是模拟环境。</li>
     <li><b>越真实，评分越难做对。</b>上一节查出的问题集中在三处：文字匹配、语言模型评审、依赖外部网站。用测试来评分的也没有幸免，SWE-bench Verified 就是例子。</li>
