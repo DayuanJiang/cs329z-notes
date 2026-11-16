@@ -1,0 +1,114 @@
+<section class="sec" id="thesis">
+  <h2>一句话的结论</h2>
+  <p class="lead-in">搭一个 agent 系统要做三组设计决定：<mark>控制流在谁手里，模型怎样推理和行动，每次调用模型时上下文里放什么</mark>。每一组都有几种现成的设计模式。模式给的只是大致的解法，真实的系统是把几种模式组合起来，再按自己的情况改出来的。</p>
+  <p>这里的 agent，指能自己决定下一步调用什么工具、分很多步去完成任务的语言模型系统。包在模型外面、给它工具并管理多轮对话的程序叫运行框架（harness，也叫 scaffold）。这一讲讲的就是设计运行框架时有哪些现成的思路可以用。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">要决定的事</th><th scope="col">现成的模式</th><th scope="col">今天的情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">控制流在谁手里</th><td>写在程序里的叫 workflow，有五种常见的模式：prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。交给模型的叫 agent</td><td>两种都在用，真实的系统常常是两者的组合。能用简单的做法解决，就不上复杂的</td><td><a href="control.html">一</a>、<a href="workflows.html">二</a>、<a href="compose.html">三</a></td></tr>
+        <tr><th scope="row">模型怎样推理和行动</th><td>ReAct（行动前先推理）、Reflexion（从失败里反思）、CodeAct（用代码当动作）、ReWOO 和 LLMCompiler（先计划再执行）</td><td>ReAct 是大多数 agent 的主循环。反思并进了模型自己的推理。后两种变成了代码生成和并行的工具调用</td><td><a href="reasoning.html">四</a>、<a href="acting.html">五</a></td></tr>
+        <tr><th scope="row">上下文里放什么</th><td>事件日志、把信息存到记忆里、compaction（把旧的历史压缩成摘要）、屏蔽旧的观察结果、上下文隔离</td><td>互相兼容，一个系统里常常同时用好几种</td><td><a href="context.html">六</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>英文的模式名在各自的页面里解释。<a href="pi.html">第七部分</a>用 Pi 这个运行框架，看三组决定在一个真实的产品里是怎样取舍的。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="story">
+  <h2>七个问题</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="control.html">一 设计模式是什么，<br>控制流在谁手里？</a></th><td>模式是对常见解法的总结，用的时候要自己补完。控制流写在程序里的是 workflow，好预测；交给模型的是 agent，更灵活</td><td>同是处理客服工单：分类、查规定、自动回信是 workflow；查清问题并解决掉，需要 agent</td></tr>
+        <tr><th scope="row"><a href="workflows.html">二 workflow 有哪些<br>现成的搭法？</a></th><td>五种模式。区别在于分几路、每路做什么是程序定的还是模型定的，以及有没有循环</td><td>先判断数学题的难度再决定交给哪个模型，是 routing；同一道题解五遍取多数，是 parallelization 里的 voting</td></tr>
+        <tr><th scope="row"><a href="compose.html">三 真实的 workflow<br>长什么样？</a></th><td>是几种模式的组合，而且常常只能近似地对上。怎样组合也可以交给程序去搜索</td><td>STORM 写维基百科式的文章，流程里能找到四种模式。按论文图上读出的近似值，Archon 搜出的架构在允许的 token 数达到约 5 万时，三个基准测试上的平均分和 o1 基本持平</td></tr>
+        <tr><th scope="row"><a href="reasoning.html">四 agent 该<br>怎样推理？</a></th><td>行动之前先推理；失败之后把反思写成文字留给下一次。有可靠的外部反馈时，反思的效果才明显</td><td>在 HotpotQA 和 Fever 两个问答数据集上，ReAct 比只行动高约 2 个百分点。让 GPT-4-Turbo 自己检查自己的答案，三种问法都没有超过只答一次</td></tr>
+        <tr><th scope="row"><a href="acting.html">五 动作用<br>什么形式？</a></th><td>要组合多个工具时，一段代码比一次一个的 JSON 调用好。能事先计划的任务，可以先写出计划再由程序执行，省 token，互不依赖的步骤还能并行</td><td>在要连续调用多个工具的基准测试上，CodeAct 在最强的模型上的成功率，比 JSON 和文字两种写法里较好的一种高 20.7 个百分点。ReWOO 在 HotpotQA 上用的 token 约为 ReAct 的五分之一</td></tr>
+        <tr><th scope="row"><a href="context.html">六 上下文窗口里<br>放什么？</a></th><td>只放当前需要的，同时不丢掉目标和进度。五种模式各有代价，可以一起用</td><td>在一个编程 agent 的预备实验里，平均每一轮的 token 约 84% 是工具输出。把旧的输出屏蔽掉，五种模型配置里有四种花费降了一半左右</td></tr>
+        <tr><th scope="row"><a href="pi.html">七 一个真实的运行框架<br>做了哪些选择？</a></th><td>Pi 只留最少的东西：4 个默认工具，ReAct 式循环，事件日志、按需加载的 skill（写着某类工作该怎么做的说明文件）和 compaction 一起管理上下文。执行工具之前不征求同意，对工具调用没有内置的限制</td><td>作者在 2025 年 11 月说，system prompt 加工具定义不到 1,000 个 token</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一行的出处和细节在对应的页面里。token 是模型处理文字的最小单位。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的七件事</h2>
+  <p>下面七件事，常见的说法都比论文和文档里的实际情况简单。每一件在对应的页面里有出处和细节。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>ReAct 证明了「边推理边行动」比只推理、只行动都好</td><td>它比只行动好。和只推理比则互有胜负：在 HotpotQA 上，单独的 ReAct 答案完全一致的比例是 27.4%，比只推理的 29.4% 低。论文里最好的结果来自两者的组合。小模型只靠 prompt 学 ReAct 效果最差，微调之后才最好</td><td><a href="reasoning.html#react-results">四 推理</a></td></tr>
+        <tr><td>Reflexion 用的是外部环境的反馈，所以不受「模型没法自我纠正」的影响</td><td>编程任务上是运行测试，说得通。问答任务上，那个反馈是「答案和标准答案是否一致」，真实使用时得不到。它在测试不可靠的 MBPP 上比 GPT-4 还低</td><td><a href="reasoning.html#limits">四 推理</a></td></tr>
+        <tr><td>用代码当动作总是比 JSON 好</td><td>在要组合多个工具的基准测试上，17 个模型里有 12 个是这样。只做单次工具调用时，GPT-4 用 JSON 的正确率更高（82.7% 比 76.7%）</td><td><a href="acting.html#codeact-results">五 动作</a></td></tr>
+        <tr><td>先计划再执行让准确率明显提高：ReWOO 提高 4%，LLMCompiler 提高约 9%</td><td>两者的主要收获是省 token 和快。ReWOO 的 4% 是相对比例，按百分点是 1.6。LLMCompiler 的 9% 出自一个开源模型在一个基准测试上的结果（从 59.59% 到 68.14%，高 8.55 个百分点）。用 GPT 模型时，四个基准测试里有三个和基线相差不到 1.5 个百分点，只有电影推荐高 4.66 个百分点</td><td><a href="acting.html#rewoo-results">五 动作</a></td></tr>
+        <tr><td>「大海捞针」的图说明模型找不到长文档中间的信息</td><td>那张图里的一部分失败是模型不愿意凭一句硬塞进去的话作答，在回答开头预填一句话，得分就从 27% 升到 98%。现在的模型在这个测试上接近满分。但换成更难的任务，输入越长表现越差仍然成立</td><td><a href="context.html#rot">六 上下文</a></td></tr>
+        <tr><td>屏蔽旧的观察结果和让模型写摘要效果一样，成本减半</td><td>五种模型配置里有三种是这样。另外两种里，一种的两种办法解决率都明显低于不做处理（36.4% 和 31.4% 比 40.4%），另一种的花费几乎没降（屏蔽降了约 10%，摘要没有降）。实验只做了编程任务</td><td><a href="context.html#masking">六 上下文</a></td></tr>
+        <tr><td>Pi 没有哪些功能，是一张固定的清单</td><td>清单随时间在变。2025 年 11 月作者写的是不支持 MCP，当时也没有 compaction；2026 年 11 月的文档里两样都是内置的</td><td><a href="pi.html#lacks">七 案例 Pi</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="colors">
+  <h2>页面里三种颜色的框</h2>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲有两处。</div></div>
+</section>
+
+<section class="sec" id="modules">
+  <h2>按部分阅读</h2>
+  <div class="modlist">
+    <a href="control.html"><span class="m">第一部分</span><span><b>设计模式是什么，控制流在谁手里</b><p>软件工程里的设计模式；三组设计决定；模型、workflow、agent 的区别；怎么选。</p></span></a>
+    <a href="workflows.html"><span class="m">第二部分</span><span><b>workflow 的五种模式</b><p>prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer，各自什么时候用，怎样分清。</p></span></a>
+    <a href="compose.html"><span class="m">第三部分</span><span><b>真实的 workflow 是怎样拼起来的</b><p>STORM 的流程和效果；Archon 怎样自动搜索 workflow 的结构。</p></span></a>
+    <a href="reasoning.html"><span class="m">第四部分</span><span><b>agent 怎样推理</b><p>ReAct；Reflexion；自我反思的局限；CRITIC；这两个模式今天的形式。</p></span></a>
+    <a href="acting.html"><span class="m">第五部分</span><span><b>动作用什么形式</b><p>CodeAct；ReWOO；LLMCompiler；代码生成和并行工具调用。</p></span></a>
+    <a href="context.html"><span class="m">第六部分</span><span><b>上下文窗口里放什么</b><p>为什么要管理上下文；两条原则和缓存；五种模式；LangChain 的四类分法。</p></span></a>
+    <a href="pi.html"><span class="m">第七部分</span><span><b>案例：Pi 这个运行框架做了哪些选择</b><p>故意不做的功能；工具；循环和树形的会话；上下文管理；安全；整讲的小结。</p></span></a>
+  </div>
+</section>
+
+<section class="sec" id="sources">
+  <h2>资料</h2>
+  <h3>主要的三份</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Schluntz 和 Zhang，2024</th><td><a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a>（Anthropic）：workflow 和 agent 的定义，五种 workflow 模式，以及「先用最简单的做法」的建议。文章发表于 2024 年 12 月，之后页面有过修订，定义和五种模式的描述没有变</td><td>一、二、四</td></tr>
+        <tr><th scope="row">Yao 等，2022</th><td><a href="https://arxiv.org/abs/2210.03629">ReAct: Synergizing Reasoning and Acting in Language Models</a>：把推理和行动交替进行</td><td>四</td></tr>
+        <tr><th scope="row">LangChain，2025</th><td><a href="https://www.langchain.com/blog/context-engineering-for-agents">Context Engineering for Agents</a>：把上下文管理分成写、选、压缩、隔离四类</td><td>六</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>各个模式和系统的论文</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">论文或系统</th><th scope="col">用在哪里</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://arxiv.org/abs/2402.14207">STORM</a>（Shao 等，NAACL 2024）；<a href="https://arxiv.org/abs/2409.15254">Archon</a>（Saad-Falcon 等，ICML 2025）</td><td>第三部分的两个例子</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2303.11366">Reflexion</a>（Shinn 等，NeurIPS 2023）；<a href="https://arxiv.org/abs/2310.01798">Large Language Models Cannot Self-Correct Reasoning Yet</a>（Huang 等，ICLR 2024）；<a href="https://arxiv.org/abs/2305.11738">CRITIC</a>（Gou 等，ICLR 2024）</td><td>第四部分：反思，以及它的局限</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2402.01030">Executable Code Actions Elicit Better LLM Agents</a>（CodeAct，Wang 等，ICML 2024）；<a href="https://arxiv.org/abs/2305.18323">ReWOO</a>（Xu 等，2023）；<a href="https://arxiv.org/abs/2312.04511">LLMCompiler</a>（Kim 等，ICML 2024）</td><td>第五部分：动作的形式</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2407.16741">OpenHands</a>（Wang 等，ICLR 2025）和它的<a href="https://docs.openhands.dev/sdk/arch/events">事件系统文档</a>；<a href="https://arxiv.org/abs/2310.08560">MemGPT</a>（Packer 等，2023）；<a href="https://arxiv.org/abs/2508.21433">The Complexity Trap</a>（Lindenbauer 等，2025）</td><td>第六部分：事件日志、记忆、屏蔽观察结果</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>其他资料</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">资料</th><th scope="col">用在哪里</th></tr></thead>
+      <tbody>
+        <tr><td>Anthropic，<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Effective context engineering for AI agents</a>（2025）和 <a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Equipping agents for the real world with Agent Skills</a>（2025）</td><td>第六部分：上下文工程的定义，compaction，子 agent，skill 的三个层次</td></tr>
+        <tr><td>Kamradt 的<a href="https://github.com/gkamradt/needle-in-a-haystack">「大海捞针」测试</a>；Anthropic，<a href="https://www.anthropic.com/news/claude-2-1-prompting">Long context prompting for Claude 2.1</a>（2023）；Chroma，<a href="https://research.trychroma.com/context-rot">Context Rot</a>（2025）</td><td>第六部分：输入变长时模型表现的变化</td></tr>
+        <tr><td><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Anthropic</a> 和 <a href="https://platform.openai.com/docs/guides/prompt-caching">OpenAI</a> 的 prompt 缓存文档；Manus，<a href="https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">Context Engineering for AI Agents</a>（2025）</td><td>第六部分：缓存为什么限制了对上下文的改动</td></tr>
+        <tr><td>LangChain，<a href="https://www.langchain.com/blog/how-to-think-about-agent-frameworks">How to think about agent frameworks</a>（2025）；Fowler，<a href="https://martinfowler.com/ieeeSoftware/patterns.pdf">Patterns</a>（2003）</td><td>第一部分：可预测和自主的关系；「模式是半成品」这句话的出处</td></tr>
+        <tr><td><a href="https://pi.dev/">Pi 官网</a>、<a href="https://docs.pi.dev/latest">文档</a>和 Zechner 的文章 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">What I learned building an opinionated and minimal coding agent</a>（2025）</td><td>第七部分</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>

@@ -1,0 +1,80 @@
+{
+  "brand": "第 6 讲 · agent 的设计模式和运行框架",
+  "credit": "内容根据 Stanford CS329Z: Engineering AI Agents 第 6 讲整理，配图来自该课程的材料。",
+  "nav": [
+    [
+      "index",
+      "总览"
+    ],
+    [
+      "control",
+      "一 控制流"
+    ],
+    [
+      "workflows",
+      "二 五种模式"
+    ],
+    [
+      "compose",
+      "三 两个例子"
+    ],
+    [
+      "reasoning",
+      "四 推理"
+    ],
+    [
+      "acting",
+      "五 动作"
+    ],
+    [
+      "context",
+      "六 上下文"
+    ],
+    [
+      "pi",
+      "七 案例 Pi"
+    ]
+  ],
+  "pages": {
+    "index": {
+      "eyebrow": "第 6 讲 · agent 的设计模式和运行框架",
+      "title": "搭 agent 系统的三组决定，<br>每一组都有现成的模式",
+      "lede": "workflow 的五种模式，agent 推理和行动的四种模式，上下文管理的五种模式，最后用 Pi 这个运行框架看它们在实际产品里怎样取舍。主要的数字对照论文和官方文档核对过，没有查到的地方在正文里注明。"
+    },
+    "control": {
+      "eyebrow": "第一部分",
+      "title": "设计模式是什么，<br>控制流在谁手里",
+      "lede": "设计模式是对常见解法的总结。搭基于语言模型的系统，第一个要定的是下一步由程序决定还是由模型决定：前者是 workflow，后者是 agent。"
+    },
+    "workflows": {
+      "eyebrow": "第二部分",
+      "title": "workflow 的<br>五种模式",
+      "lede": "prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。每一种是什么，什么时候用，以及怎样把它们分清。"
+    },
+    "compose": {
+      "eyebrow": "第三部分",
+      "title": "真实的 workflow<br>是怎样拼起来的",
+      "lede": "两个例子。STORM 用人设计的流程写出维基百科式的长文，里面能找到四种模式。Archon 把怎样组合这件事交给了搜索算法。"
+    },
+    "reasoning": {
+      "eyebrow": "第四部分",
+      "title": "agent 怎样推理：<br>先想再做，从失败里反思",
+      "lede": "ReAct 让模型在每个动作之前先写出推理。Reflexion 让模型把对失败的反思留给下一次尝试。这一部分也讲反思在什么条件下才管用。"
+    },
+    "acting": {
+      "eyebrow": "第五部分",
+      "title": "动作用什么形式：<br>代码，和先计划再执行",
+      "lede": "CodeAct 让模型写一段代码当作动作。ReWOO 和 LLMCompiler 让模型先写出计划，再由程序执行。这些想法今天变成了代码生成和并行的工具调用。"
+    },
+    "context": {
+      "eyebrow": "第六部分",
+      "title": "上下文窗口里<br>放什么",
+      "lede": "输入越长，模型用好它的能力越差，花费也越高。这一部分讲管理上下文的两条原则和五种模式：事件日志、记忆、compaction、屏蔽旧的观察结果、上下文隔离。"
+    },
+    "pi": {
+      "eyebrow": "第七部分",
+      "title": "案例：Pi 这个运行框架<br>做了哪些选择",
+      "lede": "Pi 是一个极简的编程 agent 运行框架。看它留下了什么、故意不做什么，可以把前面六部分的模式放到一个真实的产品里对照一遍。"
+    }
+  }
+}

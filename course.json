@@ -68,7 +68,8 @@
           "title": "agent 的设计模式和脚手架",
           "summary": "五种可组合的 workflow 模式；ReAct、Reflexion、CodeAct、ReWOO；上下文管理的几种模式；Pi 的案例。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture06.pdf",
-          "video": "https://youtu.be/JC_pLC5EX_w"
+          "video": "https://youtu.be/JC_pLC5EX_w",
+          "dir": "lecture06"
         }
       ]
     },

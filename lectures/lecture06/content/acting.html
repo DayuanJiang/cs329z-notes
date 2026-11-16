@@ -1,0 +1,204 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>agent（由语言模型自己决定下一步、在循环里调用工具的系统）每一步发出的动作可以有不同的形式。这一部分讲两个关于动作的想法：用代码当动作，以及先计划再执行。</li>
+    <li>CodeAct：让模型写一段代码当作动作，工具是代码里可以调用的函数。循环、判断、把一个工具的结果传给另一个工具，都可以在一段代码里完成，所以轮数更少，在要连续用多个工具的任务上成功率更高。</li>
+    <li>ReWOO 和 LLMCompiler：先让模型把要调用的工具和它们之间的依赖关系写成一份计划，再由程序去执行。这等于把 agent 的执行过程重新变成了一个 workflow（控制流写在程序里的系统）。ReWOO 一次写完计划、按顺序执行，主要的收获是省 token（模型处理文字的最小单位，花费按它计算）。LLMCompiler 让互不依赖的步骤并行执行，还可以在中途重新计划，主要的收获是快。</li>
+    <li>这些想法今天以两种形式留在 agent 里：直接生成代码，和一次回复里发出多个并行的工具调用。计划仍然重要，尤其是在编排子 agent 的时候。</li>
+  </ul>
+</section>
+
+<section class="sec" id="codeact">
+  <h2>CodeAct：用代码当动作</h2>
+  <p>先看最常见的动作形式。模型每一步输出一次工具调用：工具的名字加上参数，写成一行文字，或者写成一个 JSON 对象。运行框架（harness，包在模型外面、替它执行工具并管理多轮对话的程序）执行这次调用，把结果交回给模型，模型再输出下一次调用。</p>
+  <p>CodeAct 这篇论文（Wang 等，2024）的主张是：<mark>代码是更合适的动作形式</mark>。用同一个任务比较两种写法。任务是：确定在哪个国家买 CodeAct 1 这款手机最划算，要考虑的国家是美国、日本、德国和印度。可用的工具有五个：查某国的汇率和税率，查手机在某国的价格，把价格换算并加税，估算运到某国的运费，算出最终价格。</p>
+  {{fig 44 | 用文字或 JSON 当动作。模型先想：应该算出每个国家以美元计的价格，再找出最划算的。然后一步只能调用一个工具：查德国的汇率和税率，环境返回 1.1 和 0.19；查德国的价格，返回 700；换算并加税，返回 916.3；后面还要查运费、算最终价格，再对其余三个国家各重复一遍。最底下是五个可用的工具。图片来源：<a href="https://arxiv.org/abs/2402.01030">Wang 等，2024</a>。}}
+  <p>按图里的做法粗略数一下，四个国家各要五次工具调用，一共大约二十轮来回，每一轮模型都要读一遍结果再决定下一步。同样的任务用代码来做，只要一轮：</p>
+  {{fig 45 | 用代码当动作。想法是一样的，但动作是一段 Python 程序：对四个国家做循环，在循环里依次调用五个工具，最后用 Python 自带的 min 函数取出最便宜的。环境返回的只有一行：Japan 904.0。图片来源：<a href="https://arxiv.org/abs/2402.01030">Wang 等，2024</a>。}}
+  <pre class="code"><code>countries = ['USA', 'Japan', 'Germany', 'India']
+final_prices = {}
+for country in countries:
+    exchange_rate, tax_rate = lookup_rates(country)
+    local_price = lookup_phone_price("CodeAct 1", country)
+    converted_price = convert_and_tax(local_price, exchange_rate, tax_rate)
+    shipping_cost = estimate_shipping_cost(country)
+    final_price = estimate_final_price(converted_price, shipping_cost)
+    final_prices[country] = final_price
+best = min(final_prices, key=final_prices.get)
+print(best, final_prices[best])</code></pre>
+  <p>两种写法最后的回答相同：最划算的是日本，价格是 904 美元。CodeAct 仍然是一个 ReAct 式的循环（先想，再动作，看结果）：如果这段代码的结果还不够，模型可以再写一段。只是每一步的动作从「调用一个工具」变成了「运行一段程序」。</p>
+  <p>论文列了代码当动作的四个好处。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">好处</th><th scope="col">说明</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">自带控制流和数据流</th><td>循环和条件判断可以直接写；中间结果存在变量里，可以传给后面的工具。JSON 形式下，这些都要靠模型一轮一轮地做</td></tr>
+        <tr><th scope="row">能用现成的软件</th><td>除了给定的工具，还可以直接用已有的程序库，例子里的 <code>min</code> 就是</td></tr>
+        <tr><th scope="row">有自动的反馈</th><td>代码出错时会有报错信息，模型可以根据报错自己调试</td></tr>
+        <tr><th scope="row">模型本来就熟悉</th><td>模型在预训练时见过大量代码，对编程语言的掌握比对某一种自定义的 JSON 格式好</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自 <a href="https://arxiv.org/abs/2402.01030">Wang 等，2024</a>。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="codeact-results">
+  <h2>CodeAct 的效果：多工具的任务上更好，单次调用时不一定</h2>
+  {{fig 46 | 八个模型在 M3ToolEval 上的结果，每个模型三根柱子，对应三种动作形式：代码、JSON、文字。左图是成功率，越长越好。右图是平均交互轮数，越短越好。图片来源：<a href="https://arxiv.org/abs/2402.01030">Wang 等，2024</a>。}}
+  <p>M3ToolEval 是这篇论文新做的基准测试（benchmark，一组题目加一个打分的办法），有 82 个人工编写的任务，每个任务都要在多轮里调用多个工具。每个任务最多允许 10 轮。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">成功率<br>代码</th><th scope="col" class="r">成功率<br>JSON</th><th scope="col" class="r">成功率<br>文字</th><th scope="col" class="r">平均轮数<br>代码</th><th scope="col" class="r">平均轮数<br>JSON</th><th scope="col" class="r">平均轮数<br>文字</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">gpt-4-1106-preview</th><td class="r">74.4</td><td class="r">52.4</td><td class="r">53.7</td><td class="r">5.5</td><td class="r">7.6</td><td class="r">7.7</td></tr>
+        <tr><th scope="row">gpt-4-0613</th><td class="r">67.1</td><td class="r">56.1</td><td class="r">45.1</td><td class="r">6.6</td><td class="r">7.6</td><td class="r">8.0</td></tr>
+        <tr><th scope="row">claude-2</th><td class="r">54.9</td><td class="r">39.0</td><td class="r">29.3</td><td class="r">7.2</td><td class="r">8.3</td><td class="r">8.5</td></tr>
+        <tr><th scope="row">gpt-3.5-turbo-0613</th><td class="r">51.2</td><td class="r">26.8</td><td class="r">20.7</td><td class="r">7.0</td><td class="r">8.8</td><td class="r">9.2</td></tr>
+        <tr><th scope="row">gpt-3.5-turbo-1106</th><td class="r">29.3</td><td class="r">15.9</td><td class="r">14.6</td><td class="r">8.4</td><td class="r">9.0</td><td class="r">9.0</td></tr>
+        <tr><th scope="row">gemini-pro</th><td class="r">22.0</td><td class="r">19.5</td><td class="r">11.0</td><td class="r">8.8</td><td class="r">9.1</td><td class="r">9.5</td></tr>
+        <tr><th scope="row">text-davinci-003</th><td class="r">20.7</td><td class="r">18.3</td><td class="r">7.3</td><td class="r">9.2</td><td class="r">9.0</td><td class="r">9.6</td></tr>
+        <tr><th scope="row">Llama-2-70b-chat-hf</th><td class="r">11.0</td><td class="r">3.7</td><td class="r">3.7</td><td class="r">9.1</td><td class="r">9.8</td><td class="r">9.8</td></tr>
+      </tbody>
+    </table>
+    <figcaption>图里的八个模型，数字来自论文的表 3。成功率的单位是百分比。</figcaption>
+  </figure>
+  <p>在最强的模型 gpt-4-1106-preview 上，代码的成功率比另外两种里较好的一种高 20.7 个百分点，平均少用 2.1 轮。图里的八个模型，代码的成功率都是三种里最高的；轮数上只有 text-davinci-003 一个例外，它用 JSON 时轮数略少。</p>
+  <p>下结论之前还要看三件事。</p>
+  <ul>
+    <li><b>论文一共测了 17 个模型。</b>在 M3ToolEval 上，代码的成功率最高的有 12 个，轮数最少的也是 12 个。例外的 5 个里有 claude-instant-1：它用 JSON 的成功率是 31.7%，用代码是 20.7%。</li>
+    <li><b>只做单次工具调用时，哪种形式最好要看模型。</b>论文在另一个基准测试 API-Bank 上测了每次只调用一个工具的情况，这时代码的控制流派不上用场。结果是 gpt-4-1106-preview 用 JSON 的正确率是 82.7%，用代码是 76.7%；17 个模型里代码最好的有 8 个，JSON 最好的有 5 个，文字最好的有 4 个。论文的推测是，这些闭源模型很可能针对 JSON 形式的工具调用专门训练过。</li>
+    <li><b>开源模型的绝对成绩很低。</b>在 M3ToolEval 上用代码当动作时，当时最好的开源模型成功率是 13.4%，gpt-4-1106-preview 是 74.4%。论文为此收集了约 7,000 条用代码当动作的多轮运行记录，用它们微调（fine-tuning，用数据继续训练模型）了两个 70 亿参数的模型。</li>
+  </ul>
+  <p>所以更准确的说法是：<mark>任务需要把多个工具组合起来用的时候，代码这种形式明显更好</mark>。只调用一个工具时，JSON 并不差。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>工具当成函数暴露给模型，会不会一下子给得太多？</b>会有这个问题，工具多了模型容易选错。应对的办法是只在需要时才告诉模型某个工具的存在和用法，这叫渐进式披露（progressive disclosure），见<a href="context.html#isolation">第六部分</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>CodeAct 后来去了哪里。</b>CodeAct 的第一作者 Xingyao Wang 也是 OpenHands 论文的第一作者。OpenHands 是一个开源的编程 agent 平台，<a href="context.html#eventlog">第六部分</a>会用它讲事件日志。出处：<a href="https://arxiv.org/abs/2402.01030">CodeAct</a>，发表在 ICML 2024；<a href="https://arxiv.org/abs/2407.16741">OpenHands</a>。</div></div>
+</section>
+
+<section class="sec" id="plan">
+  <h2>先计划，再执行</h2>
+  <p>ReAct 式的循环里，模型每调用一次工具就要停下来看结果，再想下一步。另一个思路是：让模型一开始就把整个计划写出来，也就是要调用哪些工具、按什么顺序、哪个工具的输出要交给哪个工具，然后由程序照着计划执行。</p>
+  <p class="lead-in">这个思路的要点是：<mark>有了计划，agent 执行动作的过程就重新变成了一个 workflow</mark>。</p>
+  <p>workflow 的定义见<a href="control.html#spectrum">第一部分</a>。这里的不同之处在于，这个 workflow 是模型针对眼前的问题临时写出来的。有两篇论文是这个思路的代表：ReWOO 和 LLMCompiler。</p>
+</section>
+
+<section class="sec" id="rewoo">
+  <h2>ReWOO：不看观察结果，先把计划写完</h2>
+  <p>ReWOO 是 Reasoning WithOut Observation 的缩写，意思是不依赖观察结果的推理。它把一次任务分给三个模块。</p>
+  {{fig 48 | 左上的 Planner 写出计划，每一步有一句说明和一个带编号的变量。右上的 Worker 逐条执行，把得到的结果填进变量。下面的 Solver 读完整的计划和结果，给出答案。图片来源：<a href="https://arxiv.org/abs/2305.18323">Xu 等，2023</a>。}}
+  <p>例子里的问题是：Hennchata 的主要原料是哪家干邑酒庄生产的？Hennchata 是一种鸡尾酒，不知道它是什么的人完全无从下手。Planner 写出的计划如下：</p>
+  <pre class="code"><code>Plan: Search for more information about The Hennchata.
+#E1 = Wikipedia[The Hennchata]
+Plan: Find out the main ingredient of The Hennchata.
+#E2 = LLM[What is the main ingredient of The Hennchata? Given context: #E1]
+Plan: Search for more information about the main ingredient.
+#E3 = Wikipedia[#E2]
+Plan: Find out the cognac house that makes the main ingredient.
+#E4 = LLM[What is the name of the cognac house that makes the main ingredient #E2? Given context: #E3]</code></pre>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模块</th><th scope="col">做什么</th><th scope="col">要不要调用语言模型</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Planner<br><span class="muted small">计划</span></th><td>一次写出全部步骤。写的时候还没有任何工具的结果，所以用 <code>#E1</code>、<code>#E2</code> 这样的变量来指代「这一步将来得到的结果」，后面的步骤可以引用前面的变量</td><td>调用 1 次</td></tr>
+        <tr><th scope="row">Worker<br><span class="muted small">执行</span></th><td>按顺序执行每一步，把结果填进变量，再把变量的值代入后面的步骤。例子里 <code>#E1</code> 是 Hennchata 的维基百科页面，<code>#E2</code> 是「轩尼诗干邑」</td><td>这一层只是按计划把步骤串起来，不需要模型来决定下一步。计划里写明用 LLM（大语言模型）当工具的步骤才调用模型</td></tr>
+        <tr><th scope="row">Solver<br><span class="muted small">求解</span></th><td>读完整的计划和每一步的结果，写出最终答案：Jas Hennessy &amp; Co</td><td>调用 1 次</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>和 ReAct 比，差别在于模型什么时候看到工具的结果。ReAct 是生成一次工具调用，执行，看结果，再生成下一次。ReWOO 是事先把要调用的工具、调用的顺序、谁的输出给谁，全部写好。这和 CodeAct 有相通的地方：写代码时也是把一个函数的返回值存进变量，再传给下一个函数。</p>
+  <h3>为什么省 token</h3>
+  <p>模型的接口是无状态的：每调用一次，都要把到目前为止的全部内容重新发一遍，包括开头的说明、示范的例子、之前每一步的想法和观察结果。ReAct 每走一步就调用一次模型，所以这些内容被反复发送，步数越多，重复得越厉害。论文把这叫作 prompt（发给模型的输入文字）的冗余。ReWOO 的 Planner 和 Solver 各只调用一次，开头的说明和例子不会被重复发送很多遍。</p>
+</section>
+
+<section class="sec" id="rewoo-results">
+  <h2>ReWOO 的效果</h2>
+  {{fig 49 | 横轴是消耗的 token 数，越靠左越好。纵轴是准确率，越靠上越好。颜色代表方法，绿色是 ReAct，紫色是 ReWOO。圆点是六个公开基准测试的平均，三角是论文自己整理的一个数据集。红色箭头从 ReAct 指向 ReWOO。图片来源：<a href="https://arxiv.org/abs/2305.18323">Xu 等，2023</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方法</th><th scope="col" class="r">公开基准测试<br>平均准确率</th><th scope="col" class="r">公开基准测试<br>平均 token 数</th><th scope="col" class="r">国情咨文数据集<br>准确率</th><th scope="col" class="r">国情咨文数据集<br>token 数</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">直接回答，不用工具</th><td class="r">55.1%</td><td class="r">70</td><td class="r">52.7%</td><td class="r">52</td></tr>
+        <tr><th scope="row">CoT，不用工具</th><td class="r">59.9%</td><td class="r">318</td><td class="r">60.8%</td><td class="r">227</td></tr>
+        <tr><th scope="row">ReAct</th><td class="r">58.3%</td><td class="r">3,575</td><td class="r">64.8%</td><td class="r">1,840</td></tr>
+        <tr><th scope="row">ReWOO</th><td class="r">60.9%</td><td class="r">1,297</td><td class="r">70.2%</td><td class="r">1,049</td></tr>
+      </tbody>
+    </table>
+    <figcaption>模型是 gpt-3.5-turbo。公开基准测试的两列是按论文表 2 里六个公开数据集的数字算出的平均值，和图上的圆点对得上。国情咨文数据集是论文自己整理的、关于 2023 年美国国情咨文的问答，对应图上的三角。token 数是平均每道题消耗的数量。</figcaption>
+  </figure>
+  <ul>
+    <li><b>token 省得很明确。</b>在六个公开基准测试上，ReWOO 平均比 ReAct 少用约 64% 的 token。单看 HotpotQA，ReAct 平均每题用 9,795 个 token，ReWOO 用 1,986 个，大约是五分之一。</li>
+    <li><b>准确率略高。</b>按论文表 2 的数字计算，六个公开基准测试的平均准确率，ReAct 是 58.3%，ReWOO 是 60.9%，高 2.6 个百分点。论文正文对这六个基准测试写的是「准确率绝对提高 4.4%」，这个数和表 2 对不上：按表 2，绝对的差是 2.6 个百分点，相对的提高约为 4.5%。HotpotQA 上是 42.4% 比 40.8%，高 1.6 个百分点。论文摘要里说的「HotpotQA 上准确率提高 4%」是相对的比例。</li>
+    <li><b>工具不一定有帮助。</b>在公开基准测试上，不用任何工具的 CoT 平均准确率（59.9%）比 ReAct 还高。论文自己也指出了这一点。工具的好处在那个国情咨文数据集上才显出来，很可能是因为模型在训练时没有见过这些内容。</li>
+  </ul>
+  <p>计划先行还有一个副作用是更稳。论文做了一个让所有工具都失效的实验：每个工具都只返回「没有找到证据」。ReAct 在 HotpotQA 上的准确率掉到了 0，ReWOO 还剩 13.2%。</p>
+  <p>它的局限也来自「不看结果就计划」。如果后面的步骤要等看到前面的结果才能决定，事先就写不出计划。论文举的例子是在一个陌生的房间里找花瓶：Planner 不知道花瓶在哪里，只能把所有可能的地方都列进计划。</p>
+</section>
+
+<section class="sec" id="llmcompiler">
+  <h2>LLMCompiler：并行执行，必要时重新计划</h2>
+  <p>LLMCompiler（Kim 等，发表在 ICML 2024）沿着同一个思路往前走了两步：计划里互不依赖的步骤同时执行；计划可以在执行中途重新生成。</p>
+  {{fig 50 | 用户的问题是：微软的市值要涨多少才能超过苹果？Function Calling Planner 写出四个任务，其中 $1、$2 是占位符，代表前面任务的输出。Task Fetching Unit 取出可以执行的任务交给 Executor，Executor 并行地调用工具。图片来源：<a href="https://arxiv.org/abs/2312.04511">Kim 等，2023</a>。}}
+  <pre class="code"><code>$1 = search(Microsoft Market Cap)
+$2 = search(Apple Market Cap)
+$3 = math($1 / $2)
+$4 = llm($3)</code></pre>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">部件</th><th scope="col">做什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Function Calling Planner</th><td>一个语言模型。找出需要的任务、每个任务的参数，以及任务之间的依赖。这些任务构成一张有向无环图（任务是节点，「谁要等谁的结果」是边，沿着边走不会绕回原处）</td></tr>
+        <tr><th scope="row">Task Fetching Unit</th><td>一段普通的程序，不需要模型。它找出依赖已经满足的任务，把占位符换成实际的结果，交给 Executor</td></tr>
+        <tr><th scope="row">Executor</th><td>并行地执行交过来的任务</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>例子里前两个搜索互不依赖，可以同时发出；第三步的计算要等前两步都回来；第四步再让模型根据计算结果组织答案。</p>
+  {{fig 51 | 问题是：Scott Derrickson 和 Ed Wood 是同一个国家的人吗？左边是 ReAct：搜索第一个人，把结果接到 prompt 后面，再搜索第二个人，再接上，最后回答，三次模型调用依次进行。右边是 LLMCompiler：两个搜索同时发出，然后一次模型调用给出回答。在这道题所属的 HotpotQA 基准测试上，LLMCompiler 的平均延迟约为 ReAct 的 56%（加速比 1.80）。图片来源：<a href="https://arxiv.org/abs/2312.04511">Kim 等，2023</a>。}}
+  <h3>重新计划是怎么做的</h3>
+  <p>有些问题的执行流程在一开始定不下来。LLMCompiler 的做法是：Executor 把中间结果送回 Planner，Planner 根据这些结果生成一批新的任务，再交下去执行，如此循环，直到得到最终结果。论文用的例子是 24 点游戏：先并行地提出一批候选的算式并打分，如果没有一个能凑出 24，就带着筛选出来的中间状态回到 Planner，再计划下一批。</p>
+  <p>所以这里的重新计划是一个反馈循环，用在后面的步骤取决于前面结果的场合。它和 ReWOO 的两点差别，正是论文自己强调的：可以并行调用，可以重新计划。</p>
+  <h3>效果</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">基准测试</th><th scope="col">方法</th><th scope="col" class="r">准确率</th><th scope="col" class="r">平均延迟（秒）</th><th scope="col" class="r">加速比</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" rowspan="3">HotpotQA<br><span class="muted small">比较两个实体的题</span></th><td>ReAct，加了减少重复调用和过早停止的 prompt</td><td class="r">62.47%</td><td class="r">7.12</td><td class="r">1.00</td></tr>
+        <tr><td>OpenAI 的并行函数调用</td><td class="r">62.05%</td><td class="r">4.42</td><td class="r">1.61</td></tr>
+        <tr><td>LLMCompiler</td><td class="r">62.00%</td><td class="r">3.95</td><td class="r">1.80</td></tr>
+        <tr><th scope="row" rowspan="3">电影推荐</th><td>ReAct，加了减少重复调用和过早停止的 prompt</td><td class="r">72.47%</td><td class="r">20.47</td><td class="r">1.00</td></tr>
+        <tr><td>OpenAI 的并行函数调用</td><td class="r">77.00%</td><td class="r">7.42</td><td class="r">2.76</td></tr>
+        <tr><td>LLMCompiler</td><td class="r">77.13%</td><td class="r">5.47</td><td class="r">3.74</td></tr>
+        <tr><th scope="row" rowspan="3">ParallelQA</th><td>ReAct</td><td class="r">89.09%</td><td class="r">35.90</td><td class="r">1.00</td></tr>
+        <tr><td>OpenAI 的并行函数调用</td><td class="r">87.32%</td><td class="r">19.29</td><td class="r">1.86</td></tr>
+        <tr><td>LLMCompiler</td><td class="r">89.38%</td><td class="r">16.69</td><td class="r">2.15</td></tr>
+        <tr><th scope="row" rowspan="2">24 点游戏</th><td>Tree-of-Thoughts</td><td class="r">74.00%</td><td class="r">241.2</td><td class="r">1.00</td></tr>
+        <tr><td>LLMCompiler</td><td class="r">75.33%</td><td class="r">83.6</td><td class="r">2.89</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自 <a href="https://arxiv.org/abs/2312.04511">Kim 等，2023</a> 的表 1，用 GPT 系列模型的部分。加速比是基线的延迟除以这种方法的延迟。不同的基准测试用的是不同的 GPT 模型：前两个是 gpt-3.5-turbo，ParallelQA 是 gpt-4-turbo，24 点游戏是 gpt-4。</figcaption>
+  </figure>
+  <ul>
+    <li><b>主要的收获是快。</b>四个基准测试上的加速比在 1.80 到 3.74 之间，也就是延迟降到基线的 27% 到 56%。花费也降了，电影推荐上的花费约为 ReAct 的 15%，论文摘要里「花费最多节省 6.7 倍」说的就是这一项。</li>
+    <li><b>用 GPT 模型时，准确率大多和基线接近。</b>四个基准测试里有三个和基线相差不到 1.5 个百分点，其中 HotpotQA 上还低 0.47 个百分点；电影推荐上高 4.66 个百分点。论文摘要里说的「准确率最多提高约 9%」，出自用 LLaMA-2 70B 这个开源模型跑 ParallelQA 的结果：从 59.59% 到 68.14%，高 8.55 个百分点。</li>
+    <li><b>ReAct 的两种失败。</b>论文观察到 ReAct 会重复发出已经发过的工具调用，也会在中间结果还不完整时过早地停下。表里前两个基准测试的 ReAct，就是为了减少这两种情况而加了专门的 prompt。</li>
+    <li><b>模型厂商同时做了同一件事。</b>表里的「OpenAI 的并行函数调用」是 OpenAI 在 2023 年 11 月 6 日发布的功能：模型在一次回复里发出多个工具调用。论文说它和 LLMCompiler 是同时出现的。它的加速效果已经接近 LLMCompiler。</li>
+  </ul>
+</section>
+
+<section class="sec" id="today">
+  <h2>今天这些想法变成了什么</h2>
+  <p>把上一部分和这一部分合起来，四个想法今天的去向如下。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模式</th><th scope="col">留下来的想法</th><th scope="col">今天的形式</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ReAct</th><td>行动之前先推理</td><td>大多数 agent 的主循环</td></tr>
+        <tr><th scope="row">Reflexion</th><td>自我反思有用</td><td>并进了模型自己的推理过程</td></tr>
+        <tr><th scope="row">CodeAct</th><td>代码是合适的动作形式</td><td>编程 agent 直接写代码、运行 shell 命令；一次 bash 调用里就可以是一整段脚本</td></tr>
+        <tr><th scope="row">ReWOO、LLMCompiler</th><td>把一串动作事先「编译」成一张可以直接执行的图</td><td>主要由并行的工具调用和代码生成来完成</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>先计划再执行这个模式，在很大程度上已经被代码生成取代了。与其让模型生成一张专门格式的任务图，不如让它直接写出要执行的代码，代码里一样可以表达「先做什么、谁的结果给谁、哪些同时做」，而且灵活得多。按这个思路再往前一步，语言模型本身也可以作为程序里的一个函数被调用，ReWOO 计划里的 <code>LLM[...]</code> 和 LLMCompiler 计划里的 <code>llm(...)</code> 就是这样用的。</p>
+  <p>不过，计划这件事本身没有过时。agent 在动手之前先定计划仍然很常见。在编排子 agent 时，有时还会用到 workflow：主 agent 让一组子 agent 按一份事先写好的流程去执行。</p>
+  <p>下一部分讲第三组设计决定：<a href="context.html">每次调用模型时，上下文里放什么</a>。</p>
+</section>
