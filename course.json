@@ -121,7 +121,8 @@
           "date": "10 月 28 日",
           "title": "agent 需要什么数据",
           "summary": "运行记录、示范和反馈；用于优化的数据和用于评估的数据；数据飞轮；合成数据；从人和 agent 的互动里收集数据。",
-          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture11.pdf"
+          "slides": "https://web.stanford.edu/class/cs329z/slides/lecture11.pdf",
+          "dir": "lecture11"
         },
         {
           "n": 12,

@@ -1,0 +1,140 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>让 agent 变强有两条路。一条是模型的权重不动，改它周围的东西：prompt、示例、工具、检索。另一条是改模型本身的权重，这条路上最主要的手段是数据。这一讲讲第二条。</li>
+    <li>公开权重的模型通常把结构和训练过程写得很细，对训练数据却几乎不提。数据是各家模型之间最主要的差别，也是各家最不愿意公开的部分。</li>
+    <li>语言模型的训练分几个阶段，每个阶段用的数据不同：预训练用网上的文字，监督微调用对话，强化学习用环境。agent 数据指后两样。</li>
+    <li>网上的文字只展示别人写下来的结果。agent 要学的是自己动手：发出一个动作，看到结果，再决定下一步。这样的过程在网上很少有现成的记录，环境让模型自己去做，每一步都得到反馈。</li>
+    <li>有公开的对照实验表明后训练数据的影响很大：同一个基础模型只做监督微调，用三份不同的公开数据集，在七个 agent 基准测试上的平均准确率分别是 28.1%、40.9% 和 44.8%，不微调时是 22.8%。</li>
+  </ul>
+</section>
+
+<section class="sec" id="lever">
+  <h2>改进 agent 的两条路</h2>
+  <p>这里的 agent，指能自己调用工具、分很多步去完成一个任务的语言模型系统。要让它做得更好，可以改两个地方。</p>
+  {{fig 5 | 左：模型（LM）上有一把锁，表示权重不动，可以调的是它周围的四样：prompt、示例（demos）、工具（tools）、检索器（retriever）。右：数据通过监督微调（SFT）和强化学习（RL）改变模型的权重。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">改模型周围的系统</th><th scope="col">改模型本身</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">模型的权重</th><td>不变</td><td>改变</td></tr>
+        <tr><th scope="row">动的是什么</th><td>prompt（给模型的文字指令）、放进 prompt 的示例、工具、检索器</td><td>训练数据，通过监督微调和强化学习这两种训练方法作用到权重上</td></tr>
+        <tr><th scope="row">谁能做</th><td>任何调用模型的人</td><td>能训练模型的人：模型公司，或者拿开放权重的模型来微调的团队</td></tr>
+        <tr><th scope="row">在哪一讲</th><td>第 9 讲（优化）</td><td>这一讲和第 12 讲</td></tr>
+      </tbody>
+    </table>
+    <figcaption>监督微调（supervised fine-tuning，SFT）是拿一批「输入和期望的输出」继续训练一个已经预训练好的模型。强化学习（reinforcement learning，RL）是让模型自己去做，按结果得到的奖励来更新。细节见<a href="types.html">第二部分</a>。</figcaption>
+  </figure>
+  <p>这一讲的出发点是一个判断：过去两年，语言模型做 agent 任务的能力进步很大，主要的原因是各家开始大规模地制造专门用于 agent 的数据。这是一个判断，很难严格证明，因为各家都不公开自己的训练数据。下面几节给出支持它的几类证据。</p>
+</section>
+
+<section class="sec" id="differentiator">
+  <h2>数据是模型之间最主要的差别</h2>
+  <p>这个看法有三个常被引用的依据。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">依据</th><th scope="col">说了什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">James Betker 的博客文章<br><span class="muted small">2023 年 6 月，当时他在 OpenAI</span></th><td>文章标题是《The "it" in AI models is the dataset》。他训练过很多生成模型之后的观察是：在同一份数据上训练足够久，几乎所有参数够多的模型都会收敛到同一个结果。他由此认为，模型的行为由数据集决定，结构、超参数和优化器只是把算力有效地用来逼近这份数据的手段</td></tr>
+        <tr><th scope="row">Stanford CS336 的数据一讲</th><td>开头第一句是：训练语言模型时，数据是最需要做对的东西。理由之一是看各家公司公开了什么：开放权重的模型（比如 Llama 3）对结构甚至训练过程完全透明，对数据却基本不提。它给出的两个保密原因是竞争和版权责任</td></tr>
+        <tr><th scope="row">Llama 3 的论文</th><td>论文很长，讲预训练数据的那一节，开头的总述只有三句话：数据来自多种来源，包含截至 2023 年底的知识；做了去重和清洗；去掉了含有大量个人信息和成人内容的域名。没有给出数据的清单</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://nonint.com/2023/06/10/the-it-in-ai-models-is-the-dataset/">Betker 的文章</a>；<a href="https://github.com/stanford-cs336/lectures/blob/main/lecture_13.py">CS336 第 13 讲</a>；<a href="https://arxiv.org/abs/2407.21783">The Llama 3 Herd of Models</a> 第 3.1 节。</figcaption>
+  </figure>
+  <p>这个情况到 2026 年没有变。Moonshot AI 在 2026 年 6 月把 Kimi K3 的权重放到了 <a href="https://huggingface.co/moonshotai/Kimi-K3">Hugging Face</a> 上，模型页面逐项列出了结构参数，没有提到训练数据。2026 年 6 月的论文《Data Recipes for Agentic Models》（OpenThoughts-Agent 项目）在引言里举了另一个例子：DeepSeek V4 的权重是开放的，论文有 50 多页讲结构和训练过程，讲训练数据的只有两段。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>Betker 的观察针对的是什么模型。</b>他文章里举的例子是图像生成模型：足够大的卷积扩散模型和 ViT 生成器会产生同样的图像，自回归采样和扩散采样也会产生同样的图像。把这个结论用到语言模型和 agent 上是一种推广，方向上和上面另外两条依据一致。</div></div>
+</section>
+
+<section class="sec" id="market">
+  <h2>各家公司为数据花多少钱</h2>
+  <p>另一类证据来自市场：做前沿模型的公司在数据上花的钱很多，围绕 agent 数据已经出现了一批公司。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">时间</th><th scope="col">事情</th><th scope="col">出处</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" class="nw">2025 年 9 月</th><td>TechCrunch 报道，各大 AI 实验室都在要更多的强化学习环境，一批创业公司在供应。报道引用 The Information 的消息说，Anthropic 的负责人讨论过在之后一年里为强化学习环境花 10 亿美元以上。创业公司 Mechanize 给搭环境的软件工程师开出 50 万美元的年薪</td><td><a href="https://techcrunch.com/2025/09/21/silicon-valley-bets-big-on-environments-to-train-ai-agents/">TechCrunch</a></td></tr>
+        <tr><th scope="row" class="nw">2025 年 10 月</th><td>Mercor 宣布完成 3.5 亿美元的 C 轮融资，估值 100 亿美元。这家公司把各行业的专家介绍给 AI 实验室和企业，由这些专家来训练和评估模型</td><td><a href="https://www.mercor.com/blog/series-c/">Mercor 的公告</a></td></tr>
+        <tr><th scope="row" class="nw">2026 年 9 月</th><td>Business Insider 报道，Google 完成了对 Mechanize 的人才交易，联合创始人 Tamay Besiroglu 和十多名员工加入 Google DeepMind。此前的报道说谈判中的交易金额超过 15 亿美元，最终条款没有公开。Mechanize 做的是给写代码的 agent 用的强化学习环境</td><td>Business Insider 的报道，这里依据的是 <a href="https://timesofindia.indiatimes.com/technology/tech-news/as-google-completes-1-5-billion-plus-deal-for-ai-startup-mechanize-its-co-founder-joins-company-as-research-scientist/articleshow/134197435.cms">Times of India 的转述</a></td></tr>
+        <tr><th scope="row" class="nw">2026 年 9 月</th><td>The Information 报道，北京的 AI 数据和模型评估公司 UniPat 以 10 亿美元的估值完成融资，当时它手里的客户订单是 3,000 万美元</td><td>The Information 的报道需要订阅，这里依据的是 <a href="https://app.dealroom.co/news/note/china-s-unipat-hits-1b-valuation-on-just-30m-in-orders">Dealroom 的摘要</a>，原文没有核对到</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>TechCrunch 的那篇报道也记下了反面的意见。曾在 Meta 负责 AI 研究的 Ross Taylor 说，强化学习环境很容易出现 reward hacking（模型用不真正完成任务的办法骗到奖励），而且就算是公开的环境里最好的那些，不做大量修改通常也用不起来。这正是<a href="hacking.html">第六部分</a>的内容。</p>
+</section>
+
+<section class="sec" id="stages">
+  <h2>训练的三个阶段，agent 数据在哪一段</h2>
+  <p>按每个时期最看重的数据来分，语言模型的训练可以分成三个阶段，每个阶段需要的数据不一样。</p>
+  {{fig 8 | 左：三个训练阶段和各自用的数据。右：Andrej Karpathy 2025 年 8 月 27 日发在 X 上的帖子，高亮的一句说的是环境让模型有机会真正去交互。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">阶段</th><th scope="col">用什么数据</th><th scope="col">数据从哪里来</th><th scope="col">模型学到什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">预训练<br><span class="muted small">pretraining</span></th><td>网上的文字</td><td>大量、多样、质量高的网页文档</td><td>语言和知识</td></tr>
+        <tr><th scope="row">监督微调和 RLHF<br><span class="muted small">SFT &amp; RLHF</span></th><td>对话</td><td>雇人为各种问题写回答，类似 Stack Overflow 或 Quora 上的问答，但针对语言模型的用途</td><td>怎样按要求回答</td></tr>
+        <tr><th scope="row">强化学习<br><span class="muted small">RL</span></th><td>环境</td><td>要专门去造。难点和前两个阶段一样：需要大量、多样、质量高的环境</td><td>怎样采取动作、看到结果、再继续</td></tr>
+      </tbody>
+    </table>
+    <figcaption>RLHF 是 reinforcement learning from human feedback 的缩写，指用人对回答的评价当奖励来做强化学习。「数据从哪里来」一列是 Karpathy 帖子里的说法。出处：<a href="https://x.com/karpathy/status/1960803117689397543">Karpathy 的帖子</a>。</figcaption>
+  </figure>
+  <p>agent 数据通常指后两样：对话和环境。对话是示范，告诉模型该怎么做。环境是练习的地方，模型在里面自己做，做完有人或程序告诉它做得对不对。</p>
+  <p>Karpathy 在这篇帖子里说，前两种数据都不会消失，但在强化学习的阶段，重要的是环境。环境和前两种数据的区别是：它给模型一个真正去交互的机会，可以采取动作、看到结果。这样就有希望比「统计意义上模仿专家」做得好很多。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>同一篇帖子的后半段。</b>Karpathy 接着说，他长期看好环境和 agent 式的交互，但对强化学习这个具体方法并不看好。他的理由是奖励函数很不可靠，而且他认为人在解决智力问题时用的不是强化学习。帖子里还提到，OpenAI 最早的项目 Gym 就是想把大量环境收进同一套接口，只是那时的环境是倒立摆、Atari 游戏这类简单的控制任务。出处：<a href="https://x.com/karpathy/status/1960803117689397543">Karpathy 的帖子</a>。</div></div>
+</section>
+
+<section class="sec" id="interact">
+  <h2>网上的文字为什么不够</h2>
+  <p>网页抓取能拿到大量的文字，但文字只记录了别人最后写下来的东西。agent 需要的是能真正动手的环境。</p>
+  {{fig 9 | 左：网上能找到的内容，是一段问答。右：在环境里能做的事，是一串命令和它们的输出。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">网上有的</th><th scope="col">环境里能做的</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">图里的内容</th><td>问：<code>parse_date()</code> 报 TypeError，传进去的是字符串，按说是合法的类型。答：你传的是字符串，先用 <code>strptime()</code> 包一层就行</td><td>用 <code>grep</code> 找到 <code>parse_date</code> 定义在 utils.py 第 42 行；运行 <code>pytest</code>，失败，报 TypeError；编辑 utils.py；再运行 <code>pytest</code>，1 个测试通过</td></tr>
+        <tr><th scope="row">记录的是什么</th><td>一个结论</td><td>一个过程：找代码、运行、看到失败、修改、再运行、看到通过</td></tr>
+        <tr><th scope="row">有没有反馈</th><td>没有。回答对不对，文字里看不出来</td><td>有。每个动作之后环境都返回结果，最后测试给出通过或不通过</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>右边这种数据在网上几乎找不到现成的。人修 bug 的时候，在终端里敲过的命令和看到的输出一般不会被发到网上，留下来的只有最后的问答或者最后合并的代码。所以 agent 数据要么专门请人录，要么从现成的材料里还原，要么让模型在环境里自己产生。这就是第三到第五部分的内容。</p>
+</section>
+
+<section class="sec" id="evidence">
+  <h2>同一个基础模型，换一份数据会差多少</h2>
+  <p>公开的对照实验里，最直接的一组来自 Raoof 等人 2026 年 6 月的论文《Data Recipes for Agentic Models》。这个项目叫 OpenThoughts-Agent，简称 OT-Agent。</p>
+  {{fig 10 | 三张小图的横轴都是训练集的大小，从 316 条到 10 万条运行轨迹；纵轴是准确率。左：SWE-Bench Verified 里抽出的 100 道题。中：Terminal-Bench 2.0。右：七个基准测试的平均。红线和橙线是用 OT-Agent 的数据训练的 Qwen3-32B 和 Qwen3-8B，蓝线和青线是用 Nemotron-Terminal-Corpus 训练的同样两个模型，紫线是用 SERA 的数据训练的 Qwen3-32B，两条水平虚线是没有微调过的基础模型。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。}}
+  <p>读这张图要注意它比的是什么。每条线是一份数据集配一个基础模型。要看数据带来的差别，应当比较基础模型相同的线：红线、蓝线和紫线的基础模型都是 Qwen3-32B，橙线和青线都是 Qwen3-8B。同一个横坐标上，基础模型相同的几个点，训练样本的条数也相同，数据集不同，它们之间的高低差主要来自数据。紫色的两条线还多一处不同：SERA 的模型分别在 SWE-agent 和 Terminus-2 这两个运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序）里测，所以它们和别的线之间的差距里也有运行框架的影响。OT-Agent 的线没有在每张小图、每个数据量上都领先。从图上看，左边那张图里，数据量较小时，在 SWE-agent 里测的那条 SERA 的线明显更高；中间那张图里，3.16 万条附近蓝线略高于红线。图注的说法是在数据量大时领先。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型<br><span class="muted small">基础模型都是 Qwen3-32B</span></th><th scope="col">训练数据</th><th scope="col" class="r">七个基准测试的<br>平均准确率</th><th scope="col" class="r">SWE-Bench<br>Verified</th><th scope="col" class="r">Terminal-Bench<br>2.0</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">没有微调的 Qwen3-32B</th><td>无</td><td class="r">22.8%</td><td class="r">29.1%</td><td class="r">7.5%</td></tr>
+        <tr><th scope="row">SERA-32B</th><td>SERA，2.5 万条</td><td class="r">28.1%</td><td class="r">49.4%</td><td class="r">9.7%</td></tr>
+        <tr><th scope="row">Nemotron-Terminal-32B</th><td>Nemotron-Terminal-Corpus，26.4 万条</td><td class="r">40.9%</td><td class="r">41.9%</td><td class="r">25.1%</td></tr>
+        <tr><th scope="row">OpenThinkerAgent-32B</th><td>OT-Agent，10 万条</td><td class="r">44.8%</td><td class="r">54.0%</td><td class="r">26.2%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字来自论文的表 1，是各模型用完自己的全部训练数据之后的成绩，SWE-Bench Verified 一列用的是全部 500 道题。每个模型分别在 Terminus-2 和它原本的运行框架里测，取较高的一个。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</figcaption>
+  </figure>
+  <p>四行用的是同一个基础模型。只做监督微调，平均准确率从 22.8% 到 44.8%，相差 22 个百分点。三份数据之间也差得很多：OT-Agent 只用了 Nemotron-Terminal-Corpus 不到四成的样本数，平均成绩反而高 3.9 个百分点。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>这张图容易被读成「同样多的轨迹，挑出最有效的子集效果更好」。</b>图上的横轴确实是训练集大小，但几条线是三份不同来源的数据集（OT-Agent、Nemotron-Terminal-Corpus、SERA），各自取同样条数来训练，比的是数据集之间的差别。论文摘要的说法是：在控制算力的比较里，他们的训练数据在每一个训练集大小上都超过其他开放数据集。这句话大致对应右边「七个基准测试的平均」那张小图；在左边和中间两张小图上，如上一段所说，别的数据集的线有时更高。怎样从一份数据里挑出该用的部分，是论文里另外一百多个对照实验研究的问题，也是第 12 讲的主题。</div></div>
+  <p>这张图里还有一个细节和<a href="harness.html">第七部分</a>有关。SERA 的数据是用 SWE-agent 这个运行框架产生的。图上有两条 SERA 的线，一条是在 SWE-agent 里测的，一条是在 Terminus-2 里测的。同一个模型，在自己训练时用的那个框架里，SWE-Bench Verified 的成绩高出很多：从图上读，数据量最大时大约是 52% 和 23%。</p>
+</section>
+
+<section class="sec" id="roadmap">
+  <h2>这一讲的四个问题</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">问题</th><th scope="col">在哪一部分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">agent 数据为什么重要</th><td>这一部分</td></tr>
+        <tr><th scope="row">agent 数据有哪两种：运行轨迹和环境</th><td><a href="types.html">第二部分</a></td></tr>
+        <tr><th scope="row">agent 数据从哪里来</th><td><a href="real.html">第三部分</a>、<a href="synth.html">第四部分</a>、<a href="sim.html">第五部分</a></td></tr>
+        <tr><th scope="row">agent 数据顺带教会了模型什么</th><td><a href="hacking.html">第六部分</a>、<a href="harness.html">第七部分</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>还有一个问题留给第 12 讲：手里有了很多运行轨迹和环境，应该拿哪些来训练。</p>
+  <p>下一部分先看 <a href="types.html">agent 数据的两种形态</a>。</p>
+</section>
