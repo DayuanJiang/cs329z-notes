@@ -1,0 +1,211 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>这种模式存的是程序性记忆（procedural memory），也就是「怎样把一件事做成」的知识。agent（能自己调用工具、分很多步去完成任务的语言模型系统）做成一件事之后，把做法整理成可以再用的形式存起来，以后遇到相关的任务时取出来用。</li>
+    <li>三个例子存的形式不同。Voyager 存的是可以执行的代码，按描述的相似程度检索。Agent Workflow Memory 存的是带变量的文字步骤，整批放进 prompt（给模型的输入文字）。技能文件是一个个 Markdown 文件，agent 先看到每个文件的一两句简介，需要时再去读全文。</li>
+    <li>两篇论文都报告了明显的提升，读的时候各有限定。Voyager 在自由探索的实验里，带技能库的版本是唯一做出钻石工具的方法，三次运行里成功了一次；在另一个给定目标的实验里，去掉技能库的版本也做出过钻石镐。Agent Workflow Memory 在 WebArena 上的任务成功率是 35.5%，论文拿来对照的做法是 23.5%，那个做法的输入比它多，输入相同的做法是 15.0%。</li>
+    <li>共同的局限是存下来的做法不会自己更新。环境变了，旧做法就过时了，而 Voyager 和 Agent Workflow Memory 的论文都没有讲怎样修改或删除旧的做法。</li>
+  </ul>
+</section>
+
+<section class="sec" id="what">
+  <h2>这种模式在做什么</h2>
+  <p>没有记忆的 agent，每次都要重新摸索同一件事怎么做。这种模式让 agent 把摸索出来的做法留下来。它的流程可以分成四步。</p>
+  <ol>
+    <li><b>做任务。</b>agent 照常完成一个任务，留下一条运行轨迹（trajectory，每一步的动作和看到的结果的完整记录）。</li>
+    <li><b>判断做成了没有。</b>只有成功的轨迹才值得学。判断的办法可以是环境给出的结果，也可以是让另一个模型来判断。</li>
+    <li><b>把做法整理出来，存进记忆。</b>整理的结果可以是一段代码、一份分步骤的文字说明，或者一个文件。</li>
+    <li><b>以后取出来用。</b>遇到相关的新任务时，把存下的做法放回上下文窗口（context window，模型一次能读进去的全部文字）。</li>
+  </ol>
+  <p>下面三个例子都是这四步，区别在每一步具体怎么做。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">Voyager</th><th scope="col">Agent Workflow Memory</th><th scope="col">技能文件</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">在什么环境里</th><td>游戏 Minecraft</td><td>网页操作</td><td>通用的 agent，比如写代码、处理文档的 agent</td></tr>
+        <tr><th scope="row">做法存成什么</th><td>一段可以执行的 JavaScript 程序，加一段文字描述</td><td>一段文字：一句描述，加若干步骤，步骤里会变的内容换成了变量</td><td>一个文件夹，里面有一个 SKILL.md 文件，还可以有别的说明文件和脚本</td></tr>
+        <tr><th scope="row">谁来判断该不该存</th><td>另一次 GPT-4 调用检查任务有没有完成</td><td>一个专门做评判的语言模型判断轨迹有没有做成任务</td><td>人写好放进去，或者 agent 自己写</td></tr>
+        <tr><th scope="row">怎么取出来</th><td>把新任务的描述转成向量，取最相近的 5 个技能</td><td>不做检索，当前网站的全部工作流都放进 prompt</td><td>每个技能的名字和简介一直在上下文窗口里，agent 自己决定去读哪个文件</td></tr>
+      </tbody>
+    </table>
+    <figcaption>向量（embedding）是把一段文字转成的一串数字，意思相近的文字，转出来的数字也相近。各格的出处见下面各节。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="voyager">
+  <h2>Voyager：把做法存成代码</h2>
+  <p>Voyager 是一个在 Minecraft 里自己探索的 agent，由 NVIDIA、加州理工等机构的研究者在 2023 年 5 月发表。它用代码来操作游戏：GPT-4 写一段 JavaScript 程序，程序通过 Mineflayer 这个库提供的接口控制游戏里的角色。它不看游戏画面，游戏的状态以文字的形式给它，比如背包里有什么、附近有什么生物。整个过程不改模型的权重。</p>
+  {{fig 31 | Voyager 的三个部分。左边是自动课程提出的一串任务，比如做工作台、打僵尸、挖钻石。中间是 GPT-4 为「打僵尸」写的程序。右边是技能库。下方是 Minecraft 环境和自我验证：验证通过，新技能加进技能库；没有通过，带着环境的反馈和报错信息去改程序。图片来源：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>。}}
+  <p>图里的三个部分各管一件事。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">部分</th><th scope="col">做什么</th><th scope="col">细节</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">自动课程<br><span class="muted small">Automatic Curriculum</span></th><td>提出下一个任务</td><td>GPT-4 根据 agent 现在的状态和已经探索到的进度出题，总目标是「发现尽可能多样的东西」。图里的第一个任务是砍一块木头</td></tr>
+        <tr><th scope="row">迭代提示机制<br><span class="muted small">Iterative Prompting Mechanism</span></th><td>把程序改到能用</td><td>运行程序，把三样东西交还给 GPT-4：游戏里的反馈、程序的报错、自我验证的结论。GPT-4 据此改程序。同一个任务最多生成 4 轮代码，还没做成就换下一个任务</td></tr>
+        <tr><th scope="row">技能库<br><span class="muted small">Skill Library</span></th><td>存下做成的程序，以后再用</td><td>自我验证通过之后，程序才进技能库。自我验证由另一次 GPT-4 调用完成，论文说这样就不用给每个新任务手写检查成功的代码</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>，第 2 节。</figcaption>
+  </figure>
+  <h3>技能怎么存，怎么取</h3>
+  <p>技能库是这个系统里的记忆。它是一个向量数据库，每个技能存两样东西。</p>
+  {{fig 32 | 上半部分是存技能，下半部分是取技能。图片来源：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>。}}
+  <ul>
+    <li><b>存。</b>GPT-4 写出的程序先交给 GPT-3.5 写一段描述。图里「打僵尸」的描述是：这个函数先装备一把石剑，没有就做一把，再做一面盾牌，恢复饥饿值，然后去找僵尸战斗。描述转成向量之后作为键，程序本身作为值。</li>
+    <li><b>取。</b>遇到新任务，比如「做一把铁镐」，GPT-3.5 先写一段大致怎么做的建议，加上环境的反馈，转成向量去技能库里查，取出最相近的 5 个技能。这 5 个技能的代码会放进 GPT-4 写新程序时的 prompt，新程序可以直接调用它们。</li>
+  </ul>
+  <p>新技能可以调用旧技能，所以复杂的技能是由简单的技能一层层搭起来的。图里「打僵尸」的程序就调用了「做石剑」和「做盾牌」这两个更早存下的技能。</p>
+  <p>查询和键只要意思相近就能匹配上，不要求文字完全一样。论文在附录里检查了检索的准确度：在 309 个样本上，需要的技能出现在前 5 个结果里的比例是 96.5%，排在第 1 个的比例是 80.2%。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>技能库里会不会有重复的技能。</b>论文正文没有讲怎样处理重复或相近的技能。从公开的代码看，新技能和已有的技能函数名完全相同时，技能库里的条目会被新程序替换，旧的程序文件留在磁盘上，新文件的名字后面加上 V2、V3。代码里没有检查两个技能做的事是否相近，所以名字不同、功能差不多的技能可以同时存在。出处：<a href="https://github.com/MineDojo/Voyager/blob/main/voyager/agents/skill.py">Voyager 代码仓库的 skill.py</a>。</div></div>
+</section>
+
+<section class="sec" id="voyager-results">
+  <h2>Voyager 的结果：技能库起了多大作用</h2>
+  <p>论文用两个实验来看技能库的作用。第一个实验让各个方法自由探索，看多少轮之内能做出某一级的工具。这里的一轮，指让模型生成或修改一次代码。Minecraft 里的工具从木质、石质、铁质到钻石，一级比一级难做。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方法</th><th scope="col" class="r">木质工具</th><th scope="col" class="r">石质工具</th><th scope="col" class="r">铁质工具</th><th scope="col" class="r">钻石工具</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ReAct</th><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td></tr>
+        <tr><th scope="row">Reflexion</th><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td></tr>
+        <tr><th scope="row">AutoGPT</th><td class="r">92 ± 72（3/3）</td><td class="r">94 ± 72（3/3）</td><td class="r">135 ± 103（3/3）</td><td class="r">没做到（0/3）</td></tr>
+        <tr><th scope="row">Voyager，去掉技能库</th><td class="r">7 ± 2（3/3）</td><td class="r">9 ± 4（3/3）</td><td class="r">29 ± 11（3/3）</td><td class="r">没做到（0/3）</td></tr>
+        <tr><th scope="row">Voyager</th><td class="r">6 ± 2（3/3）</td><td class="r">11 ± 2（3/3）</td><td class="r">21 ± 7（3/3）</td><td class="r">102（1/3）</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每个方法运行三次，每次最多 160 轮。数字是做出这一级工具用的轮数，越少越好。括号里是三次里成功的次数。论文的表注说数字是三次运行的平均。三次没有全部成功的格子，论文没有写明是怎么算的，很可能只按成功的那几次算：钻石工具的 102 轮就是唯一成功的那一次用的轮数。正负号后面的数，论文也没有写明是什么，很可能是三次运行之间的标准差。ReAct、Reflexion、AutoGPT 是三种已有的 agent 做法，论文作者按原来的思路在 Minecraft 里各写了一个版本。出处：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>，表 1。</figcaption>
+  </figure>
+  <p>从表里能读出三件事。带技能库的 Voyager 是唯一做出钻石工具的方法。去掉技能库之后，前三级工具仍然做得出来，铁质工具慢了一些（29 轮比 21 轮），石质工具反而略快（9 轮比 11 轮）。Voyager 的两个版本都比 AutoGPT 快很多。去掉技能库的版本同样快，所以这个差距来自技能库以外的部分，论文把它归功于自动课程。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「有了技能库才做得出钻石工具」这个说法要加两个限定。</b>
+    <ul>
+      <li><b>带技能库的版本三次运行里只成功了一次。</b>表里的 102 轮是那一次的数，另外两次在 160 轮以内没有做到。</li>
+      <li><b>去掉技能库的版本在另一个实验里做出过钻石镐。</b>论文的第二个实验把 agent 放进一个新的世界，清空背包，直接给它一个没见过的目标，上限是 50 轮。去掉技能库的版本三次里有两次做出了钻石镐，平均用了 36 轮。所以「没有技能库就做不到」只在第一个实验的设置下成立。</li>
+    </ul>
+    出处：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>，表 1 和表 2。</div></div>
+  <h3>换到没见过的任务上</h3>
+  <p>第二个实验更能说明技能库的用处。agent 在新的世界里从零开始，目标是四样它之前没做过的东西。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方法</th><th scope="col" class="r">钻石镐</th><th scope="col" class="r">金剑</th><th scope="col" class="r">岩浆桶</th><th scope="col" class="r">指南针</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ReAct、Reflexion、AutoGPT</th><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td><td class="r">没做到（0/3）</td></tr>
+        <tr><th scope="row">AutoGPT，<br>加上 Voyager 的技能库</th><td class="r">39（1/3）</td><td class="r">30（1/3）</td><td class="r">没做到（0/3）</td><td class="r">30（2/3）</td></tr>
+        <tr><th scope="row">Voyager，去掉技能库</th><td class="r">36（2/3）</td><td class="r">30 ± 9（3/3）</td><td class="r">27 ± 9（3/3）</td><td class="r">26 ± 3（3/3）</td></tr>
+        <tr><th scope="row">Voyager</th><td class="r">19 ± 3（3/3）</td><td class="r">18 ± 7（3/3）</td><td class="r">21 ± 5（3/3）</td><td class="r">18 ± 2（3/3）</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每个方法运行三次，每次最多 50 轮。数字和括号的含义同上一张表，没有正负号的格子是三次没有全部成功的情况。出处：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>，表 2。</figcaption>
+  </figure>
+  {{fig 34 | 上面是第一个实验的表。下面两张图是第二个实验里的两个任务：做金剑和收集岩浆桶。横轴是轮数，纵轴是从砍木头到最终目标要依次做出的东西，线越早升到顶越好。橙色是 Voyager，黄色是去掉技能库的 Voyager，浅紫色是 AutoGPT，深紫色是加上 Voyager 技能库的 AutoGPT。图片来源：<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>。}}
+  <p>四个任务上，带技能库的 Voyager 都是三次全部成功，用的轮数比去掉技能库的版本少两成到将近一半。图里橙色的线比黄色的线更早升到顶，说的就是这件事：很多中间步骤可以直接取用存好的技能，不用重新写。</p>
+  <p>另一个值得注意的结果是 AutoGPT。它自己一个任务都做不成，换上 Voyager 积累的技能库之后，有三个任务至少成功了一次。论文据此说，技能库可以直接给别的方法用。右边那张图里深紫色的线停在「岩浆源」这一步，没有到顶，和表里岩浆桶那一格的「没做到」是一致的。</p>
+  <p>论文的消融实验（每次去掉系统的一个部分，看成绩掉多少）还有一个观察：去掉技能库的版本，在探索的后期会停滞不前。作者的解释是，技能库让新技能可以建在旧技能上面，agent 才能不断做出更复杂的动作。</p>
+</section>
+
+<section class="sec" id="awm">
+  <h2>Agent Workflow Memory：把做法存成带变量的步骤</h2>
+  <p>Agent Workflow Memory（下面简称 AWM）是卡内基梅隆大学和麻省理工学院的研究者在 2024 年 9 月发表的方法。它和 Voyager 的思路相近，面向的是更一般的场景：操作网页的 agent。这类 agent 通过点击、填写、滚动这些动作在网站上完成任务，比如查出某个订单是谁下的。</p>
+  {{fig 35 | AWM 的三步。左下是第一步，得到一串动作：点「订单」链接，滚动找到 0130 号订单，把下单人的名字发给用户。中下是第二步，判断这条轨迹有没有把问题答对。右边是第三步，从做对的轨迹里归纳出工作流，再放回 agent 的记忆。图片来源：<a href="https://arxiv.org/abs/2409.07429">Wang 等，2024</a>。}}
+  <h3>工作流是什么</h3>
+  <p>AWM 把存下来的做法叫作工作流（workflow）。一个工作流有两部分：一句话描述它是做什么的，加上一串步骤。每一步又有三样：对当前页面状态的描述，agent 为什么要这样做的推理，以及一个可以执行的动作。</p>
+  {{fig 37 | 两个工作流的例子。上面一个是购物网站上「浏览某个类别的商品」，下面一个是购物网站的管理后台上「修改并保存」。图片来源：<a href="https://arxiv.org/abs/2409.07429">Wang 等，2024</a>。}}
+  <p>拿上面一个来看。它说的是：要浏览某个类别的商品，先把鼠标悬停在主类别的菜单项上，让子类别显示出来，再点击子类别的链接。这是 agent 从经验里学到的一条关于这个网站的知识：子类别藏在一个悬停才出现的下拉菜单里。</p>
+  <p>工作流有两个特点，都是在归纳时特意要求的。</p>
+  <ul>
+    <li><b>粒度小。</b>工作流对应的是会在很多任务里反复出现的子任务，比如「在网站上搜索一件商品」，不对应某一个完整的任务。</li>
+    <li><b>具体的值换成了变量。</b>图里的 <code>main_category_id</code>、<code>field_id</code> 都是变量。原来轨迹里的「干猫粮」这类具体的词，会换成 <code>{product-name}</code> 这样的名字，工作流才能用到别的商品上。</li>
+  </ul>
+  <h3>工作流怎么归纳出来</h3>
+  <p>归纳这一步是让语言模型做的。给它的指令很短，意思是：给定一组网页操作任务，每个任务有一条指令和完成它的一串动作，请找出在多个任务里重复出现的那部分动作，把每一段提取成一个工作流；每个工作流应该是经常被重复使用的子流程；不要生成相似或重叠的工作流；每个工作流至少有两步；会变的内容用有含义的变量名表示。</p>
+  <p>归纳可以在两种情况下进行。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">情况</th><th scope="col">轨迹从哪里来</th><th scope="col">怎么知道轨迹是对的</th><th scope="col">什么时候归纳</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">离线<br><span class="muted small">offline</span></th><td>事先准备好的示范，比如人标注的轨迹</td><td>示范本身就是对的</td><td>开始做测试任务之前，一次归纳完</td></tr>
+        <tr><th scope="row">在线<br><span class="muted small">online</span></th><td>agent 自己做测试任务时留下的轨迹</td><td>没有标准答案。让一个语言模型当评判，判断这条轨迹有没有完成任务</td><td>每做完一个任务就归纳一次，新的工作流马上用到后面的任务上</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2409.07429">Wang 等，2024</a>，第 2.3 节。</figcaption>
+  </figure>
+  <p>在线的情况有一个明显的风险：评判的模型会判错。论文自己也指出，从 agent 预测的轨迹里归纳，轨迹不一定是对的，可能归纳出错误的工作流，反过来拉低成绩。</p>
+  <h3>工作流放在哪里</h3>
+  <p>AWM 没有做检索。归纳出来的工作流直接加进 agent 的 prompt，作为解决任务时的参考。为了让放进去的工作流和任务相关，论文按网站分组：每个网站单独归纳一套工作流，做这个网站的任务时，只放这个网站的那一套。</p>
+  <p>这样做在几百个任务的实验里没有问题。agent 如果要长期运行，工作流会越积越多，全部放进 prompt 就行不通了，需要像 Voyager 那样加一个检索的步骤。</p>
+  <h3>工作流会越学越复杂</h3>
+  {{fig 12 | 左边是先学到的工作流「按名字找一个地点」：在地图网站上搜索地点的名字。右边是后学到的工作流「查一个地点的邮政编码」：前几步直接沿用左边的做法，后面加上从搜索结果里读出邮政编码并告诉用户。图片来源：<a href="https://arxiv.org/abs/2409.07429">Wang 等，2024</a>。}}
+  <p>在线的情况下，前面学到的工作流会成为后面工作流的一部分。图里的 agent 先学会了怎样在地图上找到一个地点。之后遇到要查邮政编码的任务，它先照已有的工作流找到地点，再往下多做几步，这个更长的做法又被存成一个新的工作流。这和 Voyager 里新技能调用旧技能是同一个道理。</p>
+</section>
+
+<section class="sec" id="awm-results">
+  <h2>AWM 的结果</h2>
+  <p>论文在两个网页操作的基准测试（benchmark，一组题目加一个打分的办法）上做了实验。WebArena 有 812 个任务，分布在五个网站上，按任务最后有没有做成来算成功率。Mind2Web 主要看每一步做得对不对：选中的页面元素和对它做的动作都对，这一步才算成功。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">WebArena 上的方法</th><th scope="col">用没用人写的工作流</th><th scope="col" class="r">任务成功率</th><th scope="col" class="r">平均每个任务用的步数</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">BrowserGym<br><span class="muted small">输入是网页的 HTML 加可访问性树</span></th><td>没有</td><td class="r">23.5%</td><td class="r">表里没有给</td></tr>
+        <tr><th scope="row">BrowserGym<br><span class="muted small">输入只有可访问性树，和 AWM 相同</span></th><td>没有</td><td class="r">15.0%</td><td class="r">7.9</td></tr>
+        <tr><th scope="row">SteP</th><td>用了 14 个专家为 WebArena 写的工作流</td><td class="r">33.0%</td><td class="r">表里没有给</td></tr>
+        <tr><th scope="row">AWM</th><td>没有，工作流是在线归纳出来的</td><td class="r">35.5%</td><td class="r">5.9</td></tr>
+      </tbody>
+    </table>
+    <figcaption>模型都是 GPT-4。可访问性树（accessibility tree）是浏览器给读屏软件用的一种页面结构，比 HTML 简短。WebArena 只有测试任务，没有可以用来离线归纳的示范，所以这里的 AWM 是在线的版本。出处：<a href="https://arxiv.org/abs/2409.07429">Wang 等，2024</a>，表 1。</figcaption>
+  </figure>
+  <p>论文摘要里说的「在 WebArena 上相对提高 51.1%」，指的是 35.5% 相对 23.5% 的提高幅度，换成百分点是 12.0 个百分点。摘要里另一个数「在 Mind2Web 上相对提高 24.6%」，指的是每一步的成功率从 36.2% 提到 45.1%，这是离线的版本，量的是单步对不对，和 WebArena 的任务成功率是两种指标。要留意 23.5% 那一行的输入比 AWM 多一份 HTML；和输入相同的那一行（15.0%）比，AWM 高 20.5 个百分点。步数也少了：AWM 平均每个任务用 5.9 步，输入相同的那个参照做法（基线，baseline）是 7.9 步。</p>
+  <p>AWM 比用了人写工作流的 SteP 高 2.5 个百分点。分网站看，两者互有高低：SteP 在购物、Reddit、GitLab 三个网站上更高，AWM 在购物网站的管理后台和地图上更高。可以说自动归纳的工作流大体上达到了专家手写的水平，在一部分网站上更好。</p>
+  <h3>学得有多快</h3>
+  {{fig 38 | 左边的表是 WebArena 里题目模板互不相同的那部分任务上的成功率，下面有说明。右边的曲线是 AWM 在地图网站的任务上的累计成功率：横轴是已经做完的任务数，纵轴是到这时为止的平均成功率。虚线左边标的是快速学习阶段，右边是稳定阶段。图片来源：<a href="https://arxiv.org/abs/2409.07429">Wang 等，2024</a>。}}
+  <p>右边的曲线说明 AWM 需要的例子不多。论文的说法是，agent 在最初的 0 到 40 个任务里学到了最要紧的工作流，成功率快速上升，之后趋于稳定。曲线在最初十几个任务时就有一段很陡的上升，但那时参与平均的任务太少，数值波动很大，论文把学习阶段的终点放在 40 个任务左右。这条曲线只是地图这一个网站的结果。</p>
+  <p>AWM 不改模型的权重，学到的东西全部以文字的形式放在 prompt 里。和强化学习（让模型在环境里反复尝试，按得到的奖励更新权重）相比，它需要的例子少得多，几十个任务就能看到效果。优化 prompt 和优化权重这两条路线的比较，第 9 讲会讲到。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>左边那张表在检查什么。</b>WebArena 的很多任务是从同一个模板生成的，只换了里面的具体内容，做法几乎一样。在线的 AWM 做完其中一个，学到的工作流正好能用在同模板的下一个任务上。为了排除这种情况，论文从每个模板里只随机留一个任务，得到一个子集再测一遍，按表里各网站的任务数加起来是 197 个。在这个子集上，AWM 的成功率是 33.2%，SteP 是 32.1%，另外两个不用人写工作流的方法是 23.2% 和 20.5%。也就是说，排除了同模板的任务之间互相照搬之后，AWM 仍然领先。分网站看，购物网站上 SteP 是 26.5%，高于 AWM 的 24.5%。</div></div>
+</section>
+
+<section class="sec" id="skill-files">
+  <h2>技能文件：把做法写成 agent 自己会去读的文件</h2>
+  <p>技能文件是现在通用 agent 里最常见的程序性记忆。它比前两种简单得多：做法就写在一个 Markdown 文件里，agent 需要的时候自己去读。这里用 Anthropic 的 Agent Skills 来说明。它的文档把技能定义为一个个模块，每个模块打包了指令、元数据（描述这个模块的简短信息）和可选的资源（脚本、模板），模型在相关的时候会自动使用。</p>
+  {{fig 39 | 一个技能的样子。左边是技能的文件夹，里面有 SKILL.md、两份说明文档和一个 Python 脚本。右边是 SKILL.md 的内容：开头蓝色的一块是元数据，写着名字和描述；下面是正文，写着品牌用的颜色和字体。图片来源：<a href="https://platform.claude.com/cookbook/skills-notebooks-01-skills-introduction">Anthropic 的技能入门教程</a>。}}
+  <p>图里的技能教 agent 怎样把 Anthropic 的品牌颜色和字体用到 PowerPoint 演示文稿上。它由两部分组成。</p>
+  <ul>
+    <li><b>元数据。</b>文件开头用 YAML 格式写的两项：名字（<code>name</code>）和描述（<code>description</code>）。描述要同时说清这个技能做什么、什么时候该用它。</li>
+    <li><b>正文。</b>自由格式的 Markdown，写具体怎么做。这里写的是品牌的主色有哪几种、各用在什么地方，标题和正文各用什么字体。</li>
+  </ul>
+  <h3>分三层加载</h3>
+  <p>一个 agent 可以装很多技能。如果把所有技能的全文都放进上下文窗口，窗口很快就满了。技能文件的办法是分层加载，文档里叫 progressive disclosure，意思是需要多少才加载多少。</p>
+  {{fig 40 | 上下文窗口里的情况。最上面是 agent 的系统 prompt，后面跟着每个技能的简短片段，图里有 bigquery、docx、pdf、pptx、xlsx 等。右上角放大了 xlsx 这一个片段，里面只有名字和描述。往下是用户的请求：填一份 PDF 表格。模型于是用 bash 命令读出 PDF 技能的 SKILL.md，又根据其中的指引读了 forms.md。图片来源：<a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Anthropic 的 Agent Skills 文档</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">层</th><th scope="col">内容</th><th scope="col">什么时候进上下文窗口</th><th scope="col">占多少 token</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">第一层：元数据</th><td>每个技能的名字和描述</td><td>一直在。启动时就放进系统 prompt</td><td>每个技能约 100 个 token</td></tr>
+        <tr><th scope="row">第二层：指令</th><td>SKILL.md 的正文</td><td>用户的请求和某个技能的描述对上了，模型用 bash 命令把这个文件读出来</td><td>5 千 token 以内</td></tr>
+        <tr><th scope="row">第三层：资源和代码</th><td>文件夹里的其他文件：更细的说明、脚本、模板</td><td>正文里提到、而且当前任务用得上时，模型再去读或者运行</td><td>读到之前不占。脚本运行时只有输出进上下文窗口，脚本的代码不进</td></tr>
+      </tbody>
+    </table>
+    <figcaption>token 是模型处理文字的最小单位，大致是一个词或半个词。系统 prompt 是每次对话开头固定给模型的那段指令。出处：<a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Anthropic 的 Agent Skills 文档</a>。</figcaption>
+  </figure>
+  <p>和 Voyager、AWM 比，这里没有向量数据库，也没有专门的检索程序。要做的只有两件事：把文件放好，并且让模型知道有这些文件。读哪个、什么时候读，由模型自己判断。可以这样理解这种做法为什么行得通：模型足够强之后，给它一个文件系统和读写文件的工具，一部分原来要专门搭建的东西就可以省掉。</p>
+  <p>技能文件可以由人写好放进去，也可以由 agent 自己写。后一种情况下，它就成了 agent 给自己记下的做法。<a href="storage.html#files">第二部分</a>里 LangChain 的例子说明了让 agent 自己写这些文件时会遇到的问题。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>照着图里的名字写会通不过检查。</b>这一节第一张图里技能的名字写的是「Anthropic Brand Style Guidelines」。按现在的文档，名字只能用小写字母、数字和连字符，最长 64 个字符，而且不能含有 anthropic 和 claude 这两个保留词。合规的写法类似 <code>brand-style-guidelines</code>。描述最长 1,024 个字符。</div></div>
+</section>
+
+<section class="sec" id="limits">
+  <h2>局限：环境变了，存下的做法会过时</h2>
+  <p>这种模式有一个共同的弱点：做法存下来之后就不动了。只要环境变了，旧做法就可能不再管用，甚至把 agent 带错方向。</p>
+  {{fig 41 | 右边是两张 Minecraft 的截图。上面是原版的游戏。下面是装了模组（玩家自制的扩展）之后的同一个游戏，多了原版没有的机器和工具。在上面的世界里学到的技能，到了下面的世界里不一定还管用。}}
+  <p>网页 agent 也一样。网站改版之后，「先把鼠标悬停在主类别上」这样的工作流就可能对不上新的页面。Voyager 和 AWM 的论文都只讲了怎样往记忆里加东西，没有讲怎样修改或者删除已经存下的做法。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>一篇专门讨论这个问题的论文。</b>Cao 等人的 ReMe（2025 年 12 月上传，后来被 ACL 2026 的 Findings 收录）把已有的做法概括为「被动积累」：记忆被当成一个只往里加、从不整理的档案。论文列了三个具体的问题：整条轨迹一起存，里面混着无关的内容；取出来的经验不加调整就用，场景稍有不同就会失败；没有及时的更新，经验库会变成有用的经验和有害的噪声混在一起。它的办法里和这里最相关的一条是按效用删除：一条经验被取用至少 5 次之后，如果它带来的平均效用低于阈值，就删掉。实验是在两个工具调用的基准测试上做的，没有测试环境本身发生变化的情况，也没有拿 Voyager 或 AWM 做对比。出处：<a href="https://arxiv.org/abs/2512.10696">Cao 等，2025</a>。</div></div>
+  <p>技能文件在这一点上好一些，因为文件可以改：人可以改，agent 自己也可以改。难处在于判断什么时候该改、改成什么。怎样让记忆保持最新，是<a href="upkeep.html#maintain">第五部分</a>的记忆维护要讲的事。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>从经验里学做法，是把成功的运行轨迹整理成可以再用的程序性记忆。存的形式可以是代码、带变量的步骤，或者文件。</li>
+    <li>存之前要有一步判断：这次到底做成了没有。Voyager 和 AWM 都让语言模型来判断，判错了就会存下错的做法。</li>
+    <li>取的办法从复杂到简单都有：向量检索，全部放进 prompt，或者只放一句简介、让模型自己去读文件。</li>
+    <li>存下来的做法会过时。光往里加是不够的，还要能改、能删。</li>
+  </ul>
+  <p>下一部分看第二种模式：<a href="tiers.html">把记忆分成几层</a>。</p>
+</section>

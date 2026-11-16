@@ -84,7 +84,8 @@
           "title": "agent 的记忆架构",
           "summary": "四种记忆；技能库、MemGPT 式的分层、反思式整理、记忆维护四种架构；记忆的评测和没解决的问题。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture07.pdf",
-          "video": "https://youtu.be/qh5tP6PBZ6U"
+          "video": "https://youtu.be/qh5tP6PBZ6U",
+          "dir": "lecture07"
         },
         {
           "n": 8,
