@@ -1,0 +1,131 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>检索增强生成（RAG，Retrieval-Augmented Generation）是在回答之前先检索资料，再让模型读着资料回答。它会在三个环节出问题：检索、阅读、多步循环，每个环节各有三种。</li>
+    <li>阅读环节最典型的问题叫「中间丢失」（lost in the middle）：答案所在的文档排在输入的开头或结尾时，模型用得最好；排在中间时，准确率可以掉到比完全不给文档还低。</li>
+    <li>多给文档帮助有限。检索到 50 篇文档时，答案被检索到的比例约 90%，模型答对的比例却停在 50% 到 60% 之间。</li>
+    <li>RAG 的好处之一是能给出引用，但引用也是模型生成的。对四个生成式搜索引擎的人工评估发现，平均只有 74.5% 的引用支持它所标注的那句话。</li>
+    <li>这些问题不否定 RAG。检索本身就是一种工具，下面几部分讲的是更一般的工具使用。</li>
+  </ul>
+</section>
+
+<section class="sec" id="nine">
+  <h2>RAG 在三个环节上的九个问题</h2>
+  <p>RAG 的流程是先检索、再阅读、再生成。如果由 agent（能自己调用工具、分很多步去完成任务的语言模型系统）来做，这个流程还会循环很多轮。问题可以按这三个环节来分。</p>
+  {{fig 4 | 九个问题分成三组：检索这一侧、阅读这一侧、循环这一侧。红框标出的「中间丢失」是这一部分重点讲的一个。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">环节</th><th scope="col">问题</th><th scope="col">是什么意思</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" rowspan="3">检索</th><td>召回的上限<br><span class="muted small">Recall ceiling</span></td><td>需要的证据没有被检索出来，后面的步骤再好也答不对</td></tr>
+        <tr><td>索引过期<br><span class="muted small">Stale index</span></td><td>文档更新了，索引里存的 embedding（把一段文字表示成一串数字的向量，检索靠比较这些向量）没有跟着更新</td></tr>
+        <tr><td>权限泄漏<br><span class="muted small">Permission leak</span></td><td>检索到了提问的人本来无权查看的内容，并把它用进了回答</td></tr>
+        <tr><th scope="row" rowspan="3">阅读</th><td>中间丢失<br><span class="muted small">Lost in the middle</span></td><td>模型对输入里不同位置的内容用得不一样好，排在中间的最容易被漏掉</td></tr>
+        <tr><td>干扰<br><span class="muted small">Distraction</span></td><td>检索回来的内容和问题很像，其实不相关，模型被它带偏</td></tr>
+        <tr><td>证据冲突<br><span class="muted small">Evidence conflict</span></td><td>几份资料的说法互相矛盾，或者资料和模型原有的知识矛盾。例如问「喝牛奶对健康好不好」，能检索到说好处的文章，也能检索到说坏处的文章</td></tr>
+        <tr><th scope="row" rowspan="3">循环</th><td>错误累积<br><span class="muted small">Compounding error</span></td><td>前面某一步的错误会影响后面的决定，步数越多越严重</td></tr>
+        <tr><td>没有停止规则<br><span class="muted small">No stopping rule</span></td><td>没有明确的条件告诉 agent 资料已经查够、可以结束了</td></tr>
+        <tr><td>提示注入<br><span class="muted small">Prompt injection</span></td><td>有人故意在会被检索到的文档里写入指令，模型读到后照着做</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>下面四节细看两件事：中间丢失（连同多给文档的效果和大海捞针测试），以及表里没有单列、但和 RAG 的卖点直接相关的引用出错。</p>
+</section>
+
+<section class="sec" id="lost">
+  <h2>中间丢失：答案的位置会改变结果</h2>
+  <p>一个自然的想法是：既然检索可能漏掉证据，那就多检索一些文档，全部交给模型。Liu 等人 2023 年的论文《Lost in the Middle》检验了这个想法，结论是文档多了以后，答案排在哪里会明显影响模型能不能用上它。</p>
+  {{figs 5 6 | 左：实验用的输入。prompt（交给模型的输入文字）要求只根据给出的搜索结果回答问题，后面跟着若干篇文档，其中只有一篇含有答案（图中加粗的第 2 篇）。右：三张图分别是一共给 10 篇、20 篇、30 篇文档时的结果，横轴是含答案的那篇排在第几位，纵轴是准确率。图片来源：<a href="https://arxiv.org/abs/2307.03172">Liu 等，2023</a>。}}
+  <p>实验的做法是固定文档的总数，只移动含答案的那一篇的位置。右图里的曲线大多是 U 形：答案在第一篇或最后一篇时准确率最高，在中间时最低。文档总数从 10 篇增加到 30 篇，中间的低谷更明显。</p>
+  <p>为了知道这些数是高是低，论文还测了两个参照：完全不给文档（closed-book），以及只给含答案的那一篇（oracle）。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">不给任何文档时的准确率</th><th scope="col" class="r">只给含答案的那一篇时的准确率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">GPT-3.5-Turbo</th><td class="r">56.1%</td><td class="r">88.3%</td></tr>
+        <tr><th scope="row">GPT-3.5-Turbo（16K）</th><td class="r">56.0%</td><td class="r">88.6%</td></tr>
+        <tr><th scope="row">Claude-1.3</th><td class="r">48.3%</td><td class="r">76.1%</td></tr>
+        <tr><th scope="row">LongChat-13B（16K）</th><td class="r">35.0%</td><td class="r">83.4%</td></tr>
+        <tr><th scope="row">MPT-30B-Instruct</th><td class="r">31.5%</td><td class="r">81.9%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2307.03172">Liu 等，2023</a> 的表 1。任务是 NaturalQuestions-Open 里的 2,655 个问题。括号里的 16K 指上下文窗口（模型一次能读入的 token 数上限；token 是模型处理文字的最小单位，大致是一个词或半个词）更大的版本。</figcaption>
+  </figure>
+  <p>两列之间的差距说明检索有用：GPT-3.5-Turbo 拿到正确的那一篇后，准确率从 56.1% 升到 88.3%。但是在给 20 篇或 30 篇文档、答案排在中间的最差情况下，它的准确率比不给文档时的 56.1% 还低。答案明明在输入里，模型却没有用上。</p>
+  <p>论文还有一个发现：上下文窗口更大的版本，和同一个模型的普通版本表现几乎一样。窗口能装下更多内容，不等于装进去的内容都能被用好。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>为什么会这样。</b>论文测量的是现象，没有给出确定的原因。它把开头用得好叫作首位偏好（primacy bias），把结尾用得好叫作近因偏好（recency bias），并指出这条 U 形曲线和心理学里的系列位置效应相似：人回忆一串内容时，也是开头和结尾的几项记得最牢。论文同时说，这个现象有些出人意料，因为从机制上讲，模型的自注意力可以同样容易地取到上下文里任何位置的 token。</div></div>
+</section>
+
+<section class="sec" id="more-docs">
+  <h2>多给文档，帮助很快就到头</h2>
+  <p>同一篇论文换了一个角度：不移动答案的位置，只增加检索回来的文档数，看结果怎么变。</p>
+  {{fig 7 | 横轴是检索回来的文档数，从 5 篇到 50 篇。黄色的线是检索器的召回率，也就是答案出现在这些文档里的比例。其他几条线是各个模型读了这些文档之后答对的比例。图片来源：<a href="https://arxiv.org/abs/2307.03172">Liu 等，2023</a>。}}
+  <p>图里有两种走势。</p>
+  <ul>
+    <li><b>检索器的召回率一直在涨。</b>文档数从 5 篇增加到 50 篇，召回率从不到 70% 涨到约 90%。检索器用的是 Contriever，一种把问题和文档都表示成向量、按向量的相似程度来检索的模型。</li>
+    <li><b>模型的准确率很早就不涨了。</b>10 到 20 篇之后，各条线基本持平，停在 50% 到 60% 之间。论文给的数是：从 20 篇增加到 50 篇，GPT-3.5-Turbo 的准确率只提高约 1.5%，Claude-1.3 只提高约 1%。</li>
+  </ul>
+  <p>黄线和其他线之间的差距，就是「已经检索到、但模型没有用上」的证据。多检索的文档还会让输入变长，延迟和花费都跟着涨。所以实际做 RAG 时，检索回来的文档要先筛选和重新排序，只把最相关的几篇交给模型。</p>
+</section>
+
+<section class="sec" id="citation">
+  <h2>引用也是模型生成的，所以引用也会错</h2>
+  <p>RAG 受欢迎的一个原因是它能给出引用。模型会产生幻觉（hallucination，把不存在或不正确的内容说得像真的一样），有了引用，读的人可以去核对来源。问题在于引用本身也是模型生成的。Liu、Zhang 和 Liang 2023 年的论文《Evaluating Verifiability in Generative Search Engines》请人评估了四个生成式搜索引擎的回答和引用。</p>
+  {{fig 9 | 对四个生成式搜索引擎的人工评估。上面两张表是读的人打的分，1 到 5 分：回答读起来是否流畅，看上去是否有用。下面两张表是引用的精确率和召回率，满分 100。图片来源：<a href="https://arxiv.org/abs/2304.09848">Liu、Zhang 和 Liang，2023</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">搜索引擎</th><th scope="col" class="r">看上去有用的程度<br><span class="muted small">1 到 5 分</span></th><th scope="col" class="r">流畅程度<br><span class="muted small">1 到 5 分</span></th><th scope="col" class="r">引用精确率</th><th scope="col" class="r">引用召回率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Bing Chat</th><td class="r">4.34</td><td class="r">4.40</td><td class="r">89.5%</td><td class="r">58.7%</td></tr>
+        <tr><th scope="row">NeevaAI</th><td class="r">4.48</td><td class="r">4.43</td><td class="r">72.0%</td><td class="r">67.6%</td></tr>
+        <tr><th scope="row">perplexity.ai</th><td class="r">4.56</td><td class="r">4.51</td><td class="r">72.7%</td><td class="r">68.7%</td></tr>
+        <tr><th scope="row">YouChat</th><td class="r">4.62</td><td class="r">4.59</td><td class="r">63.6%</td><td class="r">11.1%</td></tr>
+        <tr><th scope="row">四家平均</th><td class="r">4.50</td><td class="r">4.48</td><td class="r">74.5%</td><td class="r">51.5%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2304.09848">Liu、Zhang 和 Liang，2023</a>。评估用了 1,450 个查询。各家的数读自上面的配图，两个平均值和论文摘要里的数一致。</figcaption>
+  </figure>
+  <p>两个指标的定义如下。</p>
+  <ul>
+    <li><b>引用召回率。</b>回答里需要出处的句子当中，被它所带的引用完全支持的比例。平均 51.5%，意思是大约一半的句子没有引用，或者引用不足以支持那句话。</li>
+    <li><b>引用精确率。</b>回答里的所有引用当中，确实支持它所标注的那句话的比例。平均 74.5%，意思是大约每四个引用里有一个对不上。</li>
+  </ul>
+  <p>读的人给的分数却很高，两项平均都在 4.5 左右。回答读起来流畅、看上去有用，和它的引用是否可靠是两回事。论文还发现，引用精确率和「看上去有用」的评分是负相关的，相关系数是 -0.96。论文的解释是：照抄或者贴近改写来源的回答，引用几乎总是准的，但抄来的片段不一定回答了用户的问题。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「对不上」和「编造」是两回事。</b>精确率衡量的是引用的网页是否支持那句话。对不上的那四分之一，引用的通常是真实存在的网页，只是网页里没有那句话的依据。它和下面说的「编造一篇不存在的文献」是两种错误。</div></div>
+  <h3>编造的参考文献</h3>
+  <p>模型帮人写文章时，还会直接编出不存在的参考文献。这件事已经影响到了学术论文的审稿。</p>
+  {{fig 10 | 两张网页截图。左边是 GPTZero 2026 年 1 月 21 日的文章，右边是 ICLR 2026 的程序主席写的回顾里「对编造的参考文献采取行动」一节。}}
+  <ul>
+    <li><b>NeurIPS 2025。</b>GPTZero 是一家做 AI 文本检测工具的公司。它用自己的工具扫描了 NeurIPS 2025 录用的 5,290 篇论文中的 4,841 篇，公布了 100 条经人工确认的编造引用，涉及至少 51 篇论文。这些引用有的作者是编的，有的标题对不上，有的 arXiv 编号指向另一篇文章。</li>
+    <li><b>ICLR 2026。</b>程序主席在会后的回顾里写道：他们用一个自动系统从每篇投稿里抽出参考文献，到多个文献数据库和网页搜索里核对。这个系统误报不少，所以被标出的文献先由领域主席人工复查，再由程序主席逐条检查，每篇被标出的论文至少有三个人看过。确认含有编造文献的论文全部直接拒稿，并留了申诉渠道。</li>
+  </ul>
+  <p>出处：<a href="https://gptzero.me/news/neurips/">GPTZero 的文章</a>；<a href="https://blog.iclr.cc/2026/03/31/a-retrospective-on-the-iclr-2026-review-process/">ICLR 2026 审稿流程回顾</a>。ICLR 的文章没有写明因此拒了多少篇。</p>
+</section>
+
+<section class="sec" id="needle">
+  <h2>大海捞针测试：能装下，不等于找得到</h2>
+  <p>「大海捞针」（Needle in a Haystack）是 Greg Kamradt 在 2023 年 11 月做的一个测试。做法是在一篇很长的文档里的某个位置插入一句和上下文无关的事实，再问模型一个只有这句话能回答的问题。改变两样东西：文档总共有多长，以及这句话插在多深的位置。</p>
+  {{figs 11 12 | 左：Claude 2.1，上下文最长 20 万 token。右：GPT-4，上下文最长 12.8 万 token。横轴是文档长度，纵轴是事实插入的深度，最上面是文档开头，最下面是文档结尾。绿色表示找到了，红色表示没找到。图片来源：<a href="https://github.com/gkamradt/LLMTest_NeedleInAHaystack">Kamradt 的测试项目</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col">测了多少种组合</th><th scope="col">图上能看到什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Claude 2.1<br><span class="muted small">2023 年 11 月 21 日测</span></th><td>35 种文档长度乘以 35 种深度，最长 20 万 token</td><td>文档短的时候几乎全绿。文档越长红色越多，集中在文档的上部和中部。事实放在最底部，也就是紧挨着问题的地方时，基本都能找到</td></tr>
+        <tr><th scope="row">GPT-4<br><span class="muted small">2023 年 11 月 8 日测</span></th><td>15 种文档长度乘以 15 种深度，最长 12.8 万 token</td><td>大部分是绿的。文档超过大约 7 万 token 之后，事实放在 10% 到 50% 的深度时开始找不到。放在最上面和最下面时仍然能找到</td></tr>
+      </tbody>
+    </table>
+    <figcaption>组合数和 GPT-4 的那句结论来自图上的文字。测试日期来自测试项目的说明。</figcaption>
+  </figure>
+  <p>两张图说的和上面的论文是同一件事：事实放在开头和结尾时容易被用上，放在长文档的中间时容易被漏掉。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>这个测试的结果和 prompt 的写法有很大关系。</b>左图发布两周后，Anthropic 写了一篇说明。他们发现 Claude 2.1 往往不愿意根据一句和全文无关的话来回答，于是回复「文档里没有给出明确的答案」。在让模型开始回答的地方加上一句「Here is the most relevant sentence in the context:」之后，同一个测试上的得分从 27% 升到了 98%。所以左图里的红色，有一部分反映的是模型对「插进来的句子」的谨慎，不全是找不到。出处：<a href="https://www.anthropic.com/news/claude-2-1-prompting">Anthropic，2023 年 12 月</a>。</div></div>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>RAG 让模型能用上它没有记住的外部知识，这个思路在搭 agent 时仍然很有用。需要外部资料时，仍然应该先用它。</li>
+    <li>用的时候要检查这一部分列出的问题：答案的位置会不会影响结果，检索回来的内容是否都是有权使用的，里面有没有被人写入的恶意指令，给出的引用是否真的支持回答。</li>
+    <li>检索是一种工具：模型写出查询，外面的检索系统去执行，再把结果交回给模型。</li>
+  </ul>
+  <p>下一部分把这件事推广开来：<a href="why.html">除了检索，模型还需要哪些工具，工具到底是什么</a>。</p>
+</section>

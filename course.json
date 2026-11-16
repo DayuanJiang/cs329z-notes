@@ -46,7 +46,8 @@
           "title": "工具使用和函数调用",
           "summary": "LLM 为什么需要工具、怎样学会用工具；从 REST、函数调用到 MCP 的标准接口；工具使用的评测和常见失败。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture04.pdf",
-          "video": "https://youtu.be/s0S38lz6O7M"
+          "video": "https://youtu.be/s0S38lz6O7M",
+          "dir": "lecture04"
         }
       ]
     },
