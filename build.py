@@ -65,6 +65,58 @@ def expand_slides(content, img_dir):
     return SLIDE_RE.sub(repl, content)
 
 
+TABLE_RE = re.compile(r'<table class="tbl">.*?</table>', re.S)
+
+
+CELL_RE = re.compile(r"<(td|th)([^>]*)>(.*?)</\1>", re.S)
+
+
+def label_cells(content):
+    """Give every body cell its column header as data-label, so phones can show each row as a card.
+
+    A cell merged across several rows is repeated in the later rows as a hidden copy (class rs-copy),
+    which only phones display, so every card is complete. A cell merged across columns gets no label.
+    Tables whose header has more than one row or merged cells keep the grid and scroll sideways.
+    """
+    def table(m):
+        html = m[0]
+        head = re.search(r"<thead>(.*?)</thead>", html, re.S)
+        if not head:
+            return html
+        if head[1].count("<tr") > 1 or "span=" in head[1]:
+            return html.replace('<table class="tbl">', '<table class="tbl tbl-scroll">', 1)
+        labels = [strip_tags(re.sub(r"<span.*?</span>", "", c, flags=re.S)).strip()
+                  for c in re.findall(r"<th[^>]*>(.*?)</th>", head[1], re.S)]
+        pending = {}  # column index -> [rows left, copy of the merged cell]
+
+        def copies(col, out):
+            while col in pending:
+                out.append(pending[col][1])
+                pending[col][0] -= 1
+                if not pending[col][0]:
+                    del pending[col]
+                col += 1
+            return col
+
+        def row(r):
+            out, col = [], 0
+            for tag, attrs, inner in CELL_RE.findall(r[2]):
+                col = copies(col, out)
+                label = labels[col] if col < len(labels) else ""
+                colspan = int((re.search(r'colspan="(\d+)"', attrs) or [0, 1])[1])
+                rowspan = int((re.search(r'rowspan="(\d+)"', attrs) or [0, 1])[1])
+                data = f' data-label="{label}"' if label and colspan == 1 else ""
+                out.append(f"<{tag}{attrs}{data}>{inner}</{tag}>")
+                if rowspan > 1:
+                    pending[col] = [rowspan - 1, f'<td class="rs-copy"{data}>{inner}</td>']
+                col += colspan
+            copies(col, out)
+            return f"<tr{r[1]}>{''.join(out)}</tr>"
+        body = re.sub(r"<tr([^>]*)>(.*?)</tr>", lambda r: row((r[0], r[1], r[2])), html[head.end():], flags=re.S)
+        return html[:head.end()] + body
+    return TABLE_RE.sub(table, content)
+
+
 def topbar(brand, nav, current, home):
     links = [f'<a href="{home}">课程目录</a>'] if home else []
     for slug, label in nav:
@@ -109,7 +161,7 @@ def build_lecture(src):
         shutil.copytree(src / "img", out / "img")
     for slug, page in meta["pages"].items():
         raw = (src / "content" / f"{slug}.html").read_text()
-        content = expand_slides(add_section_heads(raw), src / "img")
+        content = label_cells(expand_slides(add_section_heads(raw), src / "img"))
         if meta.get("credit"):
             content += f'\n<p class="muted small credit">{meta["credit"]}</p>'
         toc = "".join(f'<li><a href="#{m[1]}"><span>{strip_tags(m[3])}</span></a></li>' for m in SEC_RE.finditer(raw))
