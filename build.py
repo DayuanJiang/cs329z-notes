@@ -16,6 +16,7 @@ Content shortcuts:
 import json
 import re
 import shutil
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -147,10 +148,16 @@ def build_home():
 
 
 if __name__ == "__main__":
+    # usage: build.py [--out DIR] [lectureNN ...]   (no lecture names: build all)
+    args = sys.argv[1:]
+    if args[:1] == ["--out"]:
+        OUT = Path(args[1]).resolve()
+        args = args[2:]
     if OUT.exists():
         shutil.rmtree(OUT)
-    OUT.mkdir()
+    OUT.mkdir(parents=True)
     shutil.copytree(ROOT / "assets", OUT / "assets")
     build_home()
     for src in sorted((ROOT / "lectures").iterdir()):
-        build_lecture(src)
+        if (not args or src.name in args) and (src / "lecture.json").exists():
+            build_lecture(src)

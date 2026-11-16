@@ -1,18 +1,22 @@
 """Check the built site: every internal link and anchor resolves, every image exists.
 
-usage: python3 scripts/check_site.py   (run after build.py)
+usage: python3 scripts/check_site.py [site_dir] [lectureNN]   (run after build.py;
+       with a lecture name only that lecture's pages are checked)
 """
 import re
 import sys
 from pathlib import Path
 
-OUT = Path(__file__).parent.parent / "_site"
+OUT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).parent.parent / "_site"
+ONLY = sys.argv[2] if len(sys.argv) > 2 else ""
 errors = []
 ids = {}
 for page in OUT.rglob("*.html"):
     ids[page] = set(re.findall(r'id="([^"]+)"', page.read_text()))
 
 for page in OUT.rglob("*.html"):
+    if ONLY and ONLY not in page.relative_to(OUT).parts:
+        continue
     html = page.read_text()
     for attr, target in re.findall(r'(href|src)="([^"]+)"', html):
         if target.startswith(("http://", "https://", "mailto:")):
