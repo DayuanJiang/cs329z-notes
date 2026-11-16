@@ -1,0 +1,149 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>Terminal-Bench 的出发点是一个判断：命令行是一件通用的工具，agent（能自己调用工具、分很多步完成任务的语言模型系统）只要会用 bash 这个命令行解释器，就能做软件工程、科学计算、系统管理等很多种工作。</li>
+    <li>一个任务有三样：一段任务说明，一个 Docker 容器（隔离的、可以整个重建的运行环境），一组检查容器最终状态的测试。测试只看结果，不看 agent 敲过什么命令。</li>
+    <li>它已经出了六个版本。有的版本换了一批更难的任务，有的版本是修任务。现在的 4.1 版有 66 个任务，2026 年 11 月 16 日排行榜上最好的成绩是 65.8%。</li>
+    <li>排行榜的每一行除了解决率，还有 95% 置信区间（一种误差范围）、token 总量（token 是模型处理文字的基本单位）和花费，并且每一行都能点进去看到每一次运行的完整记录。</li>
+    <li>做完这一个基准测试之后，作者把做法整理成了一套通用的工具 Harbor，让别人也能做自己的评估。</li>
+  </ul>
+</section>
+
+<section class="sec" id="insight">
+  <h2>出发点：一个 bash 就够用</h2>
+  <p class="lead-in">Terminal-Bench 建立在一个判断上：<mark>bash 这一个工具可以顶替其他所有工具</mark>。bash 是 Linux 和 macOS 上最常用的命令行解释器，在终端里敲的命令由它执行。</p>
+  {{fig 31 | 同一件事的两种做法。左下是云服务的网页控制台，要在很多菜单和表单里点选。右下是一条命令，写明了镜像、机型、密钥、安全组，一次就启动一台云服务器。}}
+  <p>图里比的是启动一台云服务器。在网页上做，agent 得看懂界面、找到按钮、一步步点。用命令行做，是一段文字。语言模型最擅长的就是读写文字，而几乎所有的技术工作都有命令行的做法：编译代码、训练模型、配置服务器、处理数据、转换文件。所以给 agent 一个终端，它能做的事的范围就非常大。</p>
+  <p>Terminal-Bench 的论文在引言里也是这样说的：终端无处不在、用途广、能力强，被用在软件工程、科学计算、网络安全、机器学习这些高技能的工作里；加上它是纯文字的，所以成了 Cursor、Codex CLI、Claude Code、Gemini CLI 这些 agent 的标准工具。出处：<a href="https://arxiv.org/abs/2601.11868">Merrill 等，2026</a>。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>名字里有终端，但不要求只用终端。</b>论文明确写着：虽然名字叫 Terminal-Bench，并不要求 agent 只用终端这一种工具，它可以用任何方式操作容器。很多 agent 是直接装进容器里的程序，自带读写文件、搜索网页的工具。为了有一个中立的参照，作者自己写了一个最简单的运行框架（包在模型外面、给它工具并管理多轮对话的程序）Terminus 2，它只有一个工具，就是一个没有图形界面的终端，只靠 bash 命令完成任务。</div></div>
+</section>
+
+<section class="sec" id="task">
+  <h2>一个任务长什么样</h2>
+  <p>每个任务由三样东西组成：任务说明、环境、测试。下面是 Terminal-Bench 现在的版本里的一个真实任务，名字叫 <code>cad-model</code>。</p>
+  {{fig 38 | 一个任务的三个部分。上：任务说明的核心要求，一句话：根据一张二维的工程图，输出一个三维模型文件。中：环境的定义，一个带 Python 的基础镜像，里面放了那张工程图。下：测试，一共九条检查，第一条查文件是否合法，后面八条各查一项几何性质。右边是那张工程图和它描述的零件。图里的环境定义和测试是简化过的写法。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">哪一部分</th><th scope="col">这个任务里是什么</th><th scope="col">值得注意的地方</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">任务说明<br><span class="muted small">instruction.md</span></th><td>请输出一个 STEP 文件（一种通用的三维模型文件格式）到 <code>/app/out.step</code>，内容是 <code>/app/schematic.png</code> 这张二维工程图描述的物体</td><td>核心要求只有一句话，像同事之间交代工作。代码仓库里现在的版本在后面还有两句各个任务都带的话：时间上限是 28,800 秒（8 小时），不要上网找专门针对这个任务的答案或提示。输出文件的路径写的是绝对路径，测试就按这个路径去找</td></tr>
+        <tr><th scope="row">环境<br><span class="muted small">environment/Dockerfile</span></th><td>一个 Docker 容器（一个隔离的、可以整个重建的运行环境），里面有 Python 和那张工程图</td><td>没有预装任何三维建模的软件。用什么工具、怎么装，由 agent 自己决定</td></tr>
+        <tr><th scope="row">测试<br><span class="muted small">tests/</span></th><td>把 agent 交出的文件转成三角网格，先检查它是不是合法的文件，再检查八项几何性质：是不是封闭的实体，以及体积、表面积、主惯性矩（质量相对三条主轴的分布）、凸包（包住零件的最小凸形外壳）的体积和面积、欧拉示性数（一个反映孔洞数量的整数，属于拓扑性质）、平均曲率在整个表面上的积分。后七项和参考解法（出题的人写的正确做法）逐项对比</td><td>浮点数的性质要求和参考解法相差不超过 0.1%。检查的是做出来的东西，agent 用了什么软件、走了多少步，测试都不管</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自这个任务在<a href="https://github.com/harbor-framework/terminal-bench/tree/main/tasks/cad-model">代码仓库里的文件</a>。作者估计一位专家做这件事要 2 小时，给 agent 的时间上限是 8 小时。</figcaption>
+  </figure>
+  <p>这个任务有两点很能说明 Terminal-Bench 的思路。</p>
+  <ul>
+    <li><b>它考的是一件真实的专业工作。</b>任务的作者在说明里写道，现实中这件事是机械工程师做的，难点是三维空间的推理，以及照着一份画在图片里的规格说明精确地做。它考的是机械设计的能力，写代码只是完成它的手段，整件事可以在命令行里完成。</li>
+    <li><b>测试列了很多条，是为了让「通过」和「做对」对得上。</b>只查体积，一个形状不同但体积凑巧相近的零件也能过。把体积、表面积、惯性矩、凸包、欧拉示性数、曲率的积分全都对上，做错了还能通过的可能性就非常小。任务的作者还写了一点：这张工程图改编自一份公开的教程，图和参考解法都改动过，所以照抄教程里的答案通不过测试。</li>
+  </ul>
+  <p>任务的完整格式，以及每一部分怎么写，在<a href="task.html">第三部分</a>展开。</p>
+</section>
+
+<section class="sec" id="versions">
+  <h2>从 2025 年 1 月到现在：六个版本</h2>
+  <p>Terminal-Bench 代码仓库的第一次提交是在 2025 年 1 月 17 日。Anthropic 在同年 2 月 24 日发布了 Claude Code 的研究预览版，这是后来最常用的命令行编程 agent 之一。也就是说，这个基准测试开始做的时候，在终端里工作的 agent 还没有流行起来。2.0 版论文的作者单位里，排在最前面的两个是 Stanford University 和 Laude Institute。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">版本</th><th scope="col" class="nw">时间</th><th scope="col">任务</th><th scope="col">这一版做了什么</th><th scope="col">发布时最好的成绩</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1.0</th><td class="nw">2025 年 5 月<br><span class="muted small">按第三方的介绍</span></td><td>约 80 个<br><span class="muted small">按第三方的介绍</span></td><td>第一版</td><td>没有查到</td></tr>
+        <tr><th scope="row">2.0</th><td class="nw">论文 2026 年 1 月</td><td>89 个</td><td>93 位贡献者提交了 229 个任务，从中选出 89 个更难的。每个任务平均经过大约三小时的人工审查</td><td>Codex CLI 加 GPT-5.2，解决率 63%</td></tr>
+        <tr><th scope="row">2.1</th><td class="nw">2026 年 5 月<br><span class="muted small">按第三方的介绍</span></td><td>同样的 89 个</td><td>修任务。一次系统的检查在 28 个任务里发现了问题，逐个修复。论文拿 19 个模型和运行框架的组合在 2.0 和 2.1 上各测了一遍：单个组合的解决率最多变动 12 个百分点，排行榜上的名次最多变动三位</td><td>没有查到</td></tr>
+        <tr><th scope="row">3.0</th><td class="nw">2026 年 7 月 30 日</td><td>74 个新任务，分属 7 个领域</td><td>换了一批更难、种类更多的任务，其中有需要 GPU 和多个容器的。从这一版起改成持续更新的做法</td><td>约 34%</td></tr>
+        <tr><th scope="row">4.0</th><td class="nw">2026 年 8 月 28 日</td><td>66 个</td><td>还是 3.0 的任务：删掉 8 个，修了 19 个，重新校准每个任务的 CPU 和内存，时间上限统一成 8 小时</td><td>见下面的<a href="#leaderboard">排行榜一节</a></td></tr>
+        <tr><th scope="row">4.1</th><td class="nw">2026 年 11 月 9 日</td><td>同样的 66 个</td><td>只改验证器（给结果打分的程序），让它更难被钻空子（靠利用评分办法的漏洞拿到分数），也更少把正确的结果判错。agent 看到的任务没有变</td><td>用新的验证器给 4.0 的结果重新评分，所有系统的分数都落在原来的 95% 置信区间以内</td></tr>
+      </tbody>
+    </table>
+    <figcaption>2.0 来自<a href="https://arxiv.org/abs/2601.11868">论文</a>；2.1 来自 <a href="https://arxiv.org/abs/2611.08417">Buchanan 等，2026</a>；3.0、4.0、4.1 来自<a href="https://www.tbench.ai/news">官网的公告</a>。66 是按代码仓库里的任务目录数出来的，等于 74 减 8。1.0 的时间和任务数、2.1 的发布月份只在第三方的介绍里查到。</figcaption>
+  </figure>
+  <p>表里有两种不同的版本变化，容易混在一起。</p>
+  <ul>
+    <li><b>换题。</b>1.0 到 2.0、2.1 到 3.0，换的是任务集。3.0 的公告给了两条理由：2.1 的很多任务已经被做满（saturated，各个系统都能稳定通过），排行榜上各个系统的分数挤在很窄的范围里，分不出差距；任务的种类也要更有代表性。1.0 换成 2.0 的理由，没有查到官方的专门说明，2.0 的论文只说当时已有的基准测试对最强的模型不够难。这篇论文还预计 2.0 自己可能在一年内被做满。</li>
+    <li><b>修题。</b>2.0 到 2.1、3.0 到 4.0、4.0 到 4.1，任务还是那些，改的是任务里的问题：说明和测试对不上、外部依赖变了、资源给得太紧、验证器有漏洞。</li>
+  </ul>
+  <p>4.0 删掉的 8 个任务，官方给了理由：2 个被做满，2 个会让模型拒绝执行，2 个的答案已经能在网上找到，2 个有没解决的质量或平台兼容问题。这里「做满」的判断标准是：最新一代的各家各档模型，5 次运行全部通过。</p>
+  <p>从 3.0 到 4.0 没有换题，版本号的第一位却加了 1，原因在<a href="maintain.html#versioning">第四部分的版本号一节</a>：现在版本号的每一位表示旧的结果还能不能用，第一位变了，表示所有系统都要重新跑。</p>
+</section>
+
+<section class="sec" id="scale">
+  <h2>被使用的规模</h2>
+  <p>下面五个数是 Terminal-Bench 团队在 2026 年 10 月介绍这个项目时用的。它们各自量的东西不一样，有两个需要多说几句。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">数字</th><th scope="col">量的是什么</th><th scope="col">核对的情况</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">64</th><td>一项对模型发布文档（model card，模型厂商在发布新模型时公布的说明和测评成绩）的统计，共 64 份。在这些文档报告的基准测试里，Terminal-Bench 排在第一行</td><td>只见于下面的第一张图，没有在别处核对到</td></tr>
+        <tr><th scope="row">171</th><td>一份贡献者名单上的名字数。名单里大多数是个人，也有 Scale AI、Snorkel AI 这样的机构</td><td>没有在别处核对到。3.0 的公告写的是 100 多位任务贡献者和审查者</td></tr>
+        <tr><th scope="row">1,000 以上</th><td>GitHub 上的参与者人数。怎样算参与，没有说明</td><td>没有在别处核对到</td></tr>
+        <tr><th scope="row">5,000 以上</th><td>Discord 社区的成员数</td><td>没有在别处核对到</td></tr>
+        <tr><th scope="row">700 万以上</th><td>累计下载次数，到 2026 年 9 月下旬是 7,798,899 次</td><td>只见于下面的第二张图，没有在别处核对到。见下面的橙色框</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  {{fig 32 | 一张填色的表。每一列是一个模型，共 60 多列。每一行是一个基准测试，图里能看到 38 行，名字后面标着 agentic 或 chat，表示它是 agent 类还是对话类。第一行是 Terminal-Bench，后面依次是 Humanity's Last Exam、GPQA Diamond、SWE-bench Verified 等。格子填了颜色，表示这个模型的发布文档报告了这个基准测试的成绩。图上没有说明行的排序规则，也没有说明黑色和灰色的区别。}}
+  <p>在这张统计里，Terminal-Bench 排在第一行，这一行填了颜色的格子也占大多数。图上没有说明行的排序规则，很可能是按被报告的次数从多到少排的。如果是这样，Terminal-Bench 就是这些发布文档里最常被报告的基准测试。</p>
+  {{fig 36 | 一条从 2025 年 9 月到 2026 年 9 月下旬的曲线，纵轴是累计下载次数，最后一个点标着 7,798,899。2025 年 11 月以前几乎贴着横轴，2026 年 5 月以后增长明显加快。右下角的小图是一个数据集托管网站上按下载量排序的列表，用来做对比。}}
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>700 多万这个数量的是下载次数。</b>Terminal-Bench 团队介绍项目时，把这个数叫作「7M+ benchmark runs」，也就是运行了 700 多万次。同一张图的纵轴写的是「Reported all-time downloads」，也就是累计下载次数。很可能是因为运行之前要先把任务数据下载下来，所以拿下载次数来近似运行次数。两者并不相等：下载了不一定跑，一次下载也可能跑很多遍。图上没有写明统计的是哪个下载渠道。</div></div>
+</section>
+
+<section class="sec" id="leaderboard">
+  <h2>排行榜上的每个数是什么意思</h2>
+  <p>Terminal-Bench 的排行榜公布在<a href="https://www.tbench.ai/">官网</a>上。下面这张图左边是 4.0 版排行榜在 2026 年秋天的一个片段，右边是从其中一行点进去看到的一次运行的记录。</p>
+  {{fig 62 | 左：排行榜。每一行是一个模型配一个 agent，后面是解决率和误差范围、发布日期、token 总量、花费。右：其中一次运行的页面。任务是 live-database-cutover，结果是 0 分。页面上有这次运行用掉的 token 数、各阶段的耗时，以及一条 112 步的运行轨迹（每一步动作和结果的完整记录），可以一步一步点开看。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">列</th><th scope="col">含义</th><th scope="col">图里第一行的值</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">MODEL</th><td>模型，括号里是推理强度（reasoning effort，让模型在回答前想多久的档位）</td><td>GPT-6 Astra，推理强度 max</td></tr>
+        <tr><th scope="row">AGENT</th><td>运行框架。分数属于「模型加运行框架」这个整体</td><td>Codex</td></tr>
+        <tr><th scope="row">RESOLUTION RATE</th><td>解决率：测试通过的运行占全部运行的比例。正负号后面是 95% 置信区间（一种误差范围，表示这个解决率的估计有多大的不确定性）的半宽，单位是百分点</td><td>58.2% ± 2.8%</td></tr>
+        <tr><th scope="row">RELEASE DATE</th><td>日期。和各个模型公开发布的时间对得上，很可能是模型的发布日期</td><td>2026 年 9 月 3 日</td></tr>
+        <tr><th scope="row">TOKENS</th><td>跑完整个基准测试用掉的 token 总量。token 是模型处理文字的基本单位，一个英文单词大约是一到两个 token。B 表示十亿</td><td>15 亿（图上写作 1.5B）</td></tr>
+        <tr><th scope="row">COST</th><td>跑完整个基准测试的模型调用费用，单位是美元，k 表示千</td><td>3,300 美元（图上写作 $3.3k）</td></tr>
+      </tbody>
+    </table>
+    <figcaption>列的含义按官网的公告整理。4.1 版的公告写明排行榜上的区间是 95% 置信区间。</figcaption>
+  </figure>
+  <p>读这张表有三点值得注意。</p>
+  <ul>
+    <li><b>每个系统跑的次数很多。</b>4.1 版的公告说，排行榜上 35 个系统一共有 11,550 次运行，平均每个系统 330 次。任务是 66 个，所以粗略估算是每个任务跑 5 次。官网给出的运行命令也是每个任务 5 次。</li>
+    <li><b>相邻的两行往往分不出高下。</b>图里第一行是 58.2% ± 2.8%，第二行是 57.9% ± 3.8%，两个区间几乎完全重叠。这张表不足以确认这两个系统谁更强。</li>
+    <li><b>分数接近的系统，花费可以差很多。</b>图里第一行的解决率是 58.2%，用了 15 亿 token，花费 3,300 美元。第二行的解决率是 57.9%，用了 27 亿 token，花费 6,200 美元，接近第一行的两倍。只看解决率这一列，看不出这个差别。</li>
+  </ul>
+  <h3>右边那次运行的记录里有什么</h3>
+  <p>右边的页面属于 GPT-6 Astra 加 Codex 在 <code>live-database-cutover</code> 这个任务上的一次运行。这个任务要求把一个正在提供服务的电商应用从 MySQL 数据库迁到 PostgreSQL，迁移期间不能有失败的请求，也不能读到过期的数据。这一次的得分是 0。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">项目</th><th scope="col">这次运行的值</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">token 总数</th><td>12,286,275 个。其中模型输出 209,680 个，新读入的输入 603,298 个，从缓存里读的输入 11,473,297 个</td></tr>
+        <tr><th scope="row">总耗时</th><td>1 小时 21 分 21 秒。其中搭环境 1 分 20 秒，装 agent 39 秒，agent 工作 1 小时 17 分 29 秒，验证 49 秒</td></tr>
+        <tr><th scope="row">运行轨迹</th><td>112 步</td></tr>
+        <tr><th scope="row">可以查看的内容</th><td>运行轨迹、agent 的日志、验证器的输出、agent 交出的产物、运行配置、出错信息</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字读自图中的页面。</figcaption>
+  </figure>
+  <p>排行榜的每一行都可以这样点进去，看到每个任务每一次运行的轨迹、日志、产物和得分。这样做的用处在<a href="maintain.html#results">第四部分</a>讲：别人可以检查一个分数是怎么来的，出题的人也靠这些记录发现任务里的问题。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>官网上现在的数和图里的不一样。</b>图里是 4.0 版的结果。官网现在显示的是 4.1 版，也就是用新的验证器把同一批运行重新评分之后的结果。同一个系统的数和图里略有不同，差别很可能主要来自这次重新评分。例如 GPT-6 Astra 加 Codex 在图里是 58.2% ± 2.8%，官网在 2026 年 11 月 16 日显示的是 60.3% ± 2.8%；Opus 5 加 Claude Code 在图里是 53.9% ± 3.2%，官网显示 53.3% ± 3.1%。图里的片段也没有包含后来上榜的系统，官网当天排在最前面的两个系统都是 65.8%。</div></div>
+</section>
+
+<section class="sec" id="harbor">
+  <h2>从一个基准测试到一套工具：Harbor</h2>
+  <p>做 Terminal-Bench 的过程中，作者积累了一套做法：任务用什么格式写，怎样并行地跑几千次运行，怎样检查任务的质量，怎样保存和查看结果。他们把这套做法做成了一个开源的框架，叫 <a href="https://www.harborframework.com/">Harbor</a>。官方文档对它的一句话介绍是：一个可以让任何 agent、配任何模型、在任何沙箱（sandbox，隔离的运行环境）里并行地跑任何任务的框架。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">Terminal-Bench</th><th scope="col">Harbor</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">是什么</th><td>基本上是一个基准测试，加上 Terminal-Bench-Science 这样少数几个同一系列的基准测试</td><td>做评估和跑评估的工具，目标是让成千上万个评估都能用它来做</td></tr>
+        <tr><th scope="row">评估由谁来做</th><td>Terminal-Bench 的团队和社区</td><td>使用者自己，针对自己关心的工作</td></tr>
+        <tr><th scope="row">留下的是什么</th><td>经验和教训</td><td>把这些经验做成的工具</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>两者的关系在论文里写得很清楚：Terminal-Bench 的任务用 Harbor 的任务格式来写，用 Harbor 来运行。这个格式并不限于 Terminal-Bench，论文说作者已经把另外 26 个已有的基准测试改写成了同一种格式。</p>
+  <p>为什么要让每个人都能做评估？<a href="shift.html#spec-to-eval">第一部分</a>的结论是，评估成了对不对的最终依据。公开的基准测试回答的是「哪个模型在这批通用的任务上更强」。一个团队真正要回答的问题通常更具体：哪个模型加哪个运行框架，在自己的代码库、自己的业务流程上做得最好，花多少钱。这个问题只有用自己的任务做的评估能回答。</p>
+  <p><a href="task.html">下一部分</a>讲用 Harbor 的格式怎么写一个任务。</p>
+</section>

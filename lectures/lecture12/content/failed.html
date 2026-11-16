@@ -1,0 +1,169 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>通常的做法是只拿成功的运行轨迹来训练。这样丢掉的数据常常比留下的多，而且模型见不到示范者做不成的那些难任务。</li>
+    <li>NAT 的办法是把失败的轨迹也拿来训练，在 prompt 里加一句话标明这条轨迹是成功的还是失败的。用的时候只要求模型生成成功的那一种。</li>
+    <li>EEF 的办法更细：从失败的轨迹里找出哪几段动作是有用的，只学这几段。在 WebShop 上，它的胜率是 58.4%，高于同样数据下只用成功轨迹的最强基线的 53.6%。</li>
+    <li>失败的轨迹有没有用，取决于它的质量和用法。不加区分地混进去，有时比只用成功的轨迹还差。</li>
+  </ul>
+</section>
+
+<section class="sec" id="waste">
+  <h2>只用成功的轨迹，丢掉了什么</h2>
+  <p>做监督微调（用现成的示范继续训练模型，让它照着做）时，示范通常来自一个更强的模型：让它去做任务，记下每一步，得到运行轨迹（trajectory）。最后答对了、测试通过了的轨迹留下，其余的丢掉。这样做有两个代价。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">代价</th><th scope="col">具体的数</th><th scope="col">出处</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">丢掉的数据很多</th><td>用 GPT-3.5 做小学数学应用题（GSM8K 的约 7 千道训练题，每题做 3 遍），得到约 9 千条成功的轨迹和约 1.2 万条失败的轨迹</td><td><a href="https://arxiv.org/abs/2402.11651">Wang 等，2024</a>的附录 B</td></tr>
+        <tr><th scope="row">难的任务没有示范</th><td>用 GPT-4 做 WebShop（一个模拟的购物网站）的训练任务，只做成约 35%。剩下的 65% 没有任何成功的示范</td><td><a href="https://arxiv.org/abs/2504.13145">Lan 等，2025</a>第 3.1 节</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>第二个代价更要紧。示范者做成的主要是容易的任务，所以只学成功的轨迹，学到的也主要是怎么做容易的任务。</p>
+  <p>下面两个办法都在回答：失败的轨迹里，有什么可以学。</p>
+</section>
+
+<section class="sec" id="nat">
+  <h2>留下，但标明它是失败的：NAT</h2>
+  <p>NAT（Negative-Aware Training，Wang 等）先看了一条失败的轨迹长什么样。</p>
+  {{fig 45 | 两条做数学题的轨迹，格式都是想一步、调用一次计算器、看结果。左边绿色的一条答对了。右边红色的一条答错了，正确答案是 90。图上的英文说明写的是失败的那一条前面几步是合理的；按算式核对，它的思路是对的，第一次计算就已经算错了。图片来源：<a href="https://arxiv.org/abs/2402.11651">Wang 等，2024</a>。}}
+  <p>右边那道题是：Elsa 和 Amalie 的硬币数之比是 10 比 45，两人一共有 440 枚，Amalie 花掉自己的四分之三买玩具，还剩多少。这条失败的轨迹第一步的思路是对的：先求两人各有多少枚，再算 Amalie 剩下多少。错出在接下来的那次计算上，它算的是 Elsa 的份额（440 的 55 分之 10，等于 80），该算的是 Amalie 的（440 的 55 分之 45，等于 360，剩下四分之一是 90）。也就是说，这条轨迹的推理思路可以学，具体的那次计算不能学。按通常的做法，整条都被丢掉了。</p>
+  <h3>做法：加一句话</h3>
+  {{fig 46 | 上面的灰色框是以前的做法：只有成功的轨迹进入微调。下面的蓝色框是 NAT：成功和失败的轨迹都留下，先清理，再改写格式，然后微调。图片来源：<a href="https://arxiv.org/abs/2402.11651">Wang 等，2024</a>。}}
+  <p>NAT 的改动很小。训练时，在每条轨迹的任务说明后面加一句话。prompt 指写给模型的指令。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">轨迹</th><th scope="col">加在 prompt 后面的话</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">成功的</th><td>请生成一个能<b>正确</b>回答这个问题的解答</td></tr>
+        <tr><th scope="row">失败的</th><td>请生成一个会<b>错误</b>回答这个问题的解答</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2402.11651">Wang 等，2024</a>第 3.3 节。论文说明，实验里实际用的句子比这两句稍微复杂一些。</figcaption>
+  </figure>
+  <p>模型在训练时两种轨迹都见到了，也知道哪种是哪种。到了使用的时候，永远只给它成功的那一句。</p>
+  <h3>效果</h3>
+  <p>论文用 LLaMA-2-Chat 的 7B 和 13B 两个尺寸做实验，轨迹由 GPT-3.5 生成。下面是数学题上的结果，每种设置里失败的轨迹都是 1 万条。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型和成功轨迹的条数</th><th scope="col" class="r">只用成功的轨迹</th><th scope="col" class="r">加入失败的轨迹，不加标记</th><th scope="col" class="r">加入失败的轨迹，加标记（NAT）</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">7B，2 千条</th><td class="r">55.90</td><td class="r">63.39</td><td class="r">64.64</td></tr>
+        <tr><th scope="row">7B，5 千条</th><td class="r">64.17</td><td class="r">64.95</td><td class="r">67.42</td></tr>
+        <tr><th scope="row">13B，2 千条</th><td class="r">65.18</td><td class="r">66.53</td><td class="r">67.74</td></tr>
+        <tr><th scope="row">13B，5 千条</th><td class="r">70.76</td><td class="r">69.10</td><td class="r">71.28</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字是四个数学测试集（GSM8K、ASDiv、SVAMP、MultiArith）上的平均准确率，单位是百分比。出处：<a href="https://arxiv.org/abs/2402.11651">Wang 等，2024</a>（arXiv 第 2 版）的表 2。</figcaption>
+  </figure>
+  <p>这张表要分两层读。</p>
+  <ul>
+    <li><b>大部分的提高来自「把失败的轨迹加进来」。</b>成功的轨迹少、模型小的时候最明显：7B、2 千条那一行，不加标记就从 55.90 升到了 63.39。</li>
+    <li><b>标记带来的是另外 1 到 2.5 个百分点。</b>四行里 NAT 都比不加标记的高。最后一行尤其值得注意：不加标记地混进去，成绩比只用成功的轨迹还低（69.10 比 70.76 低），加了标记才略高一点（71.28）。</li>
+  </ul>
+  <p>成功的轨迹越多、模型越大，失败的轨迹帮的忙越小：NAT 比只用成功的轨迹，在第一行高 8.74 个百分点，在最后一行只高 0.52 个百分点。</p>
+  <h3>为什么标记有用</h3>
+  <p>论文的解释是：失败的轨迹里混着有用的信息和错误，标记让模型在两者之间取得更好的平衡。它给了一组数来支持这个说法，用的是 7B 的模型和 2 千条成功的轨迹，在 GSM8K 的测试集上测。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">训练方式</th><th scope="col" class="r">准确率</th><th scope="col" class="r">调用工具时出错的比例</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">只用成功的轨迹</th><td class="r">35.63%</td><td class="r">3.58%</td></tr>
+        <tr><th scope="row">加入失败的轨迹，不加标记</th><td class="r">44.43%</td><td class="r">10.47%</td></tr>
+        <tr><th scope="row">加入失败的轨迹，加标记（NAT）</th><td class="r">46.93%</td><td class="r">7.90%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2402.11651">Wang 等，2024</a>（arXiv 第 2 版）的表 6。训练数据里，只有成功的轨迹时出错的动作占 4.01%，加入失败的轨迹之后占 15.33%。</figcaption>
+  </figure>
+  <p>加入失败的轨迹之后，准确率升了，调用工具出错的比例也升了。论文的解读是：模型从失败的轨迹里学到了更好的推理思路，同时也把错误的动作学了一些。表里只测了准确率和出错的比例，没有直接测推理思路的好坏。加上标记，出错的比例从 10.47% 降回 7.90%，准确率再高一点。这和前面那条失败轨迹的样子是对得上的：思路对，计算错。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>NAT 在什么条件下有用。</b>论文自己和后来的工作给出了几条限制。
+    <ul>
+      <li><b>失败的轨迹得来自一个够强的模型。</b>GPT-3.5 的失败轨迹有帮助。换成一个微调过的 LLaMA-2-7B 自己生成的失败轨迹，成绩反而下降：成功轨迹 2 千条时降 3.16 个百分点，5 千条时降 6.20 个百分点。</li>
+      <li><b>那句话怎么写不重要。</b>把「正确」和「错误」对调，换成「好、坏」「A、B」，甚至两串随机的字符，平均准确率都在 63.15 到 64.04 之间。起作用的只是把两种数据区分开。</li>
+      <li><b>失败的轨迹不能完全代替成功的。</b>论文说，有些东西只能从成功的轨迹里学到。</li>
+      <li><b>换一个环境，结果不一定成立。</b>下面要讲的 EEF 的论文在 WebShop 和 ScienceWorld 上重做了 NAT，用的是 GPT-4 的轨迹：三组实验里有两组，NAT 的胜率低于只用成功轨迹的监督微调（37.2% 比 46.4% 低，54.0% 比 61.0% 低），另一组基本持平（40.4% 和 39.6%）。</li>
+    </ul>
+    出处：<a href="https://arxiv.org/abs/2402.11651">Wang 等，2024</a>的第 5 节；<a href="https://arxiv.org/abs/2504.13145">Lan 等，2025</a>的表 3。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这篇论文有三个版本。</b>arXiv 上的标题是《Learning From Failure: Integrating Negative Examples when Fine-tuning Large Language Models as Agents》，2024 年 2 月发布第 1 版，4 月发布第 2 版。NAACL 2025 的正式版改名为《NAT: Enhancing Agent Tuning with Negative Samples》，摘要和主要的表都重写过。上面两张配图来自第 1 版，表里的数来自第 2 版。</div></div>
+</section>
+
+<section class="sec" id="eef">
+  <h2>把好的步骤挑出来：EEF</h2>
+  <p>NAT 把整条失败的轨迹都拿来学，只是贴了一个标签。EEF（Exploring Expert Failures，Lan 等，2025，加州大学洛杉矶分校等）往下走了一步：一条失败的轨迹里，哪几段动作是有用的，只学这几段。</p>
+  <h3>它要改进的做法：RFT</h3>
+  <p>RFT（rejection sampling fine-tuning，拒绝采样微调）是一种常用的训练流程。第一步，学生模型模仿专家（比如 GPT-4）成功的轨迹。之后的每一轮，学生自己去做训练任务，把自己做成的轨迹加进训练数据，再训练。失败的轨迹，不管是专家的还是学生自己的，都不用。</p>
+  {{fig 48 | 上面一行是专家的运行，从左到右任务由易到难，实心的圆表示成功。下面一行是 RFT 留下的。难的任务专家大多做不成，所以右边几乎是空的。图是示意。图上的标题说 RFT 只用专家成功的运行来训练，这只是 RFT 的第一步，后面几轮它还会加入学生自己做成的轨迹。}}
+  <p>问题出在难任务上。专家做成的主要是容易的任务，RFT 这个流程本身也偏向容易的任务。在 WebShop 上，GPT-4 没做成的那 65% 的训练任务里，经过 RFT 后面几轮学生自己的探索，仍有大约一半一直没被做成。对学生来说，这些任务始终没有任何示范。</p>
+  <h3>一条失败的轨迹，可能只错在最后几步</h3>
+  {{fig 49 | 上面一行是专家（GPT-4）的一条失败的轨迹，从状态 s0 走到最后，奖励是 0。下面的波浪线是学生模型从专家走到的四个中间状态分别接手，自己继续做下去的结果：从 s0 和 s2l 接手失败，从 sl 和 s3l 接手成功。图上的标题说失败可能只出在最后几步；图里的这个例子中，被判为没有帮助的是中间一段和最后一段的动作（红色箭头）。图片来源：<a href="https://arxiv.org/abs/2504.13145">Lan 等，2025</a>的图 1。}}
+  <p>EEF 的想法是：专家失败，可能只是因为其中某几步走错了。以前的方法，包括 NAT，把失败轨迹里的每个动作都同样看作负面的。EEF 用一个实验来区分它们：把环境恢复到专家走到的某个中间状态，让学生从那里接手，自己做完。</p>
+  <p>图里的例子可以这样读。学生从起点 s0 自己做，失败。从专家走了一段之后的 sl 接手，成功，说明专家的头一段动作是有用的，它把任务推进到了学生能自己完成的状态。从 s2l 接手又失败了，说明专家在 sl 到 s2l 之间的那段动作走错了。于是头一段动作留下来学，中间这一段丢掉。</p>
+  <h3>具体的步骤</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">步骤</th><th scope="col">做什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1</th><td>和 RFT 一样，先让学生模仿专家成功的轨迹</td></tr>
+        <tr><th scope="row">2</th><td>探索。学生从每个训练任务的起点做一遍。另外，在每条专家轨迹上按相等的间隔取 5 个中间状态，把环境恢复到那里，让学生接手做完</td></tr>
+        <tr><th scope="row">3</th><td>找出重要的状态。一类是每个任务的起点。另一类是这样的状态：学生从它前一个取样点接手能成功，从它接手却失败。这说明专家在这两点之间走错了，学生需要学会从这里挽回</td></tr>
+        <tr><th scope="row">4</th><td>为每个重要的状态选一条经过它的成功轨迹。有多条时，选其中专家的动作最少的一条</td></tr>
+        <tr><th scope="row">5</th><td>训练时只对重要状态之后的动作计算损失。之前的动作留在输入里当上下文，不学</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2504.13145">Lan 等，2025</a>第 3.2 节。这套办法有一个前提：环境必须能恢复到任意一个中间状态。</figcaption>
+  </figure>
+  <h3>结果</h3>
+  <p>学生模型是 Llama 3 8B Instruct。下面是 WebShop 上的结果，训练数据是 GPT-4 的 11,338 条轨迹，其中 4,106 条成功。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方法</th><th scope="col">用了专家的哪些轨迹</th><th scope="col" class="r">胜率</th><th scope="col" class="r">平均奖励</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">直接用 GPT-4，不训练</th><td></td><td class="r">35.6%</td><td class="r">0.66</td></tr>
+        <tr><th scope="row">监督微调，全部轨迹，不加区分</th><td>成功的和失败的</td><td class="r">37.2%</td><td class="r">0.66</td></tr>
+        <tr><th scope="row">监督微调，只用成功的</th><td>成功的</td><td class="r">46.4%</td><td class="r">0.75</td></tr>
+        <tr><th scope="row">NAT</th><td>成功的和失败的，加标记</td><td class="r">37.2%</td><td class="r">0.66</td></tr>
+        <tr><th scope="row">RFT</th><td>成功的</td><td class="r">52.0%</td><td class="r">0.75</td></tr>
+        <tr><th scope="row">RFT，每个任务每轮探索 6 次</th><td>成功的</td><td class="r">53.6%</td><td class="r">0.76</td></tr>
+        <tr><th scope="row">EEF</th><td>成功的，加失败轨迹里有用的片段</td><td class="r">58.4%</td><td class="r">0.78</td></tr>
+        <tr><th scope="row">EEF，另外加上 GPT-3.5 Turbo 的轨迹</th><td>同上，专家多了一个</td><td class="r">62.0%</td><td class="r">0.81</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2504.13145">Lan 等，2025</a>的表 3。论文没有用文字定义胜率。按它的用法，胜率可以理解成拿到满分奖励的测试任务占的比例，平均奖励则把只做对一部分的也按比例算进去，范围是 0 到 1。测试任务有多少个，论文正文里没有找到。</figcaption>
+  </figure>
+  <p>常被引用的对比是 62% 比 53.6% 比 35.6%，这三个数出自论文的摘要。它们分别是表里的最后一行、第六行和第一行。要注意最后一行多用了 GPT-3.5 Turbo 的轨迹。用和基线相同的数据比，EEF 是 58.4%，比最强的 RFT 基线高 4.8 个百分点。</p>
+  <p>表里还有一个和 NAT 那一节相呼应的现象：把成功和失败的轨迹不加区分地一起学，胜率是 37.2%，比只用成功的 46.4% 低了 9.2 个百分点。在这个环境里，失败的轨迹整条拿来学是有害的，挑出有用的片段才有帮助。</p>
+  <p>学生从失败的轨迹里学到了什么，论文给了一个具体的例子。在 WebShop 里有两个导航动作：翻到搜索结果的下一页，和返回重新搜索。GPT-4 在 16.8% 的任务里试过翻下一页，但靠它做成的只有 2.8%，所以专家成功的轨迹里这个动作很少。用 EEF 训练的学生，靠翻页做成的测试任务占 6.8%，RFT 训练的是 4.0%。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读这些结果时要注意的两点。</b>报告的是多轮微调里成绩最好的那一轮的模型，论文没有说明这一轮是不是对着测试集选的，也没有报告重复实验的波动。另外，EEF 需要大量额外的运行：每条专家轨迹要从 5 个中间状态各接手做一遍。论文指出，GPT-3.5 Turbo 的轨迹比 GPT-4 的便宜约 30 倍，仍然有用，所以可以用便宜的专家来多换一些失败的轨迹。</div></div>
+</section>
+
+<section class="sec" id="when">
+  <h2>失败的轨迹什么时候能用</h2>
+  <p>把这一讲里出现过的几种做法放在一起，可以看到失败的轨迹有没有用，要看拿它教什么、怎么教。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">工作</th><th scope="col">怎么用失败的轨迹</th><th scope="col">结果</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">CWM<br><span class="muted small"><a href="why.html#cheap">第一部分</a></span></th><td>全部留下，不按成败筛。目的是让模型学会环境对每个动作的反应</td><td>加入这批轨迹之后，一个 8B 的模型在 SWE-bench Verified 上的成绩从 18.4% 升到 22.1%</td></tr>
+        <tr><th scope="row">NAT</th><td>整条留下，在 prompt 里标明是失败的</td><td>数学题上比只用成功的轨迹高 0.52 到 8.74 个百分点；在 EEF 论文重做的实验里没有稳定的优势</td></tr>
+        <tr><th scope="row">EEF</th><td>用学生接手的实验找出有用的片段，只学这些片段</td><td>WebShop 上的胜率比最强的 RFT 基线高 4.8 个百分点</td></tr>
+        <tr><th scope="row">Orchard<br><span class="muted small"><a href="mix.html#orchard">第六部分</a></span></th><td>让生成轨迹的那个模型回头重读失败的轨迹，逐步估计「最后能解决问题」的可能性，只学这个估计值上升的那些片段</td><td>3.2 万条成功的轨迹，再加 3.2 万条这样的片段，SWE-bench Verified 上从 59.3% 升到 61.2%</td></tr>
+        <tr><th scope="row">WebRL<br><span class="muted small"><a href="learnable.html#webrl">第三部分</a></span></th><td>试过把失败的运行放进强化学习的回放数据里</td><td>学得更慢、更不稳定，所以最后只存成功的</td></tr>
+        <tr><th scope="row">监督微调，不加区分<br><span class="muted small">EEF 论文里的基线</span></th><td>成功和失败的轨迹混在一起学</td><td>WebShop 上的胜率比只用成功的低 9.2 个百分点</td></tr>
+      </tbody>
+    </table>
+    <figcaption>CWM 的数出自<a href="https://arxiv.org/abs/2510.02387">它的论文</a>的表 4，对比的两行都已经用了另外两种训练数据。Orchard 的数出自<a href="https://arxiv.org/abs/2605.15040">Peng 等，2026</a>第 3.8 节。</figcaption>
+  </figure>
+  <p>可以归纳出三点。第一，目的是学「环境会怎么反应」的时候，失败的轨迹也可以留下：CWM 不按成败筛，加入整批轨迹之后成绩有提高。论文没有把成功和失败的轨迹分开，比较各自的作用。第二，目的是学「该怎么做」的时候，失败的轨迹要么带上标记，要么只取其中有用的片段。第三，挑片段的办法都需要一个额外的判断来源：EEF 靠学生接手的实验，Orchard 靠生成轨迹的模型回头评估，<a href="passed.html#prime">第四部分</a>的 SWE-Prime 靠语言模型给片段打分。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>只用成功的轨迹，会丢掉一多半数据，也学不到示范者做不成的难任务。</li>
+    <li>NAT 给失败的轨迹加一个标记。提高主要出现在成功的轨迹少、模型小的时候，而且失败的轨迹要来自一个够强的模型。</li>
+    <li>EEF 用学生接手的实验，找出失败轨迹里有用的片段。它需要环境能恢复到中间状态。</li>
+    <li>不加区分地把失败的轨迹混进去，可能比不用还差。</li>
+  </ul>
+  <p>第四部分和这一部分合起来，回答了漏斗里「哪些轨迹留下」这一层。最后一部分讲留下的轨迹怎么配成训练用的那批数据：<a href="mix.html">要更多，还是要更好</a>。</p>
+</section>

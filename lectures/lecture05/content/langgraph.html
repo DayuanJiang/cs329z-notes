@@ -1,0 +1,183 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>LangGraph 是一个把程序写成图的 Python 框架（framework，写程序时调用的库）。它有三个概念：state（状态）是整张图共用的一份数据，node（节点）是读写状态的函数，edge（边）规定一个节点跑完之后去哪个节点。</li>
+    <li>带条件的边由一个普通的 Python 函数来判断走哪条路。有了它，图就能表达分支，也就能表达 workflow（步骤由程序写定的多次模型调用）。</li>
+    <li>agent（能自己调用工具、分很多步完成任务的语言模型系统）在 LangGraph 里是一张很小的图：一个模型节点，一个工具节点，在两者之间循环，状态是消息的历史。用 <code>create_agent</code> 两行就能建出来。</li>
+    <li>DSPy 和 LangGraph 能解决同一类问题，暴露出来的抽象不同。DSPy 的重点是声明输入输出和自动优化 prompt（给模型的输入文字），LangGraph 的重点是把控制流画成一张可以检查、可以恢复的图。两者可以一起用。</li>
+  </ul>
+</section>
+
+<section class="sec" id="concepts">
+  <h2>三个概念：状态、节点、边</h2>
+  <p>LangGraph 出自 LangChain 团队。官方文档对它的定位是一个底层的编排（orchestration，安排多个步骤按什么顺序执行、中途出错怎么办）框架和运行时，面向长时间运行、带状态的 agent。可以把它看作处在 DSPy 和<a href="orchestration.html">第六部分</a>要讲的编排工具之间。</p>
+  <p class="lead-in">用 LangGraph 写程序，就是回答三个问题：<mark>这张图里流动的数据有哪些字段，有哪些步骤，步骤之间怎么走</mark>。</p>
+  {{figs 55 56 | 一个 LangGraph workflow 的轮廓。左：蓝色的框是状态，红色的圆是节点，节点是读写这份共享状态的函数。每张图都有一个起点 Start 和一个终点 End。右：连线是边，决定控制流。虚线是带条件的边，表示从这个节点出来有不止一条路，走哪条要看当时的状态。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">概念</th><th scope="col">是什么</th><th scope="col">在代码里</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">state<br><span class="muted small">状态</span></th><td>整张图共用的工作区。可以把它想成一个对象，图里的每一步都在修改它</td><td>一个声明了字段的类，比如 <code>TypedDict</code></td></tr>
+        <tr><th scope="row">node<br><span class="muted small">节点</span></th><td>一个函数：读入当前的状态，做一些计算，返回它改动的那几个字段</td><td>一个普通的 Python 函数，用 <code>add_node</code> 登记</td></tr>
+        <tr><th scope="row">edge<br><span class="muted small">边</span></th><td>规定控制流：一个节点跑完之后接着跑哪个节点</td><td><code>add_edge</code>；带条件的用 <code>add_conditional_edges</code></td></tr>
+        <tr><th scope="row">START 和 END</th><td>每张图固定有的起点和终点</td><td>从 <code>langgraph.graph</code> 导入的两个常量</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>下面用 LangGraph 把<a href="dspy.html#compose">第二部分</a>的程序重写一遍：从邮件里提取日程，有日程就挑一个表情符号并加到日历上。日历是配套仓库自带的小应用 tinycal。程序做的事完全一样，方便只看写法的差别。代码和输出都取自课程配套仓库里的 Jupyter notebook（代码和运行结果放在一起的文档）。</p>
+</section>
+
+<section class="sec" id="simple">
+  <h2>最简单的图：一个节点</h2>
+  <h3>先准备一个输出有结构的模型</h3>
+  <p>LangGraph 用的是 LangChain 的模型封装。要让模型的输出符合固定的结构，先用 Pydantic（一个用类来声明数据格式的 Python 库）写一个类，再用 <code>with_structured_output</code> 把模型和这个类绑在一起：</p>
+  <pre class="code"><code>from pydantic import BaseModel, Field
+
+class EventDetails(BaseModel):
+    """Extract event details from an email."""
+    event_name: str | None = Field(description="short title for the event, e.g. 'Dentist' or 'Meeting'. Always set when the email mentions an event")
+    date: dt.date | None
+    start: dt.time | None = Field(description="24-hour clock")
+    duration_minutes: int | None = Field(description="duration of the event in minutes, if known")
+
+extract_llm = langchain_llm.with_structured_output(EventDetails)</code></pre>
+  <p>这个类的四个字段和 DSPy 版本的 <code>ExtractEvent</code> 是同一组。之后调用 <code>extract_llm</code>，得到的就是一个 <code>EventDetails</code> 对象。</p>
+  <h3>状态和节点</h3>
+  <p>状态有两个字段：邮件原文，和提取出来的日程。节点只有一个，它从状态里读邮件，调用模型，把结果写回 <code>details</code>。</p>
+  <pre class="code"><code>from typing import TypedDict
+
+class State(TypedDict):
+    email: str
+    details: EventDetails | None
+
+def extract_node(state: State):
+    return {"details": extract_llm.invoke(state["email"])}</code></pre>
+  <p>注意节点的返回值：它只返回自己改动的字段。LangGraph 看到返回的字典里只有 <code>details</code>，就只更新状态里的这一项，<code>email</code> 保持原样。</p>
+  <h3>把图搭起来</h3>
+  <pre class="code"><code>from langgraph.graph import StateGraph, START, END
+
+builder = StateGraph(State)
+builder.add_node("extract", extract_node)
+builder.add_edge(START, "extract")
+builder.add_edge("extract", END)
+graph = builder.compile()</code></pre>
+  <p>这张图只有一条路：从起点到 <code>extract</code>，再到终点。用一封邮件调用它：</p>
+  <pre class="code"><code>graph.invoke({"email": "We have a meeting scheduled for this Friday, October 9th at 10 AM PST."})</code></pre>
+  <p>调用时传入的是初始的状态，返回的是跑完之后的状态。返回值里 <code>email</code> 还是那封邮件，<code>details</code> 是 <code>EventDetails(event_name='Meeting', date=datetime.date(2026, 10, 9), start=datetime.time(10, 0, tzinfo=TzInfo(-25200)), duration_minutes=None)</code>。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>同一封邮件，两个框架的结果在细节上不一样。</b>DSPy 版本提取出的开始时间是 <code>datetime.time(10, 0)</code>，不带时区，名称是小写的 meeting。这里的开始时间带上了时区，名称是大写开头的 Meeting。模型是同一个。差别很可能来自两个框架发给模型的 prompt 和解析回答的方式不同，比如这里的字段说明里举的例子就是大写开头的 Meeting。模型的输出在两次运行之间本来也会有一点波动，这一次的差别里各占多少，演示没有做对照。换框架之后，下游依赖这些细节的代码要重新检查。</div></div>
+</section>
+
+<section class="sec" id="conditional">
+  <h2>带条件的边：让图能分支</h2>
+  <p>完整的程序有一个分支：邮件里有日程才继续，没有就结束。先扩充状态，再加两个节点。</p>
+  <pre class="code"><code>class CalendarState(State):
+    emoji: str
+    status: str
+
+def pick_emoji_node(state: CalendarState):
+    reply = langchain_llm.invoke(f"Reply with exactly one emoji character, nothing else, for a calendar event called '{state['details'].event_name}'.")
+    return {"emoji": reply.text.strip()}
+
+def add_to_calendar_node(state: CalendarState):
+    d = state["details"]
+    tinycal.add_event(d.event_name, d.date, d.start, duration_minutes=d.duration_minutes, emoji=state["emoji"])
+    return {"status": "added to calendar"}</code></pre>
+  <p>两个节点里放的东西不一样。<code>pick_emoji_node</code> 调用了一次模型，prompt 是直接手写的一句话。<code>add_to_calendar_node</code> 没有调用模型，只调用了日历的接口。节点里可以写任何 Python 代码，所以不同的节点也可以用不同的模型。</p>
+  <p>带条件的边是一个函数。它读状态，返回下一个节点的名字：</p>
+  <pre class="code"><code>from typing import Literal
+
+def route(state: CalendarState) -&gt; Literal["pick_emoji", "__end__"]:   # plain Python decides where to go next
+    d = state["details"]
+    return "pick_emoji" if d.event_name and d.date and d.start else END</code></pre>
+  <p>判断的规则和 DSPy 版本里的 <code>if</code> 是同一条：名称、日期、开始时间都有，就去挑表情符号；缺了任何一样，就直接走到终点。然后把三个节点和五条边登记到图里。连边的调用是四次，其中 <code>add_conditional_edges</code> 这一次登记了两条带条件的边：</p>
+  <pre class="code"><code>builder = StateGraph(CalendarState)
+builder.add_node("extract", extract_node)
+builder.add_node("pick_emoji", pick_emoji_node)
+builder.add_node("add_to_calendar", add_to_calendar_node)
+
+builder.add_edge(START, "extract")
+builder.add_conditional_edges("extract", route)        # dotted arrows in the drawing
+builder.add_edge("pick_emoji", "add_to_calendar")
+builder.add_edge("add_to_calendar", END)
+
+calendar_graph = builder.compile()</code></pre>
+  {{fig 70 | 左边是搭图的代码，右边是 LangGraph 自己画出来的图。从 extract 出来有两条虚线，一条去 pick_emoji，一条直接去终点，这两条就是带条件的边。图里的函数名和变量名与上面的代码略有出入，结构是一样的。}}
+  <p>拿两封邮件试一下：</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">邮件</th><th scope="col">提取出的 details</th><th scope="col">走的路</th><th scope="col">最后的状态</th></tr></thead>
+      <tbody>
+        <tr><td>Dentist Appointment Confirmed, Wedndesday October 7th at 11am.</td><td>名称 Dentist Appointment，日期 2026 年 10 月 7 日，开始时间 11:00，时长为空</td><td>extract，pick_emoji，add_to_calendar，终点</td><td>多了 <code>emoji</code>（一颗牙齿）和 <code>status</code>（added to calendar）。日历上多了这个预约</td></tr>
+        <tr><td>CS329Z Open Router Credits have arrived!  Please check your inbox.</td><td>名称 Open Router Credits Arrival，日期和开始时间为空</td><td>extract，终点</td><td>只有 <code>email</code> 和 <code>details</code>，没有 <code>emoji</code> 和 <code>status</code>。日历没有变化</td></tr>
+      </tbody>
+    </table>
+    <figcaption>notebook 里保存的输出。第一封邮件里 Wednesday 的拼写错误是原文就有的，模型照样认出来了。</figcaption>
+  </figure>
+  <p>第二封邮件说明了为什么判断要写在代码里。模型给这封和日程无关的邮件也起了一个名称，但日期和时间是空的，<code>route</code> 据此走向终点。是否算一个日程，由程序里写明的规则决定，不取决于模型怎么想。</p>
+</section>
+
+<section class="sec" id="agent">
+  <h2>在 LangGraph 里搭一个 agent</h2>
+  <p>和 DSPy 一样，LangGraph 这一边也有现成的办法建 agent，用的是 LangChain 的 <code>create_agent</code>：</p>
+  <pre class="code"><code>from langchain.agents import create_agent
+langchain_cal_agent = create_agent(langchain_llm, tools=tinycal.TOOLS)</code></pre>
+  <p>它返回的也是一张图，可以像前面的图一样画出来。</p>
+  {{figs 58 74 | 左：一个 LangGraph agent 的轮廓。状态可以是消息的历史。模型节点和工具节点之间可以循环任意多次，直到模型决定结束。右：create_agent 建出来的图。从 model 出来有两条带条件的边，一条去 tools，一条去终点；tools 跑完再回到 model。}}
+  <p>这张图和上一节的 workflow 用的是同一套部件，差别在于<mark>带条件的边由谁来判断</mark>。workflow 里是 <code>route</code> 这样一个写死规则的函数。agent 里，走哪条边取决于模型刚才的回答：回答里要求调用工具，就去工具节点；没有要求调用工具，就结束。控制流交到了模型手里。LangChain 的文档对这个循环的描述是：调用模型，让它选择要执行的工具，直到它不再调用工具时结束。这和<a href="optimizer.html#react">第三部分</a>的 ReAct 是同一类循环。</p>
+  <p>给它一个请求，把上一部分排好的咖啡往后挪 30 分钟：</p>
+  <pre class="code"><code>langchain_cal_agent.invoke({"messages": [("user", "Please move my coffee with John on Oct 7th to be 30 minutes later")]})</code></pre>
+  <p>返回的状态是一串消息，记下了 agent 走过的每一步：</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">消息</th><th scope="col">内容</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">用户</th><td>请把 10 月 7 日和 John 的咖啡往后挪 30 分钟</td></tr>
+        <tr><th scope="row">模型</th><td>没有文字，只有一个工具调用：<code>list_events</code>，查 10 月 7 日这一天。这次调用输入 710 个 token（模型处理文字的最小单位），输出 34 个 token</td></tr>
+        <tr><th scope="row">工具</th><td>返回当天的三个日程：11:00 到 12:00 的 Dentist Appointment，13:30 到 14:50 的 CS329Z Lecture，15:00 到 15:30 的 Coffee with John，各带一个编号</td></tr>
+        <tr><th scope="row">模型</th><td>又一个工具调用：<code>update_event</code>，用的是 Coffee with John 的编号。这次调用输入 922 个 token，输出 50 个 token</td></tr>
+      </tbody>
+    </table>
+    <figcaption>notebook 里保存的输出的前四条消息。之后的消息在保存的输出里被截断了。最终日历上的咖啡变成了 15:30 到 16:00。</figcaption>
+  </figure>
+  <p>第二次调用的输入比第一次多了 212 个 token，多出来的主要是第一次的工具调用和它返回的结果。agent 每走一步，消息历史就长一截，下一次调用模型时要把整个历史再发一遍。<a href="harness.html">第五部分</a>讲的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序），很大一部分工作就是管理这份越来越长的历史。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>不止「模型加工具」的循环。</b><code>create_agent</code> 建的是最基本的循环，它在 LangChain 1.0 里取代了以前放在 LangGraph 里的 <code>create_react_agent</code>。LangChain 另有一个叫 Deep Agents 的包，在这个循环之上加了规划、一个用来存放上下文的虚拟文件系统、子 agent 和长期记忆，用来做更长、更复杂的任务。出处：<a href="https://docs.langchain.com/oss/python/langchain/agents">LangChain 文档的 Agents 一节</a>；<a href="https://docs.langchain.com/oss/python/deepagents/overview">Deep Agents 的文档</a>。</div></div>
+</section>
+
+<section class="sec" id="compare">
+  <h2>DSPy 和 LangGraph 怎么选</h2>
+  <p>两个框架写出了行为相同的程序。把两种写法并排放在一起：</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">DSPy</th><th scope="col">LangGraph</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">核心抽象</th><td>signature（对模型输入和输出的声明）和 module（决定怎样调用模型的部件）</td><td>状态、节点和边</td></tr>
+        <tr><th scope="row">一次模型调用怎么写</th><td>声明输入输出字段，prompt 由框架生成</td><td>在节点里自己调用模型。结构化输出靠 <code>with_structured_output</code>，其余的 prompt 自己写</td></tr>
+        <tr><th scope="row">控制流写在哪</th><td>module 的 <code>forward</code> 里，用普通的 Python 语句</td><td>图的边上。分支是一个返回节点名字的函数</td></tr>
+        <tr><th scope="row">数据怎么传</th><td>函数的参数和返回值</td><td>所有节点读写同一份状态</td></tr>
+        <tr><th scope="row">建 agent</th><td><code>dspy.ReAct(signature, tools=...)</code></td><td><code>create_agent(model, tools=...)</code></td></tr>
+        <tr><th scope="row">人们通常为什么选它</th><td>想用 Python 直接写控制流，并且想让优化器自动改进 prompt</td><td>想把流程组织成一张图：每一步的状态都看得到，便于观测；配上检查点之后，流程可以在中断后恢复</td></tr>
+        <tr><th scope="row">自动优化 prompt</th><td>有，见<a href="optimizer.html">第三部分</a></td><td>没有。概览页写明它不规定 prompt 怎么写。LangChain 的 prompt 优化功能放在 LangMem、LangSmith 这些别的项目里</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>几点补充。</p>
+  <ul>
+    <li><b>两者可以组合。</b>LangGraph 的节点是普通的函数，里面可以调用一个 DSPy 的 module。这样 prompt 由 DSPy 来写和优化，整张图的编排交给 LangGraph。</li>
+    <li><b>结构化输出上两者差别不大。</b>两个框架都能让模型按固定的格式输出，做得都不错。选哪个通常取决于别的需求，也有一部分是个人偏好。</li>
+    <li><b>图是写程序的人定义的。</b>使用这个系统的人不需要接触图。他们只管给输入，系统沿着图跑完，把结果交回来。</li>
+    <li><b>把问题想成状态机有时很有用。</b>状态机就是「有限的几个状态，加上状态之间的转移规则」。流程里有明确的阶段和分支时，画成图比写成一长串 <code>if</code> 更容易看清。</li>
+  </ul>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>LangGraph 文档里列的能力。</b>官方的概览页列了五项：确定的步骤和由模型决定的步骤可以放在同一张图里；持久化，也就是存下检查点，在失败或暂停之后恢复；在流程中插入人的审核；记忆；流式输出。其中「失败之后恢复」靠的是检查点：图每推进一轮，就把当时的状态存一份快照，恢复时已经成功的节点不用重跑。检查点要在编译图的时候显式配置，这一讲的演示没有用到。<a href="orchestration.html">第六部分</a>的 Temporal 是专门做这件事的。出处：<a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph Overview</a>；<a href="https://docs.langchain.com/oss/python/langgraph/checkpointers">LangGraph 文档的 checkpointer 一节</a>。</div></div>
+  <p>同一类的框架还有不少，比如 <a href="https://github.com/run-llama/llama_index">LlamaIndex</a> 和 <a href="https://github.com/crewAIInc/crewAI">CrewAI</a>。前者自称是帮人搭建语言模型应用的「数据框架」，后者是一个搭建多 agent workflow 的框架。它们各有各的抽象，要解决的问题是同一类：把模型调用、工具和程序逻辑组合成一个更大的系统。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>第二到第四部分的小结</h2>
+  <ul>
+    <li>workflow 把模型调用、工具和程序逻辑组合成一个更大的 AI 系统。</li>
+    <li>不同的框架暴露出不同的抽象：DSPy 用 signature 和 module，LangGraph 用状态、节点和边。</li>
+    <li>控制流是人设计的，由人选择在哪些位置让模型来做决定。</li>
+    <li>改进系统需要数据和评估。DSPy 通过优化器把这一点做成了显式的步骤。就算是手工修改系统，也同样需要数据和评估来判断改得对不对。</li>
+  </ul>
+  <p>下一部分沿着控制流那条线再往右走一步，看<a href="harness.html">已经搭好的开源 agent 运行框架</a>。</p>
+</section>

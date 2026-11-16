@@ -1,0 +1,231 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>agent（由语言模型自己决定下一步、在循环里调用工具的系统）除了要有工具，还要设计模型怎样推理、怎样和环境来回。这一部分讲两个关于推理的模式。</li>
+    <li>ReAct：每次行动之前先写出推理。在同一个模型上，它比只行动不推理的做法好；今天大多数 agent 的主循环仍然是它。</li>
+    <li>Reflexion：一次尝试失败之后，让模型用文字总结哪里错了，把这段总结放进下一次尝试的输入里。不改模型的权重。</li>
+    <li>反思要有可靠的外部反馈，效果才明显。只让模型自己检查自己的答案，帮助很小，准确率有时还会下降；给负责检查的一方配上搜索、代码执行这些工具，改善大得多。</li>
+    <li>现在的推理模型在自己的推理过程里就会自我纠正，所以通常不必再单独加一个反思步骤。加之前先测一下它有没有帮助。</li>
+  </ul>
+</section>
+
+<section class="sec" id="loop">
+  <h2>agent 的循环里要设计什么</h2>
+  <p>agent 的基本结构是一个循环：语言模型发出一个动作，环境返回反馈，模型再决定下一个动作，直到它自己判断该停了。</p>
+  {{fig 32 | 人把任务交给 LLM（大语言模型）。红框里是循环：LLM 向环境发出动作（Action），环境返回反馈（Feedback）。LLM 决定停止时走到 Stop。图片来源：<a href="https://www.anthropic.com/engineering/building-effective-agents">Schluntz 和 Zhang，2024</a>，红框是后加的。}}
+  <p>有了工具，红框里还有一件事要定：<mark>模型怎样推理，以及它用什么方式和环境打交道</mark>。这一部分讲推理这一半，有 ReAct 和 Reflexion 两个模式。<a href="acting.html">下一部分</a>讲动作这一半。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">论文</th><th scope="col">核心的想法</th><th scope="col">首次发布</th><th scope="col">发表在</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2210.03629">ReAct</a><br><span class="muted small">Yao 等</span></th><td>行动之前先推理</td><td>2022 年 10 月</td><td>ICLR 2023</td></tr>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2303.11366">Reflexion</a><br><span class="muted small">Shinn 等</span></th><td>从失败的尝试里反思，把反思当作记忆</td><td>2023 年 3 月</td><td>NeurIPS 2023</td></tr>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2310.01798">Large Language Models Cannot<br>Self-Correct Reasoning Yet</a><br><span class="muted small">Huang 等</span></th><td>没有外部反馈时，模型很难纠正自己的推理，结果有时还会变差</td><td>2023 年 10 月</td><td>ICLR 2024</td></tr>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2305.11738">CRITIC</a><br><span class="muted small">Gou 等</span></th><td>让负责检查的一方用外部工具</td><td>2023 年 5 月</td><td>ICLR 2024</td></tr>
+      </tbody>
+    </table>
+    <figcaption>首次发布是 arXiv 上第一版的日期。常见的写法「ReAct（2023）」「CRITIC（2024）」用的是会议的年份。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="react">
+  <h2>ReAct：行动之前先推理</h2>
+  <p>ReAct 是 Reason 加 Act。它的想法很简单，可以看成给 agent 用的 chain of thought（让模型在回答之前先一步步写出推理过程，简称 CoT）：<mark>每发出一个动作之前，先写一段想法</mark>。</p>
+  <p>下面的例子来自问答数据集 HotpotQA，它的题目要把两处以上的信息连起来才能回答。问题是：除了 Apple Remote，还有什么设备可以控制 Apple Remote 最初被设计来操作的那个程序？</p>
+  {{fig 34 | 同一个问题的四种做法。左上是问题。(1a) 直接回答。(1b) 先推理再回答。(1c) 只行动：调用搜索，不写想法。(1d) ReAct：想法（Thought）、动作（Act）、观察结果（Obs）交替出现。红叉是答错，绿勾是答对。图片来源：<a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做法</th><th scope="col">过程</th><th scope="col">结果</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">直接回答<br><span class="muted small">Standard</span></th><td>模型凭记忆给出答案</td><td>iPod，错</td></tr>
+        <tr><th scope="row">只推理<br><span class="muted small">CoT</span></th><td>推理说 Apple Remote 最初是用来操作 Apple TV 的。这一步是它编出来的，后面都跟着错</td><td>iPhone、iPad、iPod Touch，错</td></tr>
+        <tr><th scope="row">只行动<br><span class="muted small">Act-only</span></th><td>依次搜索 Apple Remote、Front Row、Front Row (software)。搜到了相关的页面，但没有把信息连起来</td><td>最后回答了「yes」，错</td></tr>
+        <tr><th scope="row">ReAct</th><td>先想：要查 Apple Remote 最初是操作什么程序的。搜索后得知是 Front Row。再想：接着查 Front Row。搜不到同名页面，从相似的结果里判断应该查 Front Row (software)。搜到后读出：它可以用 Apple Remote 或键盘的功能键控制</td><td>键盘的功能键，对</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>这个例子里 agent 有三种动作：<code>search[实体]</code> 返回对应的维基百科页面的前 5 句，页面不存在时返回 5 个相近的词条名；<code>lookup[字符串]</code> 返回页面里包含这个字符串的下一句，相当于在浏览器里按 Ctrl+F；<code>finish[答案]</code> 交出答案并结束。</p>
+  <p>想法在这里起了三个作用：把问题拆成要查的几步，从搜索结果里提取出下一步要用的信息，搜索落空时调整搜索词。只行动的那一栏缺的正是这些。</p>
+</section>
+
+<section class="sec" id="react-results">
+  <h2>ReAct 的效果：比只行动好，和只推理互有胜负</h2>
+  <p>论文的主要实验用的是 PaLM-540B（Google 的一个 5,400 亿参数的模型），不改模型，只在 prompt（发给模型的输入文字）里放几个示范的例子。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做法</th><th scope="col" class="r">HotpotQA<br>答案完全一致的比例</th><th scope="col" class="r">Fever<br>判断正确的比例</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">直接回答</th><td class="r">28.7</td><td class="r">57.1</td></tr>
+        <tr><th scope="row">只推理（CoT）</th><td class="r">29.4</td><td class="r">56.3</td></tr>
+        <tr><th scope="row">CoT-SC</th><td class="r">33.4</td><td class="r">60.4</td></tr>
+        <tr><th scope="row">只行动（Act）</th><td class="r">25.7</td><td class="r">58.9</td></tr>
+        <tr><th scope="row">ReAct</th><td class="r">27.4</td><td class="r">60.9</td></tr>
+        <tr><th scope="row">组合：CoT-SC 为主，<br>ReAct 补位</th><td class="r">34.2</td><td class="r">64.6</td></tr>
+        <tr><th scope="row">组合：ReAct 为主，<br>CoT-SC 补位</th><td class="r">35.1</td><td class="r">62.0</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自 <a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a> 的表 1，单位是百分比。HotpotQA 一列是答案和标准答案完全一致的比例。CoT-SC 是把只推理的做法采样 21 次，取出现最多的答案。Fever 是一个事实核查数据集，要判断一句陈述是被证据支持、被反驳，还是信息不足。</figcaption>
+  </figure>
+  <ul>
+    <li><b>推理对行动有帮助。</b>ReAct 比只行动在两个数据集上都高：HotpotQA 高 1.7 个百分点，Fever 高 2.0 个百分点。「行动之前先写想法」这个做法今天仍然非常普遍。</li>
+    <li><b>单独的 ReAct 并没有全面胜出。</b>在 HotpotQA 上，它比只推理低 2.0 个百分点，也比直接回答低。在 Fever 上它比只推理高 4.6 个百分点。</li>
+    <li><b>最好的是两者结合。</b>表里最高的两行都是把 ReAct 和 CoT-SC 组合起来，让两种方法互相补位。例如 ReAct 在限定的步数内没有给出答案时，改用 CoT-SC 的答案。论文的结论是：最好的办法是让模型既能用自己内部的知识，又能用从外部查到的信息。</li>
+  </ul>
+  <p>论文还人工检查了两种做法各 50 条成功和 50 条失败的运行轨迹（trajectory，每一步的想法、动作和观察结果的完整记录），两边错的方式不一样。只推理的失败里，56% 是编造了事实。ReAct 的失败里没有这一类，它的问题是推理出错占 47%（其中包括模型反复生成同样的想法和动作、跳不出来的情况），以及搜索没有返回有用的结果占 23%。</p>
+  <p>在另外两个需要连续做很多步的任务上，推理的作用更明显。ALFWorld（在文字描述的房间里完成家务）上，ReAct 最好的一组 prompt 成功率是 71%，只行动最好的一组是 45%。WebShop（在模拟的网店里按要求买东西）上，ReAct 的成功率是 40.0%，只行动是 30.1%。ALFWorld 的 71% 是 6 组 prompt 里最好的一组，6 组的平均是 57%。</p>
+</section>
+
+<section class="sec" id="finetune">
+  <h2>ReAct 论文里的另一个发现：微调之后才最好</h2>
+  <p>论文还比较了两种让模型学会 ReAct 的办法：在 prompt 里给例子，和微调（fine-tuning，用数据继续训练模型，改它的权重）。</p>
+  {{fig 35 | 纵轴是 HotpotQA 上答案完全一致的比例。左半边是只靠 prompt，右半边是微调之后。每一组柱子是一个模型大小（80 亿、620 亿、5,400 亿参数），四种颜色是四种做法。右半边没有 5,400 亿参数的柱子，因为这个大小没有做微调。图片来源：<a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型和学习方式</th><th scope="col">HotpotQA 上，四种做法里 ReAct 排第几</th><th scope="col">说明</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">80 亿、620 亿参数，只靠 prompt</th><td>最差</td><td>论文的解释是：只看几个例子，小模型很难同时学会推理和行动</td></tr>
+        <tr><th scope="row">5,400 亿参数，只靠 prompt</th><td>第三：高于只行动，略低于直接回答和只推理</td><td>就是上一节那张表里 HotpotQA 一列的数</td></tr>
+        <tr><th scope="row">80 亿、620 亿参数，微调</th><td>最好</td><td>只用了 3,000 条由 ReAct 自己生成、答案正确的轨迹来微调</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>微调的效果很大。按图里的四种做法比：80 亿参数的模型微调之后用 ReAct，超过了 620 亿参数的模型只靠 prompt 的全部四种做法；620 亿参数的模型微调之后用 ReAct（从图上读出约 32.5%），超过了 5,400 亿参数的模型只靠 prompt 的全部四种做法。上一节表里的 CoT-SC 和两种组合不在这张图的比较范围内，它们在 5,400 亿参数的模型上是 33.4% 到 35.1%，比这个数高。</p>
+  <p>这个发现在当时只是论文里的一节，今天已经成了普遍的做法：模型在后训练（post-training，预训练之后针对具体用途的训练）阶段，会专门被训练成能当 agent 用。所以现在的模型本来就擅长「推理，行动，看结果」这个循环，不需要再靠 prompt 里的例子去教。</p>
+</section>
+
+<section class="sec" id="reflexion">
+  <h2>Reflexion：把对失败的反思变成记忆</h2>
+  <p>ReAct 是在一次尝试之内边想边做。Reflexion 关心的是多次尝试之间：一次做错了，下一次怎样做得更好。它的办法是让模型用文字写下反思，放进下一次尝试的输入里。模型的权重没有任何改动，论文把这叫作用语言来做强化。</p>
+  {{fig 38 | 左：Reflexion 的结构。Actor 在环境里行动，产生运行轨迹；Evaluator 给轨迹打分；Self-reflection 根据轨迹和分数写出反思的文字，存进长期记忆；下一次尝试时 Actor 能看到这些反思。右：对应的算法，循环到评估通过或者达到最大尝试次数为止。图片来源：<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">部件</th><th scope="col">做什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Actor<br><span class="muted small">行动者</span></th><td>一个语言模型。拿到任务后在环境里一步步行动，产生一条轨迹。它本身可以用 ReAct 或 CoT</td></tr>
+        <tr><th scope="row">Evaluator<br><span class="muted small">评估者</span></th><td>判断这条轨迹做得怎么样。不同的任务用不同的办法，见下面的表</td></tr>
+        <tr><th scope="row">Self-reflection<br><span class="muted small">自我反思</span></th><td>一个语言模型。读轨迹和评估的结果，用文字写出：哪里做错了，下次应该怎么做</td></tr>
+        <tr><th scope="row">记忆</th><td>分两种。短期记忆是当前这次尝试的轨迹。长期记忆是之前各次尝试留下的反思，通常只保留最近的 1 到 3 条，以免超出模型的输入长度</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>这里的要点是：<mark>评估和反思的结果被变成了一段文字，作为上下文交给下一次的 Actor</mark>。所谓「记忆」，就是放进模型输入里的这段文字。整套机制全靠 prompt 实现：把轨迹给模型，让它写一段反思。早期的这类论文大多没有复杂的沙箱或运行环境。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">任务</th><th scope="col">Evaluator 用什么来判断</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">在 ALFWorld 里做家务</th><td>一条手写的规则：同一个动作重复超过 3 次都得到同样的结果，或者总步数超过 30，就判定这次尝试有问题。另一种做法是让语言模型来判断</td></tr>
+        <tr><th scope="row">在 HotpotQA 上回答问题</th><td>环境直接告诉它答案和标准答案是否完全一致</td></tr>
+        <tr><th scope="row">写程序</th><td>让模型自己先写一组单元测试（最多 6 个），再运行这些测试</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自 <a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>。第二行的做法在后面的<a href="#limits">橙色框</a>里还会提到。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="example">
+  <h2>Reflexion 的一个例子</h2>
+  {{fig 39 | 三类任务各一个例子，从上到下是任务、第一次的轨迹、评估、反思、下一次的轨迹。红色是出错的地方，绿色是改对的地方。图片来源：<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>。}}
+  <p>看中间一栏的编程题。任务是：给两个只含左括号和右括号的字符串，判断能否把它们按某种顺序接起来，得到一个括号配对正确的字符串。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">阶段</th><th scope="col">发生了什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">第一次尝试</th><td>模型写的代码只比较了两个字符串里左括号的总数和右括号的总数是否相等</td></tr>
+        <tr><th scope="row">评估</th><td>模型自己生成的单元测试没有通过</td></tr>
+        <tr><th scope="row">反思</th><td>模型写道：这个实现是错的，因为它只检查了左右括号的总数是否相等，没有检查括号的顺序</td></tr>
+        <tr><th scope="row">下一次尝试</th><td>带着这句反思重写，新的代码对两种拼接顺序分别检查配对是否正确</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>左边一栏的家务任务里，反思指出的是另一类错误：模型以为平底锅在 1 号灶台上，其实不在那里。右边一栏的问答任务里，反思指出模型错误地假设了两个人都有多个相同的职业。</p>
+</section>
+
+<section class="sec" id="reflexion-results">
+  <h2>Reflexion 的效果，以及它在哪里不管用</h2>
+  {{fig 40 | 两张图的横轴都是第几次尝试，纵轴是 100 道 HotpotQA 题里答对的比例。左：蓝线和红线是加了 Reflexion 的两种 agent，灰色虚线是不加的。右：一个对照实验，三条线的含义见下面的表。图片来源：<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>。}}
+  <p>左图说明反思让成绩随着尝试次数上升。横轴的 0 是第一次尝试，下面的数值是从图上读出来的近似值。加了 Reflexion 的两条线和只用 CoT 的那条线从 0.32 左右开始，只用 ReAct 的那条线从 0.34 左右开始。不加 Reflexion 的两条线之后基本不动，停在 0.33 和 0.34 左右：论文说，基线在第一次没做对的题，后面重试也没有做对。CoT 加 Reflexion 在第 3 次尝试（横轴的 2）时到了 0.40 左右，ReAct 加 Reflexion 在第 6 次尝试（横轴的 5）时到了 0.54 左右。</p>
+  <p>右图回答另一个问题：起作用的是「看到了上一次的轨迹」，还是「看到了对上一次的反思」？</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">图例</th><th scope="col">下一次尝试时模型能看到什么</th><th scope="col" class="r">最后答对的比例（约）</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">CoT (GT) only</th><td>什么都看不到，只是重做</td><td class="r">0.61</td></tr>
+        <tr><th scope="row">CoT (GT) EPM</th><td>最近一次尝试的轨迹</td><td class="r">0.66</td></tr>
+        <tr><th scope="row">CoT (GT) EPM + Reflexion</th><td>最近一次的轨迹，加上对它的反思</td><td class="r">0.74</td></tr>
+      </tbody>
+    </table>
+    <figcaption>GT 是 ground truth context 的缩写：直接把数据集里包含答案的那几段原文给模型，这样考的只是推理，不考搜索。EPM 是 episodic memory，指把最近一次的轨迹放进输入。数值是从图上读出来的近似值。</figcaption>
+  </figure>
+  <p>加上反思比只给轨迹高 8 个百分点。也就是说，有帮助的是模型写下的反思，光把过去的轨迹再给它看一遍，帮助有限。</p>
+  <p>论文的其他结果：在 ALFWorld 上，ReAct 加 Reflexion 完成了 134 个任务里的 130 个。在编程基准测试 HumanEval 的 Python 部分，一次提交的通过率是 91.0%，当时 GPT-4 是 80.1%。</p>
+  <p>它也有不管用的地方，论文自己列了出来。</p>
+  <ul>
+    <li><b>评估本身出错的时候。</b>在另一个编程基准测试 MBPP 的 Python 部分，Reflexion 是 77.1%，比 GPT-4 的 80.1% 低。论文给的原因是模型自己写的测试不可靠：在 MBPP 上，错误的代码也通过测试的比例是 16.3%，在 HumanEval 上只有 1.4%。</li>
+    <li><b>需要大量探索的任务。</b>在 WebShop 上试了四轮没有看到改进就停了。论文的结论是，Reflexion 解决不了需要很多样的尝试和探索的任务。</li>
+  </ul>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>记忆存多少条，对结果有多大影响？</b>论文没有系统地比较。上面的图里横轴最多到 6，也就是最多 7 次尝试，这么多条反思全放进输入也放得下，所以它没有碰到「记忆太多、要从里面检索」的问题。怎样在有大量过往经验时存和取，第 7 讲会讲到。</div></div>
+</section>
+
+<section class="sec" id="limits">
+  <h2>自我反思的局限：模型判断不了自己对不对</h2>
+  <p>反思听起来总是好事，实际未必。Google DeepMind 的 Huang 等人在 2023 年专门检验了一种最简单的做法：模型回答之后，让它自己检查答案，有问题就改。全程没有任何外部的反馈。</p>
+  {{fig 41 | 左边是论文的标题页和一张结果表：GPT-4-Turbo 在数学应用题 GSM8K 和常识问答 CommonSenseQA 上，用三种不同的检查 prompt 做一轮和两轮自我纠正之后的准确率。图片来源：<a href="https://arxiv.org/abs/2310.01798">Huang 等，2023</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做法</th><th scope="col" class="r">调用模型的次数</th><th scope="col" class="r">GSM8K 准确率</th><th scope="col" class="r">CommonSenseQA 准确率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">只回答一次</th><td class="r">1</td><td class="r">91.5</td><td class="r">84.0</td></tr>
+        <tr><th scope="row">检查 prompt 一，纠正 1 轮</th><td class="r">3</td><td class="r">88.0</td><td class="r">81.5</td></tr>
+        <tr><th scope="row">检查 prompt 一，纠正 2 轮</th><td class="r">5</td><td class="r">90.0</td><td class="r">83.0</td></tr>
+        <tr><th scope="row">检查 prompt 二，纠正 1 轮</th><td class="r">3</td><td class="r">90.0</td><td class="r">74.5</td></tr>
+        <tr><th scope="row">检查 prompt 二，纠正 2 轮</th><td class="r">5</td><td class="r">90.0</td><td class="r">81.0</td></tr>
+        <tr><th scope="row">检查 prompt 三，纠正 1 轮</th><td class="r">3</td><td class="r">91.0</td><td class="r">81.5</td></tr>
+        <tr><th scope="row">检查 prompt 三，纠正 2 轮</th><td class="r">5</td><td class="r">91.0</td><td class="r">83.5</td></tr>
+      </tbody>
+    </table>
+    <figcaption>GPT-4-Turbo 的结果，单位是百分比。三种 prompt 的大意分别是：「假设这个答案可能对也可能错，仔细检查并指出严重的问题」「检查你之前的答案是否正确，如果错了，找出问题」「核实你的答案是否正确，并给出解释」。每一轮纠正多调用两次模型：一次写检查意见，一次根据意见重新回答。</figcaption>
+  </figure>
+  <p>三种 prompt、两种轮数，没有一种超过只回答一次的成绩。别的模型上更严重：GPT-3.5 在 CommonSenseQA 上，纠正一轮之后准确率从 75.8% 掉到 38.1%。</p>
+  <p>论文指出的根本原因是：模型没有能力可靠地判断自己的推理对不对。让它检查，它既可能把错的改对，也可能把对的改错。以 GPT-3.5 在 GSM8K 上纠正两轮为例，8.8% 的题从对改成了错，7.6% 的题从错改成了对，改错的比改对的多。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>常见的说法是「Reflexion 用的是外部环境的反馈，所以不受这个问题影响」。这只对了一部分。</b>
+    <ul>
+      <li><b>编程任务上说得通。</b>Reflexion 运行测试，得到的是真实的执行结果。Huang 等人的论文也肯定了这类做法：有可靠的外部反馈时应该用，比如把代码的执行结果交给模型去调试。不过 Reflexion 的测试是模型自己写的，测试写错时反馈也是错的，上一节 MBPP 的结果就是这样来的。</li>
+      <li><b>问答任务上，那个「外部反馈」来自标准答案。</b>Reflexion 在 HotpotQA 上，每次尝试之后由环境告诉 agent 答案和标准答案是否一致。Huang 等人把 Reflexion 归在「使用了正确答案的标签」这一类，并用实验说明：知道答案对不对之后只在答错时才重试，成绩自然会涨；拿掉这个信息，提升就消失了。真实使用时没有人会事先告诉 agent 答案对不对。</li>
+    </ul>
+    所以读 Reflexion 的问答结果时要记住这个前提。出处：<a href="https://arxiv.org/abs/2310.01798">Huang 等，2023</a>；<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>。</div></div>
+</section>
+
+<section class="sec" id="critic">
+  <h2>CRITIC：给检查的一方配上工具</h2>
+  <p>既然问题出在模型判断不了自己对不对，一个直接的办法是让检查这一步去用外部工具。CRITIC 做的就是这件事。</p>
+  {{fig 42 | 左：CRITIC 的流程。模型先给出一个输出；检查（Verify）时去调用外部工具，得到批评意见（Critiques）；再根据意见改正（Correct），这样可以循环多轮。中间是可用的工具：知识库、代码解释器、文本接口、搜索引擎等。右：问答数据集 AmbigNQ 上，答案质量（F1）随循环轮数的变化。图片来源：<a href="https://arxiv.org/abs/2305.11738">Gou 等，2023</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">右图里的线</th><th scope="col">含义</th><th scope="col" class="r">F1</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ReAct</th><td>作为对照的 ReAct，不做事后的检查和改正</td><td class="r">64.8</td></tr>
+        <tr><th scope="row">CRITIC w/o Tool</th><td>同样的检查和改正流程，但拿掉搜索，让模型自己凭记忆写出「证据」</td><td class="r">67.3</td></tr>
+        <tr><th scope="row">CRITIC</th><td>检查时用搜索引擎查证</td><td class="r">74.9</td></tr>
+        <tr><th scope="row">CRITIC (Oracle)</th><td>理想情况：事先知道哪些答案是错的，只改正这些</td><td class="r">79.9</td></tr>
+      </tbody>
+    </table>
+    <figcaption>模型是 gpt-3.5-turbo，数值来自论文的表 1。CRITIC 的三行是检查和改正 3 轮之后的数，ReAct 一行不做事后的改正。起点（只用 CoT 回答、没有任何改正时）是 64.3。F1 衡量模型的答案和标准答案在用词上的重合程度，满分 100。</figcaption>
+  </figure>
+  <p>不用工具的那条线只比起点高 3 分左右，用了工具高 10 分以上。这和上一节的结论是一致的：让模型只凭已有的知识检查自己，帮助很小；给检查的一方真实的外部信息，改善大得多。换一种说法，<mark>检查者本身也应该是一个能用工具的 agent</mark>。</p>
+</section>
+
+<section class="sec" id="today">
+  <h2>今天这两个模式变成了什么</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模式</th><th scope="col">留下来的想法</th><th scope="col">今天的形式</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ReAct</th><td>行动之前先推理</td><td>大多数 agent 的主循环。模型在后训练阶段就被训练成这样工作，推理的部分常常由模型内置的思考过程来完成</td></tr>
+        <tr><th scope="row">Reflexion</th><td>自我反思有用</td><td>大多已经并进了模型自己的推理：推理模型在思考过程中就会发现并改正自己的错误，不需要运行框架（harness，包在模型外面、替它执行工具并管理多轮对话的程序）再强加一个反思步骤</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>Huang 等人的发现早于现在这些推理能力很强的模型。它留下的提醒仍然有效：一个听起来合理的步骤不一定真的有帮助，要加单独的反思步骤，先在自己的任务上测一下。</p>
+  <p>这引出一个更一般的问题：有些设计已经做进了模型里，开发者控制不了，这时该怎么办？可以分两步。第一，模型是可以选的。想自己控制推理和反思的方式，可以用不带内置推理的模型；一般情况下，直接依靠推理模型是更好的选择，它们在这方面已经被训练得很好。第二，先把基准测试、评估办法和数据准备好，再让系统在这个基础上演化。有了评估，就可以把某个部件拿掉或换掉，看分数怎么变。现在的编程 agent 让这种尝试变得很便宜，可以试一百种做法，留下真正有效的。</p>
+  <p>下一部分讲循环里的另一半：<a href="acting.html">动作用什么形式发出去</a>。</p>
+</section>

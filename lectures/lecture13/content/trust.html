@@ -1,0 +1,143 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>好的基准测试管的是题目。分数可不可信，管的是跑分的人怎样对待<a href="anatomy.html#protocol">评估协议</a>。</li>
+    <li>有四条要求。公平：照基准测试的规定跑，改了要说明。可复现：把模型、运行框架、数据集的版本都固定并记下来。透明：除了分数，还要报跑了几次、误差范围和花费。诚实：测试集只用来测量，报的系统就是发布的系统。</li>
+    <li>读别人的分数时，可以把这四条倒过来当作四个问题去问。</li>
+  </ul>
+</section>
+
+<section class="sec" id="frame">
+  <h2>题目好，分数也可能不可比</h2>
+  <p>好的基准测试，给的是怎样把任务定义做好的准则；分数可信，说的是怎样守住评估协议。</p>
+  {{fig 64 | 左边两个输入：别人出的基准测试，和你自己的 agent（模型加运行框架）。中间是评估协议，跑分时要注意四件事。右边的输出是你的分数，目标是它能和排行榜上的其他分数比较。}}
+  <p>这里的角色变了。<a href="good.html">第四部分</a>是站在出题的人这边说话，这一部分是站在拿别人的基准测试来跑分的人这边。同一个人常常两边都要做。</p>
+</section>
+
+<section class="sec" id="fair">
+  <h2>公平：照同一套规定跑</h2>
+  <p>照着协议跑，排行榜上的数才可以互相比较。要和基准测试保持一致的有五样：运行框架和工具，轮数、时间和花费的预算，模型的设置，每个任务尝试的次数，能不能上网和能用哪些资源。如果有不一致的地方，要说清楚改了什么、为什么改。</p>
+  {{fig 65 | 同一个基准测试上的三个分数。图上没有标出基准测试和模型的名字，这些数是示意用的。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">怎么跑的</th><th scope="col" class="r">分数</th><th scope="col">和前一行比，改了什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">最简单的运行框架，每个任务跑 1 次</th><td class="r">48%</td><td>作为起点</td></tr>
+        <tr><th scope="row">自己定制的运行框架，每个任务跑 1 次</th><td class="r">61%</td><td>换了运行框架，高了 13 个百分点</td></tr>
+        <tr><th scope="row">自己定制的运行框架，每个任务跑 5 次，取最好的一次</th><td class="r">72%</td><td>多跑了 4 次再挑，又高了 11 个百分点</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>三行里模型没有变。如果排行榜规定的是第一行的跑法，而你报的是第三行的 72%，这个数和榜上的其他数就不是一回事。</p>
+  <h3>为什么多跑几次再挑，分数会高这么多</h3>
+  <p>agent 每次运行的结果有随机性。假设某个任务它每次有 30% 的机会做成。只跑一次，成功的机会是 30%。跑五次、只要有一次成功就算成功，机会变成约 83%。下面的表是按这个假设算的。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="r">一个任务每跑一次做成的机会</th><th scope="col" class="r">跑 5 次，至少做成一次的机会</th></tr></thead>
+      <tbody>
+        <tr><td class="r">10%</td><td class="r">41%</td></tr>
+        <tr><td class="r">30%</td><td class="r">83%</td></tr>
+        <tr><td class="r">50%</td><td class="r">97%</td></tr>
+        <tr><td class="r">0%</td><td class="r">0%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>算法：1 减去「五次全都失败」的机会。假设五次运行互不影响。最后一行说明，agent 完全做不了的任务，跑多少次也没用，所以总分不会无限涨上去。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="repro">
+  <h2>可复现：把每个版本都固定并记下来</h2>
+  <p>把模型和系统的所有细节都写明，让别人能跑出同一个数。</p>
+  {{fig 66 | 左边是一份配置的例子，注释写着「把所有东西都固定下来」。右边列的是要和基准测试保持一致的五样。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">配置里的一行</th><th scope="col">固定的是什么</th><th scope="col">不固定会怎样</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><code>model: my-model-2026-05-01</code></th><td>模型的具体版本，带日期</td><td>同一个模型名字背后的版本会更新，过几个月再跑，分数可能就变了</td></tr>
+        <tr><th scope="row"><code>reasoning_effort: high</code><br><code>temperature: 0.0</code></th><td>模型的设置</td><td>推理强度和随机程度都会改变结果</td></tr>
+        <tr><th scope="row"><code>harness: mini-swe-agent==1.4.2</code></th><td>运行框架和它的版本号</td><td>运行框架升级后，工具和 prompt 可能都变了</td></tr>
+        <tr><th scope="row"><code>dataset: swe-bench-verified@a1b2c3d</code></th><td>数据集的某一次提交</td><td>基准测试会修题、删题，题目变了分数就不可比</td></tr>
+        <tr><th scope="row"><code>image: sha256:9f86d0…</code></th><td>环境镜像的指纹</td><td>环境里装的依赖版本变了，同样的代码可能通不过测试</td></tr>
+        <tr><th scope="row"><code>seeds: [0, 1, 2, 3, 4]</code></th><td>随机数种子，一共跑 5 次</td><td>别人不知道你跑了几次、是哪几次</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>公平和可复现容易混。公平问的是你的跑法和别人的是不是同一套。可复现问的是别人拿着你写下来的信息，能不能把你的跑法重做一遍。跑法和别人不同但写得清清楚楚，是可复现但不可比。跑法和别人相同但没记版本，是当时可比、事后没法核对。</p>
+</section>
+
+<section class="sec" id="transparent">
+  <h2>透明：除了分数，还要报什么</h2>
+  <p>报的东西要比一个数多，包括跑了几次、误差范围、花费和设置。</p>
+  {{fig 67 | 这张表来自 DeepSWE 排行榜（Datacurve）：每个任务跑 4 次的 pass@1，运行框架是 mini-SWE-agent。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">pass@1</th><th scope="col" class="r">误差范围</th><th scope="col" class="r">每个任务的花费</th><th scope="col" class="r">输出 token 数</th><th scope="col" class="r">步数</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">claude-fable-5 [max]</th><td class="r">70%</td><td class="r">±4%</td><td class="r">21.63 美元</td><td class="r">11.9 万</td><td class="r">88</td></tr>
+        <tr><th scope="row">gpt-5.5 [xhigh]</th><td class="r">67%</td><td class="r">±6%</td><td class="r">7.23 美元</td><td class="r">4.6 万</td><td class="r">82</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字来自上面的配图，和排行榜核对的情况见下面的说明。pass@1 是每个任务只尝试一次时的成功率。这里每个任务跑大约 4 次，取这几次的平均通过率，再对所有任务等权平均。模型名后面方括号里的是推理强度的档位。</figcaption>
+  </figure>
+  <h3>怎么读这张表</h3>
+  <p>只看表面，70% 高于 67%；有了更多信息就能看到，3 个百分点的差距落在误差范围以内，而分数高的那个，每个任务的花费是另一个的 3 倍。</p>
+  <ul>
+    <li><b>误差范围。</b>第一行的范围是 66% 到 74%，第二行是 61% 到 73%，两个范围大部分是重叠的。</li>
+    <li><b>花费。</b>21.63 除以 7.23 约等于 3。</li>
+  </ul>
+  <p>两个范围重叠，说明只凭这张表，不能确认 3 个百分点的领先是可靠的。它也不能反过来证明两个系统一样强。要判断谁更强，得拿到两个系统在每一道题上的结果，算出分数差值本身的误差范围。这张表里没有逐题的数据。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这张表里的误差范围只算了一种误差。</b>有三点要补充。
+    <ul>
+      <li><b>误差范围是怎么来的。</b>DeepSWE 一共 113 个任务，每个任务跑大约 4 次，相当于把整个基准测试重跑了 4 遍，得到 4 个总分。表里的正负 4% 和正负 6% 是按这 4 个总分之间的波动算出来的 95% 置信区间（按同样的办法重复做很多次实验，算出来的范围大约有 95% 会包含真实的平均值）。它说的是平均成功率这个估计值有多不确定，而且只算了「同一批题重跑时分数的波动」这一个来源。</li>
+      <li><b>它没有算进去的。</b>题目只有 113 道，换一批同样难度的题，分数也会变。假设 113 道题互相独立、成功率是 70%，粗略估算，这部分误差大约是正负 8 个百分点，比表里的数还大。论文没有给这个数。它的意思是：把某一个系统的分数推广到同类的其他任务时，不确定的程度比表里看到的大。它不能直接拿来比较两个系统。两个系统做的是同一批题，比较时要用每一道题上成对的结果，来估计分数差值的误差范围。</li>
+      <li><b>这张表很可能是排行榜刚上线时的数。</b>排行榜是 2026 年 6 月 15 日上线的，论文在 7 月上传。gpt-5.5 那一行和 2026 年 9 月 22 日更新的排行榜完全一致。claude-fable-5 [max] 那一行，和 2026 年 6 月的新闻报道里的分数和花费一致，现在的排行榜页面上显示的是它另一个推理强度的成绩。现在排在最前面的几个系统是 74%。排行榜上的花费会在厂商调价后重新计算，所以「每个任务的花费」是和某一天的价格表绑在一起的。</li>
+    </ul>
+    出处：<a href="https://arxiv.org/abs/2607.07946">DeepSWE 的论文</a>；<a href="https://deepswe.datacurve.ai/">DeepSWE 排行榜</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>出题的人该报什么。</b>Zhu 等人 2025 年的论文给出题的人列了一份报告清单，其中三条和这一节直接有关：报告统计显著性方面的指标，比如置信区间；报告人类专家这类非 AI 基线的成绩；报告「什么都不做的 agent」这类最简单的 agent 的成绩。最后一条很便宜，却很管用。这篇论文发现，在 τ-bench 的航空任务里，一个只返回空回答的 agent 能拿到 38% 的成功率，比一个基于 GPT-4o 的 agent 还高，原因是有 38% 的任务本来就设计成无法完成，而评分只检查数据库有没有被改动。出处：<a href="https://arxiv.org/abs/2507.02825">Zhu 等，2025</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>有一个看上去相反的建议。</b>Ofir Press 的文章建议基准测试只设一个主指标，不要同时给三个。可以这样理解：两处说的是不同的时刻。Press 说的是出题的人怎样设计榜单，一个数容易被大家记住和追赶。这一节说的是跑分的人怎样汇报结果，只有一个数时读的人没法判断它有多可靠、花了多少钱。Press 自己也说，其他指标和分类别的成绩可以放在论文的分析部分。出处：<a href="https://ofir.io/How-to-Build-Good-Language-Modeling-Benchmarks/">Press 的文章</a>。</div></div>
+</section>
+
+<section class="sec" id="honest">
+  <h2>诚实：测试集只用来测量</h2>
+  <p>测试集用来测量表现，绝不能用来调参或者针对它做优化。下面分成三条。</p>
+  {{fig 68 | 三条「不要」。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">要求</th><th scope="col">说明</th><th scope="col">为什么这样做分数会失真</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">不要对着测试集调</th><td>2015 年的 ImageNet 比赛里，有一个团队向 ImageNet 测试服务器提交的次数远远超过规定，被要求在之后 12 个月内不再提交</td><td>每提交一次就知道一次测试集上的分数。提交很多次、留下分数高的版本，等于在用测试集挑模型</td></tr>
+        <tr><th scope="row">不要挑着报</th><td>实际跑了 10 次，只挑最好的一次来报，还把它叫作 pass@1，等于把「运气最好」的那一次当成了结果</td><td>见上面<a href="#fair">公平</a>一节的那张表：多次里挑最好的，和只跑一次，是两个不同的数。每题跑很多次再取平均，是估计 pass@1 的正当做法；出问题的是挑出最好的一次来报</td></tr>
+        <tr><th scope="row">报的系统就是发布的系统</th><td>报的数字要属于你开源出来的那个系统。不要用一个版本去争排行榜的名次，再发布另一个版本</td><td>别人拿到手的系统，达不到你报的分数</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>ImageNet 那件事的经过。</b>当事的是百度的一个团队。比赛的主办方在 2015 年 6 月 2 日发布公告说，从 2014 年 11 月 28 日到 2015 年 5 月 13 日，这个团队用了至少 30 个账号，向测试服务器提交了至少 200 次，而规定是每周最多提交两次；其中 2015 年 3 月 15 日到 19 日的 5 天里就提交了 40 多次。主办方认定他们的结果不能和其他参赛者的结果比较，并要求他们在之后 12 个月内不再提交。百度为此道了歉。这些提交发生在 2015 年的比赛之前，是为一篇宣称刷新纪录的论文做的。「取消资格」是 BBC 报道里的说法。出处：<a href="https://www.bbc.com/news/technology-33005728">BBC</a>、<a href="https://venturebeat.com/dev/baidu-apologizes-for-exceeding-submission-limit-for-imagenet-challenge/">VentureBeat</a> 对主办方公告的报道；公告的原页面现在已经打不开。</div></div>
+</section>
+
+<section class="sec" id="checklist">
+  <h2>检查表，以及怎样用它读别人的分数</h2>
+  <p>四条要求可以写成一张给跑分的人用的检查表。右边一列把同样的问题换成读分数的人的角度。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">要求</th><th scope="col">报分数之前问自己</th><th scope="col">看到一个分数时可以问</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">公平<br><span class="muted small">Fair</span></th><td>用的是基准测试规定的运行框架、预算和设置吗？如果不一样，说明了哪里不一样吗？</td><td>这个分数和榜上其他分数是用同一套跑法得到的吗？</td></tr>
+        <tr><th scope="row">可复现<br><span class="muted small">Reproducible</span></th><td>模型的快照、运行框架、数据集和镜像的版本，都固定并记录了吗？</td><td>我照着它给的信息，能重跑出这个数吗？</td></tr>
+        <tr><th scope="row">透明<br><span class="muted small">Transparent</span></th><td>报了运行次数、误差范围、花费，以及被排除的任务吗？</td><td>这个分数的误差范围有多大？两个系统的差距超过误差范围了吗？花了多少钱？</td></tr>
+        <tr><th scope="row">诚实<br><span class="muted small">Honest</span></th><td>有没有对着测试集调过，有没有只挑最好的一次？被评估的系统就是要发布的那个吗？</td><td>这是只跑一次的成绩，还是多次里最好的一次？我能拿到的是同一个系统吗？</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="summary">
+  <h2>整讲的小结</h2>
+  <p>这一讲可以归纳成四条。</p>
+  <ul>
+    <li>要改进基于语言模型的 agent 系统，就得知道怎样衡量它的行为和表现。基准测试是做这件事的主要工具。</li>
+    <li>一个基准测试可以拆成两块：任务定义（问题描述、环境、验证）和评估协议。</li>
+    <li>评估协议规定了在基准测试上运行 agent 时的各种参数。所有系统照同一套参数跑，分数才能互相比较。</li>
+    <li>没有哪一个评测能说明一切。要对一个模型的能力下一个大致的判断，得同时看很多个基准测试。</li>
+  </ul>
+  <p>最后一条是这一讲的结论。<a href="good.html#tension">第四部分</a>说过，七条性质很难同时做到，实际的基准测试通常各有侧重。所以看一个模型或 agent 强不强，要看它在一组各有侧重的基准测试上的成绩，并且每个成绩都按这一部分的四个问题问过一遍。</p>
+</section>

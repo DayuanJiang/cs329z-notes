@@ -1,0 +1,143 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>用语言模型当评审（LLM-as-judge，让一个语言模型来判断另一个系统的输出好不好）的发展可以分成三个阶段：代替文本指标，判断人的偏好，评 agent 的动作。agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。这一部分讲第一阶段。</li>
+    <li>G-Eval 把评分标准交给 GPT-4，让它先自己写出评分步骤，再打分。在摘要任务上，它的分数和人的评分之间的相关系数（1 表示两边的排序完全一致，0 表示看不出两边的排序有关联）平均是 0.514，此前最好的指标是 0.474，按词语重合程度算的 ROUGE 只有 0.2 左右。</li>
+    <li>GPTScore 不让模型输出分数，它看的是模型认为这段文字接在一条指令后面的概率有多高。把任务和要评的方面写进指令，分数更可靠。</li>
+    <li>Chiang 和 Lee 把人类评分员用的问卷原样交给语言模型。较强的两个模型和三位英语教师一样，给人写的故事打的分高于 GPT-2 写的故事。较弱的两个模型分不出来。</li>
+    <li>这一阶段已经出现了两个提醒：评审可能偏向语言模型写的文字；对不自然的文字，它比人类专家宽容。</li>
+  </ul>
+</section>
+
+<section class="sec" id="phases">
+  <h2>三个阶段</h2>
+  <p><a href="graders.html#lm">第一部分</a>说过，语言模型评审能像代码一样大批量地跑，又能像人一样做判断。这一讲把它的发展分成三个阶段，每个阶段让它评的东西都更难。三个阶段大体上一个接一个，年份上有交错：第二阶段里用人的比较训练打分模型的几项研究出自 2017 到 2022 年，比第一阶段的三项研究（都出自 2023 年）早。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">阶段</th><th scope="col">要回答的问题</th><th scope="col">被评的东西</th><th scope="col">这一讲里的研究</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">一 文本指标<br><span class="muted small">NLP Metrics</span></th><td>语言模型能不能取代传统自然语言处理任务里的自动指标？</td><td>一段生成的文字：摘要、对话回复、译文、故事</td><td>G-Eval、GPTScore、Chiang 和 Lee</td><td>本页</td></tr>
+        <tr><th scope="row">二 人的偏好<br><span class="muted small">Human Preferences</span></th><td>两个回答摆在一起，语言模型选出的那个，是不是人也更喜欢的那个？</td><td>聊天模型对开放问题的回答</td><td>Christiano 等、Stiennon 等、InstructGPT、MT-Bench、Prometheus</td><td><a href="preference.html">第三部分</a></td></tr>
+        <tr><th scope="row">三 人的动作<br><span class="muted small">Human Actions</span></th><td>语言模型能不能判断一个 agent 在数字环境里做的一连串动作有没有把事情做成？</td><td>运行轨迹（trajectory，agent 每一步的动作和看到的结果的完整记录）和被改动过的环境</td><td>WebVoyager、Pan 等、Agent-as-a-Judge</td><td><a href="actions.html">第四部分</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="overlap">
+  <h2>起点：按词语重合程度算分的指标</h2>
+  <p>摘要、翻译、对话这类任务的输出是一段文字，没有唯一的标准答案。在语言模型评审出现之前，自动评分主要靠数词：生成的文字和人写的参考答案之间，有多少相同的词或连续的词组。连续的 n 个词叫 n-gram，所以这类指标也叫 n-gram 重合度指标，摘要常用的 ROUGE 和翻译常用的 BLEU 都属于这一类。</p>
+  {{fig 27 | G-Eval 论文研究的两个任务。左：文本摘要，给一篇文档，生成一段摘要。右：对话生成，根据一段背景事实和前面的对话，生成下一句回复。}}
+  <p>这类指标的毛病是只看字面。一段摘要意思全对，但换了一种说法，重合的词就少，分数就低。衡量一个自动指标好不好的办法，是拿它的分数和人打的分数比，看两者的相关系数有多高。相关系数是一个在 −1 到 1 之间的数，越接近 1，两边越一致。这一部分用到两种，Spearman 和 Kendall 的相关系数，比较的都是两边的排序：1 表示两边的排序完全相同，0 表示看不出两边的排序有关联。<a href="preference.html#prometheus">第三部分</a>还会用到 Pearson 相关系数，它衡量的是两组数值之间线性关系的强弱。</p>
+  <p>在摘要评测常用的 SummEval 数据集上，ROUGE 的三个版本和人的评分之间的 Spearman 相关系数，在四个方面上平均只有 0.165 到 0.205。这是 G-Eval 要改进的起点。</p>
+</section>
+
+<section class="sec" id="geval">
+  <h2>G-Eval：让模型先写评分步骤，再打分</h2>
+  <p>G-Eval（Liu 等，2023）要回答的问题是：让语言模型来评开放式的文字，能不能比 n-gram 重合度更接近人的判断。</p>
+  {{fig 28 | 左边是 G-Eval 的流程图：任务介绍和评分标准先交给模型，模型自己生成评分步骤（图里标着 Auto CoT），再连同要评的文章和摘要一起，让模型填一张只写分数的表。右下的紫色框是各个分数的概率分布，最后的得分是按概率加权的和，图里的例子是 2.59。}}
+  <p>它的做法有三步。</p>
+  <ul>
+    <li><b>给出任务介绍和评分标准。</b>比如评「连贯性」，就写明连贯性指的是摘要里所有句子合在一起的质量，分数从 1 到 5。</li>
+    <li><b>让模型自己写出评分步骤。</b>在 prompt（交给模型的那段输入文字）最后加一行「Evaluation Steps:」，模型会接着写出类似「先通读文章，找出主题和要点；再读摘要，和文章对比；最后按标准打分」的步骤。让模型先把推理过程写出来再回答，这种做法叫 chain-of-thought，简称 CoT。</li>
+    <li><b>填表打分，再按概率加权。</b>把评分标准、评分步骤、文章和摘要拼在一起，让模型只输出一个分数。最后的得分是每个分数乘以模型输出它的概率，再加起来。</li>
+  </ul>
+  <p>第三步里按概率加权是有原因的。如果只取模型输出的那个整数，很多摘要会得到相同的分数，分不出高低。加权之后得到的是带小数的分数。GPT-4 当时的接口不提供每个 token（模型处理文字的最小单位，大致是一个词或半个词）的概率，论文的做法是让它对同一个输入采样 20 次，用这 20 次的结果来估计各个分数的概率。采样指让模型按概率随机地生成一次输出，同一个输入每次的结果可以不同。</p>
+  {{fig 29 | 左边的表是各种指标的分数和人的评分之间的相关系数，数据集是 SummEval，四个方面是连贯性、一致性、流畅性、相关性，最右边一栏是平均。右边的柱状图见下面的说明。图片来源：<a href="https://arxiv.org/abs/2303.16634">Liu 等，2023</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">指标</th><th scope="col">它怎么算分</th><th scope="col" class="r">和人的评分的 Spearman 相关系数，四个方面的平均</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ROUGE-1、ROUGE-2、ROUGE-L</th><td>数和参考摘要重合的词、两个词的词组、最长的公共子序列</td><td class="r">0.192、0.205、0.165</td></tr>
+        <tr><th scope="row">BERTScore、MoverScore</th><td>用模型把词变成向量，比较向量的相似程度</td><td class="r">0.225、0.191</td></tr>
+        <tr><th scope="row">BARTScore</th><td>看一个生成模型认为这段摘要出现的概率有多高</td><td class="r">0.385</td></tr>
+        <tr><th scope="row">GPTScore</th><td>见下一节</td><td class="r">0.417</td></tr>
+        <tr><th scope="row">UniEval</th><td>专门训练的一个评估模型，此前最好的指标</td><td class="r">0.474</td></tr>
+        <tr><th scope="row">G-Eval，用 GPT-3.5</th><td>上面的三步</td><td class="r">0.401</td></tr>
+        <tr><th scope="row">G-Eval，用 GPT-4</th><td>上面的三步</td><td class="r">0.514</td></tr>
+        <tr><th scope="row">G-Eval，用 GPT-4，不按概率加权</th><td>直接取模型输出的整数</td><td class="r">0.502</td></tr>
+        <tr><th scope="row">G-Eval，用 GPT-4，不写评分步骤</th><td>去掉第二步</td><td class="r">0.500</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字来自论文的表 1，是按每一篇摘要算的相关系数。</figcaption>
+  </figure>
+  <p>0.514 比此前所有的指标都高，这是语言模型评审可以用的第一个证据。同时要看到，0.514 离 1 还很远：G-Eval 的排序和人的排序只是中等程度地一致。在对话任务的数据集 Topical-Chat 上，G-Eval 用 GPT-4 和用 GPT-3.5 的结果差不多，平均的 Spearman 相关系数分别是 0.588 和 0.585，此前最好的 UniEval 是 0.417。</p>
+  <h3>一个早期的提醒：评审可能偏向语言模型写的文字</h3>
+  <p>上面那张图右边的柱状图来自论文的一个附加实验。数据来自另一项研究：请写手给新闻写摘要，再请标注员把它和 GPT-3.5 写的摘要比较，结果分成三组：人写的更好，GPT-3.5 写的更好，两者一样好。G-Eval 用 GPT-4 给每一组的两种摘要分别打分，再取平均。</p>
+  <p>结果是：三组里 GPT-3.5 写的摘要得分都更高，包括标注员认为人写得更好的那一组。论文给了两个可能的解释。一是高质量的文字本来就难评，原数据里标注员之间的一致程度就很低。二是 G-Eval 可能偏向语言模型生成的文字，因为模型在写和评的时候用的很可能是同一套对「好」的理解。论文说这只是一个初步的研究。这种偏差后来有了名字，<a href="bias.html#self">第五部分</a>会再讲。</p>
+</section>
+
+<section class="sec" id="gptscore">
+  <h2>GPTScore：看模型生成这段文字的概率有多高</h2>
+  <p>GPTScore（Fu 等，2023）比 G-Eval 早一个多月。它要回答的问题是：只用一句自然语言来描述要评的方面，一个生成式的语言模型能不能给文字的任意一个方面打分。</p>
+  {{figs 30 31 | 左：GPTScore 的框架。先写一段指令，里面有任务说明（比如「给下面的文字写一段摘要」）和要评的方面的定义（比如相关性），可以再加几个示范样例；然后看模型在这段指令之后，生成待评文字的概率有多高。右：论文评的 22 个方面，每个方面一句话的定义，比如流畅性、信息量、事实一致性。图片来源：<a href="https://arxiv.org/abs/2302.04166">Fu 等，2023</a>。}}
+  <p>它的想法是：按一条指令去生成文字的时候，语言模型会给质量高的文字更高的概率。所以把指令写成「生成一段和原文相关、细节一致的摘要」，再把待评的摘要接在后面，算出模型逐个 token 生成它的概率，取对数后加起来，就是这段摘要在「相关性」这个方面的分数。换一个方面，只要换指令里的那句定义。</p>
+  <p>论文一共试了 19 个预训练模型，参数量从 8,000 万到 1,750 亿；覆盖 4 类生成任务：对话回复、文本摘要、从数据生成文字、机器翻译；共 22 个方面、37 个数据集。主要的发现是：在指令里写明任务和要评的方面，评出来的结果更可靠；再加上几个示范样例，还会更好一些。论文也报告了例外，有一个模型在一个数据集上加了指令没有变好。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">G-Eval</th><th scope="col">GPTScore</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">分数从哪里来</th><td>模型读完待评的文字，输出一个 1 到 5 的分数</td><td>模型不输出分数。分数是模型生成待评文字的概率</td></tr>
+        <tr><th scope="row">评分标准写在哪里</th><td>prompt 里的评分标准，加上模型自己写的评分步骤</td><td>指令里一句话的方面定义</td></tr>
+        <tr><th scope="row">对模型接口的要求</th><td>要么能拿到分数那个 token 的概率，要么多采样几次来估计</td><td>必须能拿到每个 token 的概率</td></tr>
+      </tbody>
+    </table>
+    <figcaption>按两篇论文的方法部分整理。</figcaption>
+  </figure>
+  <p>后来的语言模型评审大多采用 G-Eval 这一类做法：让模型读完再说出判断。可以这样理解其中一个原因：让模型直接输出判断，对接口的要求最低，评审还可以顺便写出理由。</p>
+</section>
+
+<section class="sec" id="chiang">
+  <h2>Chiang 和 Lee：把人类评分员的问卷原样交给模型</h2>
+  <p>人工评估很难复现：换一批评分员、换一种说明的写法，结果就可能不同。Chiang 和 Lee（2023）要回答的问题很直接：把交给人类评分员的那份问卷一字不改地交给语言模型，它能不能填出和人一样的结果。</p>
+  {{fig 33 | 上面一行是人工评估：评分员读任务说明、一段故事和一个问题，在 1 到 5 里勾一个分数。下面一行是语言模型评估：同样的说明、故事和问题交给模型，模型写出一段回答，再从回答里取出分数。图片来源：<a href="https://arxiv.org/abs/2305.01937">Chiang 和 Lee，2023</a>。}}
+  <p>实验做了两个任务。</p>
+  <ul>
+    <li><b>开放式的故事生成。</b>200 个写作提示，每个提示有一篇人写的故事和一篇 GPT-2 写的故事。评四个方面：语法是否正确，句子之间是否连贯，读起来是否喜欢，和提示是否相关。每个方面打 1 到 5 分。</li>
+    <li><b>对抗攻击。</b>把新闻标题里的词换成近义词，让分类模型判错。这样改出来的句子常常不通顺。评两个方面：流畅程度，以及意思有没有保持。</li>
+  </ul>
+  <p>人类评分员是三位持有英语教学证书的教师，从自由职业平台上聘请。语言模型有四个：T0、text-curie-001、text-davinci-003 和 ChatGPT，前两个较弱，后两个较强。</p>
+  {{fig 35 | 故事任务的结果。上半部分是人写的故事，下半部分是 GPT-2 写的故事。每一行是一位评审，Human 是三位教师。每个方面有两栏，左边一栏是平均分，右下角的小字是标准差。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">评审</th><th scope="col">打分的对象</th><th scope="col" class="r">语法</th><th scope="col" class="r">连贯</th><th scope="col" class="r">喜欢</th><th scope="col" class="r">相关</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" rowspan="2">三位英语教师</th><td>人写的故事</td><td class="r">3.76</td><td class="r">4.29</td><td class="r">3.78</td><td class="r">3.35</td></tr>
+        <tr><td>GPT-2 写的故事</td><td class="r">3.56</td><td class="r">3.19</td><td class="r">2.59</td><td class="r">2.38</td></tr>
+        <tr><th scope="row" rowspan="2">text-davinci-003</th><td>人写的故事</td><td class="r">4.22</td><td class="r">4.54</td><td class="r">3.99</td><td class="r">4.40</td></tr>
+        <tr><td>GPT-2 写的故事</td><td class="r">4.07</td><td class="r">4.26</td><td class="r">3.84</td><td class="r">4.02</td></tr>
+        <tr><th scope="row" rowspan="2">ChatGPT</th><td>人写的故事</td><td class="r">3.83</td><td class="r">3.55</td><td class="r">2.44</td><td class="r">3.29</td></tr>
+        <tr><td>GPT-2 写的故事</td><td class="r">2.98</td><td class="r">2.48</td><td class="r">1.59</td><td class="r">2.02</td></tr>
+        <tr><th scope="row" rowspan="2">text-curie-001</th><td>人写的故事</td><td class="r">3.19</td><td class="r">2.82</td><td class="r">2.85</td><td class="r">3.06</td></tr>
+        <tr><td>GPT-2 写的故事</td><td class="r">3.23</td><td class="r">2.82</td><td class="r">2.86</td><td class="r">3.01</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每格是 200 篇故事的平均分，满分 5 分。数字来自论文的表 1。T0 的结果和 text-curie-001 类似，没有列出。</figcaption>
+  </figure>
+  <h3>怎么读这张表</h3>
+  <ul>
+    <li><b>较强的两个模型和教师的方向一致。</b>教师在四个方面上都给人写的故事打了更高的分。text-davinci-003 和 ChatGPT 也是这样，差别在统计上显著。</li>
+    <li><b>较弱的模型分不出来。</b>text-curie-001 给两种故事的分数几乎一样。T0 只在「喜欢」这一个方面上有显著的差别。</li>
+    <li><b>方向一致，绝对的分数不一样。</b>text-davinci-003 普遍比教师打得高，ChatGPT 普遍比教师打得低。所以拿语言模型评审的分数和人的分数直接比大小没有意义，能比的是它把谁排在前面。</li>
+    <li><b>换一种写法，结论不变。</b>论文换了两种说明的写法、四种采样时的随机程度，评分的绝对值有 0.1 到 0.25 分的变化，「人写的故事分数更高」这个结论没有变。</li>
+  </ul>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「和专家的排序一致」说的是两类故事之间的比较，单篇故事的层面要另外看。</b>表里比的是两类故事的平均分。论文也算了单篇故事上教师和 text-davinci-003 的评分有多一致，Kendall 相关系数在四个方面上是 0.12 到 0.43，其中最高的是「相关」。也就是说，在「这一篇比那一篇好多少」这个层面上，模型和教师的一致程度是弱到中等。</div></div>
+  <h3>对不自然的文字，模型比教师宽容</h3>
+  <p>在对抗攻击任务里，ChatGPT 和教师一样，给被改过的标题打的分明显低于原来的标题。但论文指出，ChatGPT 给被改过的标题打的分往往比教师高。例如其中一种攻击方法改出来的标题，教师给的流畅程度平均是 3.01 分，ChatGPT 给了 3.71 分。论文的说法是，ChatGPT 对这些句子里不自然、人为的部分不像教师那么严格。论文表里的六组对比有五组是这样，有一组 ChatGPT 的分数略低于教师。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>花费的差别。</b>论文记下了两边的成本：请一位英语教师评 200 篇故事要 140 美元，教师反映最多要花 5 小时；用当时最好的模型评同样的 200 篇，花费不到 5 美元。这组数字可以帮助理解<a href="graders.html#three">第一部分</a>那张对照表里的「花费」一栏：请人评很贵，用语言模型评便宜得多。花费低很可能是语言模型评审被广泛采用的原因之一。出处：<a href="https://arxiv.org/abs/2305.01937">Chiang 和 Lee，2023</a>。</div></div>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">研究</th><th scope="col">做法</th><th scope="col">结论</th><th scope="col">留下的问题</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2303.16634">G-Eval</a><br><span class="muted small">Liu 等，EMNLP 2023</span></th><td>评分标准加模型自己写的评分步骤，按概率加权打分</td><td>和人的评分的相关系数超过了此前所有的自动指标</td><td>可能偏向语言模型写的文字</td></tr>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2302.04166">GPTScore</a><br><span class="muted small">Fu 等，NAACL 2024，2023 年 2 月上传</span></th><td>看模型在一条指令之后生成这段文字的概率</td><td>把任务和方面写进指令，分数更可靠</td><td>需要拿到每个 token 的概率</td></tr>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2305.01937">Chiang 和 Lee</a><br><span class="muted small">ACL 2023</span></th><td>把人类评分员的问卷原样交给模型</td><td>较强的模型和教师一样分得出人写的和 GPT-2 写的故事，结果对说明的写法不敏感</td><td>对不自然的文字比教师宽容；单篇层面的一致程度不高</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>第一阶段评的是一段文字本身的质量，参照的是人给同一段文字打的分。下一个阶段的问题更进一步：两个回答摆在一起，<a href="preference.html">语言模型能不能判断人会更喜欢哪一个</a>。</p>
+</section>

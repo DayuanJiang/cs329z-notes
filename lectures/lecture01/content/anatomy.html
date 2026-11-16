@@ -1,0 +1,165 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>一个 LLM agent 有五个部件：LLM 核心、规划和推理、记忆、工具、环境。前四个在 agent 里面，环境在外面。</li>
+    <li>它们在一个循环里配合。每一轮里，LLM 先想下一步该做什么，再通过工具做一个动作，环境返回一个观察结果，这个结果记进记忆，然后开始下一轮。</li>
+    <li>和一次普通的 LLM 调用相比，区别有三点：会动手改变外部的东西，会看到动作的结果，做几步、做到什么时候停由模型自己决定。</li>
+    <li>LLM agent 的拆法有别的版本，用词不同，指的是同一个结构：一个 LLM 在环境里循环地推理、记忆、使用工具和行动。</li>
+  </ul>
+</section>
+
+<section class="sec" id="example">
+  <h2>从一段运行记录看起</h2>
+  <p>先看一个 agent 实际运行的样子，再说它由什么组成。下面是 ReAct 论文（Yao 等，2022）里的一个例子。环境是 ALFWorld，一个用文字描述的家居环境：agent 用文字发出动作，比如「去 1 号橱柜」，环境用文字告诉它看到了什么。任务是把一个胡椒瓶放进抽屉。</p>
+  {{fig 29 | 左边是这次运行的记录，右边把记录里的每一种内容对应到 agent 的一个部件。图片来源：<a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a>。}}
+  <p>左边的记录从上往下读，编号到第 11 步，中间省略了几步。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">步</th><th scope="col">记录里写的</th><th scope="col">是什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1</th><td>想：先要找到一个胡椒瓶。它更可能在橱柜（1 到 6 号）或者台面（1 到 3 号）上</td><td>推理。没有对环境做任何事，只是定了一个计划</td></tr>
+        <tr><th scope="row">2</th><td>动作：去 1 号橱柜。观察：1 号橱柜上有一个花瓶</td><td>一个动作，和环境返回的结果</td></tr>
+        <tr><th scope="row">省略的几步</th><td>依次去了 2 号、3 号橱柜和 1 号、2 号台面，都没有</td><td>按计划继续找</td></tr>
+        <tr><th scope="row">6</th><td>动作：去 3 号台面。观察：上面有一个苹果、一个面包、一个胡椒瓶和一个花瓶</td><td>找到了</td></tr>
+        <tr><th scope="row">7</th><td>动作：从 3 号台面拿起胡椒瓶。观察：你拿起了胡椒瓶</td><td>动作改变了环境的状态</td></tr>
+        <tr><th scope="row">8</th><td>想：胡椒瓶找到了，接下来要把它放进 1 号抽屉</td><td>推理。根据新的情况定下一步</td></tr>
+        <tr><th scope="row">9</th><td>动作：去 1 号抽屉。观察：抽屉是关着的</td><td>环境给出了一个没有预料到的情况</td></tr>
+        <tr><th scope="row">10</th><td>动作：打开 1 号抽屉。观察：抽屉打开了</td><td>根据上一步的观察调整</td></tr>
+        <tr><th scope="row">11</th><td>动作：把胡椒瓶放进 1 号抽屉。观察：你把胡椒瓶放进了抽屉</td><td>任务完成</td></tr>
+      </tbody>
+    </table>
+    <figcaption>译自上图左边的记录。省略的部分，原图只用一行小字概括，编号空出了第 3 到 5 步，小字里列的去处比空出的编号多一个。</figcaption>
+  </figure>
+  <p>这段记录里已经有了一个 agent 的全部五个部件。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">记录里的内容</th><th scope="col">对应的部件</th><th scope="col">说明</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">写出这些文字的模型</th><td>LLM 核心</td><td>每一行「想」和「动作」都是同一个大语言模型生成的</td></tr>
+        <tr><th scope="row">「想」后面的内容</th><td>规划和推理</td><td>模型在动手之前写下的分析和打算</td></tr>
+        <tr><th scope="row">当前这一步上面的全部记录</th><td>记忆</td><td>模型写第 8 步时，前 7 步都在它能看到的文字里，所以它知道胡椒瓶已经拿到了</td></tr>
+        <tr><th scope="row">「动作」后面的内容</th><td>工具</td><td>去某处、拿起、打开、放下，是这个环境允许 agent 发出的几种命令</td></tr>
+        <tr><th scope="row">「观察」后面的内容</th><td>环境</td><td>每个动作之后，环境告诉 agent 它看到了什么</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>有一个细节：记录里的「想」写成了 <code>Act 1: Think[…]</code>，和别的动作编在同一个序列里。也就是说，推理在这里被当成一种特殊的动作，它不改变环境，只改变 agent 自己接下来能看到的文字。<a href="reasoning.html#what">第三部分</a>会回到这一点。</p>
+</section>
+
+<section class="sec" id="five">
+  <h2>五个部件</h2>
+  <p>把上面的对应关系画成一张图，就是 agent 的基本结构。</p>
+  {{fig 30 | 左边四个方框在 agent 里面，右边是环境。agent 向环境发出动作（act），从环境得到观察结果（observe）。箭头只是示意各部分之间有联系，方向不必细究。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">部件</th><th scope="col">做什么</th><th scope="col">常见的做法</th><th scope="col" class="nw">在哪一页展开</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">LLM 核心<br><span class="muted small">LLM Core</span></th><td>读入到目前为止的全部文字，生成下一段文字。agent 的每一个决定都出自这里</td><td>一个通用的大语言模型</td><td><a href="#core">本页</a>，以及第 2 讲</td></tr>
+        <tr><th scope="row">规划和推理<br><span class="muted small">Planning &amp; Reasoning</span></th><td>把大任务拆成小步骤，决定下一步做什么，出了错之后回头检查</td><td>让模型先把想法写出来；多写几遍取多数；失败后写一段反思；让几个 agent 讨论或分工</td><td><a href="reasoning.html">第三部分</a></td></tr>
+        <tr><th scope="row">记忆<br><span class="muted small">Memory</span></th><td>把已经发生的事带到后面的步骤和后面的任务里</td><td>短期的放在上下文里；长期的存在外面，用到时检索出来</td><td><a href="memory.html">第四部分</a></td></tr>
+        <tr><th scope="row">工具<br><span class="muted small">Tools</span></th><td>让模型能做它光靠生成文字做不到的事：查资料、算数、运行代码、读写文件</td><td>检索、计算器、代码执行、搜索、文件操作、读写记忆</td><td><a href="tools.html">第五部分</a></td></tr>
+        <tr><th scope="row">环境<br><span class="muted small">Environment</span></th><td>agent 之外的世界。动作作用在它上面，观察结果从它那里来</td><td>桌面操作系统、网页浏览器、手机应用、游戏、数据库</td><td><a href="#env">本页</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>图的最下面还有一行「agent 的动作」，列了三种：调用工具，和别人交互，回复用户。回复用户也算一种动作。一个 agent 做完任务后说「已经改好了」，和它中途调用一次搜索，在这张图里是同一类东西：都是 LLM 生成的一段输出，被送到了 agent 的外面。</p>
+</section>
+
+<section class="sec" id="loop">
+  <h2>它们怎样配合：一个循环</h2>
+  <p class="lead-in">五个部件靠一个循环连在一起：<mark>想一步，做一步，看结果，再想</mark>。这个循环叫 agent loop。把它写成代码只有十来行。</p>
+  <pre class="code"><code>history = [task]                               # memory: everything so far
+while True:
+    step = llm(instructions, tools, history)   # LLM core: reason, then decide
+    history.append(step)
+    if step.is_final_answer:                   # the model decides when to stop
+        return step.text                       # action: respond to the user
+    result = run_tool(step.tool, step.args)    # action: act on the environment
+    history.append(result)                     # observation goes into memory</code></pre>
+  <p>逐行对照五个部件：</p>
+  <ul>
+    <li><b><code>llm(…)</code> 是 LLM 核心。</b>每一轮调用一次模型，交给它三样东西：一段说明（它是谁、要遵守什么），可用的工具清单，以及到目前为止的全部记录。</li>
+    <li><b>模型的输出里包含推理。</b>它可以先写一段想法，再写要调用哪个工具。</li>
+    <li><b><code>history</code> 是最简单的一种记忆。</b>每一步做了什么、看到了什么，都追加在后面，下一轮原样交给模型。</li>
+    <li><b><code>run_tool(…)</code> 是工具。</b>模型只负责写出「用哪个工具、参数是什么」，真正去执行的是模型外面的程序。</li>
+    <li><b>工具作用的对象是环境。</b>读文件、点网页、查数据库，结果作为观察返回。</li>
+  </ul>
+  <p>包在模型外面的这段程序，也就是这个循环本身，加上工具的实现和对记录的管理，叫运行框架（harness，也叫 scaffold）。同一个模型放进不同的运行框架，表现可以差很多。</p>
+  <p>循环里有一行值得多看一眼：<code>if step.is_final_answer</code>。什么时候停，是模型自己说的。这是 agent 和 workflow 的分界：workflow 里每一步做什么、什么时候结束，由事先写好的代码规定，agent 里由模型决定。<a href="systems.html#who-decides">第六部分</a>专门讲这个区别。</p>
+</section>
+
+<section class="sec" id="vs-call">
+  <h2>和一次普通的 LLM 调用差在哪</h2>
+  <p>知道 prompt（交给模型的输入文字）和 LLM 的读者，可以用下面的表把 agent 和熟悉的用法对上。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">一次 LLM 调用</th><th scope="col">LLM agent</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">过程</th><td>给一段 prompt，模型回答一次</td><td>很多轮。每一轮模型做一个动作，环境返回一个结果</td></tr>
+        <tr><th scope="row">模型能做的事</th><td>生成文字</td><td>生成文字，并且通过工具读写文件、运行代码、操作网页，改变外部的东西</td></tr>
+        <tr><th scope="row">模型能看到什么</th><td>prompt 里写的内容，加上它在训练里学到的知识</td><td>还能看到每个动作的结果，所以能发现自己错了并改正</td></tr>
+        <tr><th scope="row">做几步由谁定</th><td>固定一步</td><td>模型自己决定下一步做什么、什么时候停</td></tr>
+        <tr><th scope="row">交出来的是什么</th><td>一段文字</td><td>一个被改动过的环境，比如改好的代码、下好的订单，加上一条运行轨迹（trajectory，每一步的动作和看到的结果的完整记录）</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>第三行是 agent 有用的主要原因。只靠训练里学到的知识回答，模型没办法知道自己记错了。能动手去查、去试，再看到结果，才有机会纠正。<a href="reasoning.html#react-example">第三部分</a>有一个具体的例子：同一个问题，直接回答答错了，边查边想答对了。</p>
+</section>
+
+<section class="sec" id="core">
+  <h2>LLM 核心：模型越强，agent 越强</h2>
+  <p>agent 建立在大语言模型之上。一般来说，模型越强，agent 越好：推理更准，犯的错更少，编造内容（常叫幻觉，hallucination）更少，能应付的任务也更长。<a href="history.html#better">第一部分</a>的两张图分别画了模型和 agent 这几年的进步。</p>
+  <p>这也带来一个一直在争论的问题：想让 agent 更好，是该去训练一个更适合当 agent 的模型，还是该把力气花在运行框架和别的改进上。图里的每个方框都可以单独调整：换一个模型，换一种推理的办法，换一种记忆的设计，增减工具。大家都想找到最好的那一组配置，所以运行框架和优化在后面各讲里占了很大的分量，第 9 讲专门讲优化。</p>
+</section>
+
+<section class="sec" id="tools-why">
+  <h2>工具：模型自己做不到的事</h2>
+  <p>一个能解很难的数学题的模型，被问到「今天下午的讲座在校园的哪间教室」时，是答不出来的。这个信息不在它的训练数据里。类似的情况很多。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型做不到的事</th><th scope="col">原因</th><th scope="col">给它什么工具</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">回答今天的讲座在哪间教室、<br>今天的天气如何</th><td>训练数据有截止日期，也不包含这类具体的、随时在变的信息</td><td>检索或搜索：去学校的网站查，去天气数据源查</td></tr>
+        <tr><th scope="row">稳定地做对多位数的乘法</th><td>可以这样理解：模型是在预测下一个 token（模型处理文字的最小单位），没有逐位去执行运算</td><td>计算器，或者让它写一段代码来算</td></tr>
+        <tr><th scope="row">读用户电脑上的一个文件</th><td>模型只能看到交给它的文字</td><td>文件操作</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>第二行有一个具体的数。2023 年的一篇论文测过，不给例子、直接提问时，GPT-4 做三位数乘三位数的乘法只对了 59%，ChatGPT 是 55%。四位数乘四位数时，GPT-4 的正确率降到 4%。有了工具，agent 的动作才能建立在事实和确定的计算上，前后也更一致。</p>
+  <p>出处：<a href="https://arxiv.org/abs/2305.18654">Dziri 等，2023</a>，《Faith and Fate: Limits of Transformers on Compositionality》。模型怎样学会用工具、一次工具调用里发生了什么，见<a href="tools.html">第五部分</a>。</p>
+</section>
+
+<section class="sec" id="env">
+  <h2>环境：动作作用在哪里</h2>
+  <p>环境是 agent 之外的世界。图里列了五种：桌面操作系统、网页浏览器、手机应用、游戏、数据库。上面例子里的 ALFWorld 属于游戏这一类。</p>
+  <p>环境决定了两件事。第一，agent 能做哪些动作：在网页里是点击和输入，在终端里是执行命令，在代码仓库里是读写文件和运行测试。第二，agent 能看到什么：一段文字、一张屏幕截图、一条命令的输出。agent 和环境之间就是这两个方向的往来，动作过去，观察回来。</p>
+  <p>agent 出了问题，后果也发生在环境里。一次普通的 LLM 调用答错了，错的是一段文字。agent 做错了，可能是一封已经发出去的邮件、一个已经删掉的文件。<a href="challenges.html#safety">第七部分</a>讲的安全问题，大多出在 agent 和环境之间。</p>
+</section>
+
+<section class="sec" id="definitions">
+  <h2>别的拆法：用词不同，结构相同</h2>
+  <p>什么算 agent、什么不算，有过很多争论。五个部件这种拆法也只是其中一种。把几种常被引用的拆法放在一起，可以看到同样的几块反复出现。</p>
+  {{fig 31 | 两种别的拆法。左：Lilian Weng 2023 年的图，agent 在中间，周围是工具、记忆、规划和动作。右：CoALA 框架的图，方框里是记忆、推理，以及读记忆的检索和写记忆的学习，方框外是环境，两者之间是观察和动作。图片来源：<a href="https://lilianweng.github.io/posts/2023-06-23-agent/">Weng，2023</a>；<a href="https://arxiv.org/abs/2309.02427">Sumers 等，2024</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">出处</th><th scope="col">怎么拆</th><th scope="col">和五个部件的对应</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Lilian Weng<br><span class="muted small">《LLM Powered Autonomous Agents》<br>2023 年 6 月</span></th><td>LLM 负责做决定，再配上三样：规划（拆分子目标，反思和改进），记忆（短期的和长期的），工具使用</td><td>几乎一一对应。她把上下文里的内容都算作短期记忆，把外部的向量库算作长期记忆。环境没有单独列出</td></tr>
+        <tr><th scope="row">CoALA 框架<br><span class="muted small">Sumers、Yao、Narasimhan、Griffiths<br>《Cognitive Architectures<br>for Language Agents》<br>2023 年发布，2024 年发表</span></th><td>三个维度：信息存在哪（工作记忆和长期记忆），动作空间（对内的动作和对外的动作），怎样做决定（一个循环，先规划再执行）</td><td>把推理、检索、学习都算作对内的动作：推理读写工作记忆，检索是读长期记忆，学习是写长期记忆。对外的动作作用在环境上</td></tr>
+        <tr><th scope="row">Russell 和 Norvig 的教科书<br><span class="muted small">1995 年</span></th><td>agent 是任何通过传感器感知环境、并通过执行器作用于环境的东西</td><td>只有感知、动作和环境。它是比 LLM 早得多的一般定义，见<a href="history.html#nineties">第一部分</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>前两种说法的词汇不一样，指向的是同一个结构：<mark>一个 LLM 在它的环境里，循环地推理、记忆、使用工具并行动</mark>。Russell 和 Norvig 的定义更宽，不要求里面有 LLM，强化学习的 agent 也符合；它说的感知和行动，对应这个结构里的观察和动作。这里不去争论哪个定义最准确，后面看到任何一个 LLM agent，都可以拿这五个部件去对。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>CoALA 的拆法解释了一个容易困惑的地方。</b>「读写记忆」在<a href="#five">五个部件的表</a>里列在工具那一行，记忆自己又是一个单独的部件。按 CoALA 的说法就清楚了：记忆是存东西的地方，检索和学习是读它、写它的动作。对模型来说，查记忆和查网页是同一种操作，都是发出一个调用、拿回一段文字，所以读写记忆常常就做成工具。</div></div>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>agent 的基本结构是五个部件：LLM 核心负责想和决定，规划和推理让它想得更好，记忆让它记得之前发生过什么，工具让它能动手，环境是它动手的地方。</li>
+    <li>把它们连起来的是一个循环。循环本身很简单，十来行代码就能写出来。</li>
+    <li>不同的 agent，差别在于每个方框是怎么实现的，以及这几块配合得好不好。</li>
+  </ul>
+  <p>接下来三个部分依次展开其中三块：<a href="reasoning.html">推理和规划</a>、<a href="memory.html">记忆</a>、<a href="tools.html">工具</a>。</p>
+</section>

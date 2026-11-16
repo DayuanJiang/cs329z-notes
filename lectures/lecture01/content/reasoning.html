@@ -1,0 +1,237 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>对 agent 来说，推理是一种对内的动作：它不改变环境，只更新 agent 自己的状态，也就是它接下来能看到的文字。</li>
+    <li>先推理再行动有两个好处。同一段推理可以用到相似的新情况里；人也能看出 agent 为什么做了这个动作。</li>
+    <li>ReAct 把推理和行动交替进行：想一步，做一步，看结果，再想。在 HotpotQA 上抽查的错题里，ReAct 没有一道归入幻觉这一类，也就是编造了推理过程或事实（只推理不行动的做法有 56%），但错在推理上的占 47%（只推理不行动的做法是 16%）。</li>
+    <li>在这个基础上有几种让推理更好的办法：多想几遍取多数（self-consistency），失败后写一段反思留给下一次（Reflexion），让几个 agent 互相讨论，或者由一个 orchestrator 把任务分给几个 agent。</li>
+    <li>这些办法都只靠 prompt 实现，没有改动模型的权重。</li>
+  </ul>
+</section>
+
+<section class="sec" id="what">
+  <h2>「推理」在三个场合指什么</h2>
+  <p>推理这个词用在人、LLM 和 agent 身上，意思不完全一样。</p>
+  {{fig 33 | 上面是 agent 和环境之间的动作和观察。下面两个例子是 LLM 的推理：模型在给出答案之前，先写出中间的步骤（橙色标出的部分）。一个是判断梨会不会沉到水里，一个是推算日期。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">对谁来说</th><th scope="col">推理指什么</th><th scope="col">例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">人</th><td>演绎、类比、规划这类心理过程</td><td>做一道应用题时在心里一步步算</td></tr>
+        <tr><th scope="row">LLM</th><td>模型在给出最终答案之前生成的中间文字。它模仿了人的一部分心理过程，没有覆盖全部</td><td>chain-of-thought（简称 CoT，让模型一步一步写出推导过程的 prompt 写法）。图里的例子：梨的密度约 0.6 克每立方厘米，比水小，所以会浮起来，答案是「不会沉」</td></tr>
+        <tr><th scope="row">agent</th><td>一种对内的动作：它更新 agent 自己的状态，不作用于环境</td><td><a href="anatomy.html#example">第二部分</a>的例子里，「想：胡椒瓶找到了，接下来要把它放进 1 号抽屉」</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>第三行的说法来自 <a href="anatomy.html#definitions">CoALA 框架</a>：动作分成对外的和对内的。对外的动作作用于环境，比如点击、执行命令。推理是对内的动作，它读取 agent 当前掌握的信息，生成新的信息，再写回去。写回去的内容会出现在后面每一步的上下文里，影响后面的决定。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>两点提醒。</b>第一，AI 的推理和人的推理是不是一回事，一直有争论，这里不展开，上面的对照只是为了说明这个词的用法。第二，模型写出来的推导过程，不一定如实反映了模型内部实际是怎样得出答案的。把它当作一份有用的记录来读，不要把它当成对模型内部的准确描述。</div></div>
+</section>
+
+<section class="sec" id="why">
+  <h2>为什么先推理再行动</h2>
+  <p>只看 agent 的观察和动作，中间常常缺了一环。</p>
+  {{fig 34 | 一个做饭的 agent。橙色是它的观察，紫色是它的动作，绿色是加进去的推理。}}
+  <p>图里的 agent 在某一步观察到的是「你正在做一道菜，发现盐用完了」，下一个动作是「向右转」。只看这两行，很难明白它为什么要向右转。从观察直接对应到动作，这个对应关系很难学，出了问题也很难检查。</p>
+  <p>在中间加一段推理就清楚了：「这道菜应该是咸的。盐用完了，可以用酱油代替。酱油在右手边的橱柜里。」接下来的「向右转」和再下一步的「打开橱柜」都有了来由。</p>
+  <p>这样做有两个好处。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">好处</th><th scope="col">意思</th><th scope="col">在这个例子里</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">泛化<br><span class="muted small">Generalization</span></th><td>同一段推理可以用到相似的新情况里。直接从观察对应到动作，换一个厨房就得重学</td><td>「缺了一样调料，找一样能代替的」这个思路，换成糖用完了、换一间厨房也适用</td></tr>
+        <tr><th scope="row">对齐<br><span class="muted small">Alignment</span></th><td>能看出 agent 为什么做了它做的事，方便人检查它的做法是否符合人的意图</td><td>如果它的推理是「盐用完了，去邻居家拿」，人在它出门之前就能发现</td></tr>
+      </tbody>
+    </table>
+    <figcaption>第三列的例子是为了说明这两条而补充的。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="react-example">
+  <h2>只推理不行动，和边推理边行动</h2>
+  <p>ReAct 这个名字是 Reason 加 Act。下面用 ReAct 论文里的一个例子，比较三种做法。问题来自 HotpotQA，一个要把几条资料连起来才能回答的问答数据集：</p>
+  <p class="lead-in">Apple Remote 最初是为了操作某个程序而设计的。除了 Apple Remote，还有什么设备可以控制这个程序？</p>
+  {{figs 35 36 | 左：直接回答（Standard）和只推理不行动（Reason Only）都答错了，红色标出的是模型编造的内容。右：ReAct 交替地推理（Thought）、行动（Act）、读观察结果（Obs），四轮之后答对了，绿色标出的是它从搜索结果里读到的关键信息。图片来源：<a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做法</th><th scope="col">过程</th><th scope="col">答案</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">直接回答</th><td>模型只给出答案</td><td>iPod。错</td></tr>
+        <tr><th scope="row">只推理，不行动<br><span class="muted small">chain-of-thought</span></th><td>模型写道：Apple Remote 最初是为 Apple TV 设计的，Apple TV 可以用 iPhone、iPad 和 iPod Touch 控制</td><td>iPhone、iPad、iPod Touch。错。第一句就不对，后面的推导都建立在它上面</td></tr>
+        <tr><th scope="row">ReAct</th><td>四轮，见下表</td><td>键盘的功能键。对</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>第二种做法比第一种更危险。它的推导读起来很有说服力，却是错的。模型没有任何办法核对「Apple Remote 是为 Apple TV 设计的」这句话，只能凭训练里留下的印象。</p>
+  <p>ReAct 的四轮是这样的。它手里有一个工具：在维基百科里搜索。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">轮</th><th scope="col">想</th><th scope="col">做</th><th scope="col">看到</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1</th><td>要先搜 Apple Remote，找到它最初是为哪个程序设计的</td><td>搜索「Apple Remote」</td><td>一长段介绍，里面说它最初用来控制 Front Row 这个媒体中心程序</td></tr>
+        <tr><th scope="row">2</th><td>是 Front Row。接下来搜 Front Row，看还有什么设备能控制它</td><td>搜索「Front Row」</td><td>没有找到这个条目。返回了几个相近的条目名，其中有「Front Row (software)」</td></tr>
+        <tr><th scope="row">3</th><td>没搜到。应该搜「Front Row (software)」</td><td>搜索「Front Row (software)」</td><td>Front Row 是一个已经停止开发的媒体中心软件……</td></tr>
+        <tr><th scope="row">4</th><td>它可以用 Apple Remote 或者键盘的功能键控制。答案是键盘的功能键</td><td>结束，给出答案</td><td></td></tr>
+      </tbody>
+    </table>
+    <figcaption>译自上图右边的记录，搜索结果有删节。</figcaption>
+  </figure>
+  <p>这四轮里，推理和行动互相帮了对方：</p>
+  <ul>
+    <li><b>推理引出了行动。</b>第 1 轮的想法决定了搜什么。</li>
+    <li><b>行动给推理带来了新的事实。</b>「Front Row」这个名字是从搜索结果里读到的，模型自己并不知道。</li>
+    <li><b>推理从长文字里提取了要点。</b>搜索返回的是一整段介绍，第 2 轮的想法把其中有用的一句挑了出来。</li>
+    <li><b>推理处理了意外。</b>第 2 轮搜索落空，第 3 轮根据返回的相近条目换了一个搜索词。</li>
+  </ul>
+  <p>chain-of-thought 和 ReAct 的差别可以这样概括：chain-of-thought 是一个 prompt、一次生成，中途看不到任何新东西。ReAct 是一个循环，每一轮都能看到上一个动作的结果，所以能拿到新信息，也能改正自己的错误。整条运行轨迹（trajectory，每一步的动作和看到的结果的完整记录）人也读得懂，每一步为什么这样做都写在里面。</p>
+</section>
+
+<section class="sec" id="react-results">
+  <h2>ReAct 的成绩：哪里好，哪里不好</h2>
+  <p>ReAct 论文的主要实验用的是 PaLM-540B 这个模型。做法是在 prompt 里放几个写好的示范（HotpotQA 放 6 个，Fever 放 3 个），模型的权重没有动。</p>
+  {{fig 37 | 上：几种 prompt 方法在两个问答数据集上的成绩。下：ReAct 和 chain-of-thought 的成功和失败各是什么类型。}}
+  <h3>成绩表</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方法</th><th scope="col">是什么</th><th scope="col" class="r">HotpotQA<br><span class="muted small">答案完全一致的比例</span></th><th scope="col" class="r">Fever<br><span class="muted small">准确率</span></th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Standard</th><td>直接回答</td><td class="r">28.7</td><td class="r">57.1</td></tr>
+        <tr><th scope="row">CoT</th><td>只推理，不行动</td><td class="r">29.4</td><td class="r">56.3</td></tr>
+        <tr><th scope="row">CoT-SC</th><td>CoT 做 21 遍，取出现最多的答案</td><td class="r">33.4</td><td class="r">60.4</td></tr>
+        <tr><th scope="row">Act</th><td>只行动，不写推理</td><td class="r">25.7</td><td class="r">58.9</td></tr>
+        <tr><th scope="row">ReAct</th><td>推理和行动交替</td><td class="r">27.4</td><td class="r">60.9</td></tr>
+        <tr><th scope="row">CoT-SC，不行再 ReAct</th><td>21 个答案里最多的那个不到一半时，说明模型自己的知识没把握，改用 ReAct</td><td class="r">34.2</td><td class="r">64.6</td></tr>
+        <tr><th scope="row">ReAct，不行再 CoT-SC</th><td>ReAct 在规定的步数里没给出答案时，改用 CoT-SC</td><td class="r">35.1</td><td class="r">62.0</td></tr>
+        <tr><th scope="row">有监督训练的最好成绩</th><td>专门为这个任务训练的模型，作为参照</td><td class="r">67.5</td><td class="r">89.5</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字是百分数，来自 <a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a> 的表 1。Fever 是一个判断一句话是否有资料支持的数据集。</figcaption>
+  </figure>
+  <p>从表里可以读出三件事。第一，ReAct 在两个数据集上都高于 Act，也就是说，同样能搜索，加上推理更好。第二，单独的 ReAct 在 HotpotQA 上是 27.4，低于 CoT 的 29.4，甚至低于直接回答的 28.7；在 Fever 上它是单个方法里最高的。第三，在表里的几种 prompt 方法当中，两个数据集上最好的成绩都来自把 ReAct 和 CoT-SC 结合起来的做法：模型自己的知识和外部查到的资料，哪一个靠得住就用哪一个。它们和最后一行专门训练的模型仍有很大差距。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「ReAct 比以前的 prompt 方法都好」这个说法不完全成立。</b>在需要动手的任务上它确实好得多，见本节最后的表。在 HotpotQA 这种问答任务上，单独的 ReAct 分数低于只推理不行动的 CoT。它的长处在别的地方：答案有出处，编造的内容少，过程可以检查。</div></div>
+  <h3>成功和失败各是什么类型</h3>
+  <p>论文作者从 ReAct 和 CoT 各自答对的题里随机抽了 50 道，答错的题里也各抽了 50 道，一共 200 道，人工逐条归类。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">抽的是哪些题</th><th scope="col">类型</th><th scope="col">定义</th><th scope="col" class="r">ReAct</th><th scope="col" class="r">CoT</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" rowspan="2">答对的 50 道</th><td>真的对</td><td>推理过程和用到的事实都正确</td><td class="r">94%</td><td class="r">86%</td></tr>
+        <tr><td>碰巧对</td><td>答案对了，但推理过程或事实是编造的</td><td class="r">6%</td><td class="r">14%</td></tr>
+        <tr><th scope="row" rowspan="4">答错的 50 道</th><td>推理错误</td><td>推理过程出错，包括陷在重复的步骤里出不来</td><td class="r">47%</td><td class="r">16%</td></tr>
+        <tr><td>搜索结果的问题</td><td>搜索返回空的，或者没有有用的信息</td><td class="r">23%</td><td class="r">不适用</td></tr>
+        <tr><td>幻觉</td><td>编造了推理过程或事实</td><td class="r">0%</td><td class="r">56%</td></tr>
+        <tr><td>标准答案的歧义</td><td>答对了，但和标准答案的写法不完全一致</td><td class="r">29%</td><td class="r">28%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自 <a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a> 的表 2。论文说每一组抽了 50 道，但表里有几个百分数（47%、23%、29%）换算不成 50 道里的整数道，ReAct 答错的四类加起来是 99%。具体是怎么算的，论文里没有找到说明。</figcaption>
+  </figure>
+  <p>这张表说明了两种做法各自的弱点。</p>
+  <ul>
+    <li><b>CoT 的主要问题是幻觉。</b>它答错的题里 56% 属于编造了推理过程或事实，答对的题里也有 14% 是碰巧对的。ReAct 答错的题里没有一道归入这一类，很可能是因为它的事实来自搜索结果。</li>
+    <li><b>ReAct 的主要问题是推理错误。</b>论文给的解释是：推理、行动、观察必须交替进行，这个固定的格式让模型组织推理步骤时不够灵活。还有一种 ReAct 特有的错误，是模型不断重复前面的想法和动作，跳不出来。</li>
+    <li><b>推理错误和幻觉是两回事。</b>按表里的定义，幻觉指推理过程或事实是编造的。推理错误指推理过程本身出了错，比如对已有信息的理解不对、下一步选得不对，或者陷在重复的步骤里。所以在抽查的错题里，ReAct 没有一道归入幻觉，推理错误却很高，两者并不矛盾。这个 0% 只说的是抽查的错题：ReAct 答对的题里仍有 6% 属于碰巧对，也就是推理过程或事实是编造的。</li>
+    <li><b>搜索落空会影响后面的整个过程。</b>ReAct 答错的题里 23% 是搜索没有返回有用的信息，模型之后很难重新组织思路。</li>
+  </ul>
+  <h3>在要动手的任务上</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">任务</th><th scope="col" class="r">只行动（Act）的成功率</th><th scope="col" class="r">ReAct 的成功率</th><th scope="col">说明</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ALFWorld<br><span class="muted small">文字版的家居任务</span></th><td class="r">45%</td><td class="r">71%</td><td>各做了 6 组实验，这里是各自最好的一组。ReAct 最差的一组是 48%，也高于 Act 最好的一组</td></tr>
+        <tr><th scope="row">WebShop<br><span class="muted small">在模拟的网店里按要求买东西</span></th><td class="r">30.1%</td><td class="r">40.0%</td><td>人类专家的成功率是 59.6%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自 <a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a> 的表 3 和表 4。</figcaption>
+  </figure>
+  <p>只行动、不推理的 agent 在 ALFWorld 里常见的失败，是反复做同一个没有效果的动作。<a href="anatomy.html#example">找胡椒瓶</a>那个任务里，它一遍遍地尝试从水槽里拿胡椒瓶，环境一遍遍地回答「什么也没发生」。</p>
+</section>
+
+<section class="sec" id="sc">
+  <h2>多想几遍取多数：self-consistency</h2>
+  <p>上面的表里出现了 CoT-SC。SC 是 self-consistency，可以译作自洽，是配合 chain-of-thought 用的一个很直观的办法，分三步。</p>
+  <ol>
+    <li>用 chain-of-thought 的 prompt 向模型提问。</li>
+    <li>让模型生成多条不同的推理路径。每次生成带一点随机性，得到的推导和答案就不完全一样。</li>
+    <li>看这些路径各自得出的最终答案，选出现次数最多的那个。</li>
+  </ol>
+  {{fig 38 | 上：普通的 chain-of-thought 只生成一次，这一次算错了，答案是 14 美元。下：self-consistency 生成三条推理路径，答案分别是 18、26、18 美元，取多数，得到 18 美元。图片来源：<a href="https://arxiv.org/abs/2203.11171">Wang 等，2023</a>。}}
+  <p>它的道理是：一道题的正确答案只有一个，不同的正确推导会得到同一个答案；出错的推导错法各不相同，答案也分散。所以出现最多的答案更可能是对的。这相当于一种多数投票。它不需要额外的训练，也不需要别的模型，代价是要多调用很多次。</p>
+  <p>论文报告的提高，以准确率的百分点计：算术题数据集 GSM8K 提高 17.9，SVAMP 提高 11.0，AQuA 提高 12.2，常识推理的 StrategyQA 提高 6.4。出处：<a href="https://arxiv.org/abs/2203.11171">Wang 等，2023</a>。</p>
+</section>
+
+<section class="sec" id="reflexion">
+  <h2>失败后写一段反思：Reflexion</h2>
+  <p>self-consistency 是在一次回答之内多想几遍。Reflexion 是在多次尝试之间学习：这次失败了，写一段话总结为什么失败，下次尝试时带上这段话。</p>
+  {{fig 39 | 左：Reflexion 的结构。右：两个例子，一个是家居任务，一个是写程序。每个例子从上到下是任务、这次的运行轨迹、评估结果、反思、下一次的运行轨迹。图片来源：<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>。}}
+  <p>它由三个角色组成。行动者和反思者是 LLM，评估者可以是 LLM，也可以是一条规则。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">角色</th><th scope="col">做什么</th><th scope="col">在家居任务的例子里</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">行动者<br><span class="muted small">Actor</span></th><td>在环境里做任务，产生一条运行轨迹。轨迹本身是短期记忆</td><td>任务是把锅洗干净放到台面上。它去灶台拿锅，「什么也没发生」，接着去水槽洗，还是「什么也没发生」</td></tr>
+        <tr><th scope="row">评估者<br><span class="muted small">Evaluator</span></th><td>判断这次做得对不对。可以是环境给的成败信号，也可以是一条简单的规则或者一个模型</td><td>规则判定：出现了幻觉</td></tr>
+        <tr><th scope="row">反思者<br><span class="muted small">Self-reflection</span></th><td>读这条轨迹和评估结果，用自然语言写一段反思，存进长期记忆</td><td>「我试着在 1 号灶台拿锅，但锅不在 1 号灶台」</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>下一次尝试时，行动者的 prompt 里会带上之前的反思。例子里它这次改去 2 号灶台，拿到了锅。为了不让 prompt 太长，论文里保留的反思数量有上限，通常是最近的 1 到 3 条。</p>
+  {{fig 40 | Reflexion 在 ALFWorld 的 134 个任务上的结果。左：横轴是第几次尝试，纵轴是累计解决的任务占的比例。右：没解决的任务按失败原因分成两类。图片来源：<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>。}}
+  <p>左图里，只用 ReAct 的那条线在第 6、7 次尝试之后就不再上升。加上 Reflexion 之后，12 次尝试里解决了 134 个任务中的 130 个。右图里的两类失败是按一条简单的规则区分的：同一个动作连续三轮以上得到同样的回应，或者动作数超过 30 个。论文把后一种叫低效的规划；前一种对应图里的幻觉，这是 Lilian Weng 的文章对这条规则的解读，论文没有逐字写明。只用 ReAct 时，幻觉这一类停在 22% 左右降不下去。典型的情况是 agent 以为自己手里拿着某样东西，其实没有，然后在这个错误的认识上又做了很多步，没有办法退回去找到出错的地方。加上反思之后，这类情况几乎消失了。</p>
+  <p>在写程序的 HumanEval 数据集上，论文报告 Reflexion 一次提交的通过率是 91%，当时 GPT-4 是 80%。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>Reflexion 的名字里有「强化学习」，实际上没有训练。</b>论文的副标题是 verbal reinforcement learning，正文里也用 reinforce 这个词，容易让人以为它用了强化学习。它的做法是把反思写成文字放进 prompt，模型的权重完全没有更新。论文摘要自己写明了这一点：强化 agent 靠的是语言反馈，不靠更新权重。同样地，说 Reflexion 把很长的失败轨迹「提炼」成经验时，指的是让模型把它概括成短短几句话，和「模型蒸馏」（用一个模型的输出去训练另一个模型）没有关系。</div></div>
+</section>
+
+<section class="sec" id="multi">
+  <h2>不止一个 agent：辩论和 orchestrator</h2>
+  <h3>让几个 agent 辩论</h3>
+  <p>另一种提高推理质量的办法，是让几个 agent 各自解同一道题，每一轮结束后互相读对方的推导，再各自更新答案。</p>
+  {{figs 41 42 | 一道算术应用题上的辩论。题目：宝箱里有 175 颗钻石，红宝石比钻石少 35 颗，绿宝石的数量是红宝石的两倍，一共有多少颗宝石？左：第 1 轮，agent 1 算成 225（错），agent 2 算成 595（对）。右：第 2 轮 agent 1 读了对方的解法后改成 560（还是错），第 3 轮两个 agent 都得到 595。图片来源：<a href="https://arxiv.org/abs/2305.14325">Du 等，2023</a>。}}
+  <p>每一轮开始时，每个 agent 收到的 prompt 是：「这是其他 agent 的解法，请把它们作为补充信息，给出你更新后的回答」，后面附上别的 agent 上一轮的回答。论文用的是 ChatGPT（gpt-3.5-turbo），主要实验是 3 个 agent 辩论 2 轮。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">任务</th><th scope="col" class="r">单个 agent 的准确率</th><th scope="col" class="r">3 个 agent 辩论 2 轮的准确率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">算术表达式求值</th><td class="r">67.0%</td><td class="r">81.8%</td></tr>
+        <tr><th scope="row">小学数学应用题（GSM8K）</th><td class="r">77.0%</td><td class="r">85.0%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>来自 <a href="https://arxiv.org/abs/2305.14325">Du 等，2023</a> 的表 1。</figcaption>
+  </figure>
+  <p>这个办法出现在单个模型还不够强的时候，那时它实际上是一种 prompt 技巧，用几份互相不同的回答来弥补单个回答的不可靠。现在的模型强了很多。如果目的只是提高成绩，多 agent 辩论带来的帮助很可能已经不大。这是一个判断：上面的实验用的是 2023 年的模型，新模型上的效果要按具体的模型和任务去测。用多个 agent 还有别的理由：几件事可以同时做，效率更高；可以按数据的权限来划分，比如一个 agent 专门处理医疗信息，另一个专门处理别的敏感信息，各自只能看到自己该看的。</p>
+  <h3>由一个 orchestrator 来分工</h3>
+  <p>辩论是几个 agent 做同一件事。另一种组织方式是分工：设一个 orchestrator（负责拆任务、派任务、汇总结果的 agent），由它把一个大任务拆开，交给几个各有专长的 agent 去做。</p>
+  {{fig 43 | Magentic-One 处理一个任务的过程。任务：附件图片里有一段 Python 脚本，用给定的一组字符串运行它，输出是一个网址，网址里有一段 C++ 代码，编译运行后返回第三个和第五个整数的和。图片来源：<a href="https://www.microsoft.com/en-us/research/publication/magentic-one-a-generalist-multi-agent-system-for-solving-complex-tasks/">Microsoft Research，2024</a>。}}
+  <p>图里是微软研究院 2024 年 11 月发表的 Magentic-One。它有五个 agent：一个 orchestrator，和四个受它指挥的专门 agent。图里的任务被拆成了六步。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">步</th><th scope="col">交给谁</th><th scope="col">做什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1</th><td>FileSurfer（读文件）</td><td>打开图片，把里面的 Python 代码提取出来</td></tr>
+        <tr><th scope="row">2</th><td>Coder（写代码和分析代码）</td><td>分析这段 Python 代码</td></tr>
+        <tr><th scope="row">3</th><td>ComputerTerminal（执行命令）</td><td>运行代码，得到一个网址</td></tr>
+        <tr><th scope="row">4</th><td>WebSurfer（操作浏览器）</td><td>打开网址，把页面上的 C++ 代码提取出来</td></tr>
+        <tr><th scope="row">5</th><td>Coder</td><td>分析这段 C++ 代码</td></tr>
+        <tr><th scope="row">6</th><td>ComputerTerminal</td><td>编译运行，得到结果，交回 orchestrator 作为最终答案</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>orchestrator 自己维护两份记录：一份是整体的计划，一份是当前进度。每一步之后它检查进度，如果连续几步没有进展，就回头反思哪里出了问题，修改计划再来。默认的配置里，各个 agent 用的模型都是 GPT-4o。论文报告的成绩来自两种配置：全部用 GPT-4o 时，它在 WebArena 上的任务完成率是 32.8%；把 orchestrator 的外层循环和 Coder 换成 o1-preview 之后，在 GAIA 上的任务完成率是 38%，在 AssistantBench 上的准确率是 27.7%。后一种配置没有 WebArena 的成绩。论文摘要的说法是，它在这三个基准测试上和当时最好的系统在统计上相当。有一个细节：四个专门 agent 里，ComputerTerminal 只是照着指令执行代码和命令的程序，里面没有 LLM。</p>
+  <p>什么时候该用多个 agent、怎样设计它们之间的分工和通信、多 agent 系统为什么容易失败，是第 8 讲的内容。出处：<a href="https://arxiv.org/abs/2411.04468">Fourney 等，2024</a>。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">办法</th><th scope="col">一句话</th><th scope="col">多花的是什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">chain-of-thought</th><td>回答之前先写出推导过程</td><td>多生成一些文字</td></tr>
+        <tr><th scope="row">ReAct</th><td>推理和行动交替，每一步都看结果</td><td>很多轮模型调用和工具调用</td></tr>
+        <tr><th scope="row">self-consistency</th><td>同一道题推理很多遍，取多数答案</td><td>调用次数成倍增加</td></tr>
+        <tr><th scope="row">Reflexion</th><td>失败后写反思，带到下一次尝试</td><td>要重做很多次，还要有办法判断成败</td></tr>
+        <tr><th scope="row">多 agent 辩论</th><td>几个 agent 互相读对方的解法再更新</td><td>agent 数乘以轮数那么多次调用</td></tr>
+        <tr><th scope="row">orchestrator</th><td>一个 agent 拆任务，分给几个专门的 agent</td><td>协调本身要花调用，系统也更复杂</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>这些办法有一个共同点：模型本身没有变，变的是怎样组织对它的调用。推理和规划的各种设计模式在第 6 讲展开。下一部分看 agent 的另一个部件：<a href="memory.html">记忆</a>。</p>
+</section>

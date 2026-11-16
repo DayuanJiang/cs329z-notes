@@ -1,0 +1,189 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>多个 agent 换来的是并行、专门化和更集中的上下文，付出的是协调的成本：派任务、发消息、合并结果都要花时间和 token。</li>
+    <li>值不值，主要看工作能不能拆开。同一批多 agent 架构，在能拆开的金融分析任务上最多比单 agent 高 81%，在一步接一步的规划任务上最多低 70%。</li>
+    <li>「能拆开」有两个条件：各块不改同一份东西，做的过程中也不需要对方的中间结果。只满足后一个还不够：两个可以各自实现、但要改的代码有重叠或互相依赖的功能，拆给两个 agent 比交给一个 agent 差。</li>
+    <li>单 agent 已经做得不错时，再加 agent 往往得不偿失。论文观察到的界线大约是单 agent 正确率 45%，这是一个趋势，有例外。</li>
+    <li>所以先做一个强的单 agent 基线。每加一个 agent 都要有明确的目的，并且测量它的贡献是否大于协调的成本。</li>
+  </ul>
+</section>
+
+<section class="sec" id="what">
+  <h2>多 agent 系统是什么</h2>
+  <p>多 agent 系统的定义很短：<mark>一组 agent，朝着同一个任务一起工作</mark>。它在 AI 系统里处在最复杂的一端。</p>
+  <figure class="plate">
+    <div class="phases">
+      <div class="phase"><div class="phase-time">最简单</div><h4>模型</h4><p>直接调用一个模型。</p><p class="muted small">例：GPT 6.1 Sol</p></div>
+      <div class="phase"><div class="phase-time">&nbsp;</div><h4>工作流，或复合 AI 系统</h4><p>几次模型调用按固定的流程接起来。</p><p class="muted small">例：给 bug 分类</p></div>
+      <div class="phase"><div class="phase-time">&nbsp;</div><h4>agent</h4><p>一个 agent 自己决定每一步做什么。</p><p class="muted small">例：实现一个功能</p></div>
+      <div class="phase"><div class="phase-time">最复杂</div><h4>多 agent 系统</h4><p>多个 agent 一起做。</p><p class="muted small">例：维护一个代码仓库</p></div>
+    </div>
+    <figcaption>这条线排的是系统的复杂程度，越往右要管的东西越多。</figcaption>
+  </figure>
+  <p>设计一个多 agent 系统，必须考虑三件事，它们是后面三个部分的主题。</p>
+  <figure class="plate">
+    <div class="cards cols-3">
+      <a class="card" href="orchestration.html"><div class="label">Orchestration</div><h4>编排</h4><p>团队的结构：谁有权分派任务，谁做最后的决定。</p></a>
+      <a class="card" href="communication.html"><div class="label">Communication</div><h4>通信</h4><p>信息怎么交换，谁看到什么。</p></a>
+      <a class="card" href="coordination.html"><div class="label">Coordination</div><h4>协调</h4><p>每一件具体的事：现在归谁，谁先谁后，冲突了怎么办。它包含的东西有：工作区、任务、共享的上下文和记忆。</p></a>
+    </div>
+  </figure>
+</section>
+
+<section class="sec" id="trade">
+  <h2>换来什么，付出什么</h2>
+  <figure class="plate">
+    <div class="cards cols-2">
+      <div class="card card-tint" style="--c:var(--teal)">
+        <h4 class="good">换来的：四个好处</h4>
+        <ul>
+          <li><b>并行执行</b>：可以分开的子任务同时做。</li>
+          <li><b>专门化</b>：按各自的职责配不同的指令、模型和工具。</li>
+          <li><b>上下文更集中</b>：每个 agent 只拿到和自己任务有关的信息。</li>
+          <li><b>探索面更广</b>：分头查不同的来源、验证不同的假设、尝试不同的解法。前提是各个 agent 拿到不同的任务或上下文，见<a href="failures.html#conformity">第五部分</a>。</li>
+        </ul>
+      </div>
+      <div class="card card-tint" style="--c:var(--red)">
+        <h4 class="bad">付出的：五个坏处</h4>
+        <ul>
+          <li><b>协调的开销</b>：派任务、发消息、合并结果都要花时间和 token。</li>
+          <li><b>信息丢失</b>：交接时可能漏掉另一个 agent 需要的上下文。</li>
+          <li><b>动作冲突</b>：agent 可能重复劳动、违背说好的事，或者覆盖别人的改动。</li>
+          <li><b>错误传播</b>：一个 agent 的错误会误导其他 agent。</li>
+          <li><b>工程复杂度</b>：要维护和调试的角色、提示词、接口和交互都变多了。</li>
+        </ul>
+      </div>
+    </div>
+    <figcaption>一句话的总结：协作带来的好处大于协调的成本时，协作才有帮助。</figcaption>
+  </figure>
+  <p>下面的表把两种系统放在一起对比。有一行值得注意：单 agent 也能并行，它可以同时发出几个互不依赖的工具调用。所以「需要并行」本身还不足以说明要用多个 agent。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方面</th><th scope="col">单 agent 系统</th><th scope="col">多 agent 系统</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">适合的任务</th><td>决策之间联系紧密，需要共同的上下文</td><td>子任务可以分开，或者职责明显不同</td></tr>
+        <tr><th scope="row">上下文怎么组织</th><td>工作上下文在一个 agent 的循环里管理</td><td>每个 agent 有自己的工作上下文，有选择地共享信息</td></tr>
+        <tr><th scope="row">专门化</th><td>一个 agent 在不同的策略和工具之间切换</td><td>各个 agent 可以用不同的提示词、模型、工具和权限</td></tr>
+        <tr><th scope="row">并行</th><td>可以同时执行互相独立的工具调用</td><td>可以同时运行几条独立的 agent 工作流</td></tr>
+        <tr><th scope="row">协调和成本</th><td>交接和协调的接口更少</td><td>发消息、同步和合并都会增加开销</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>开销有多大。</b>Anthropic 在介绍自己的多 agent 研究系统时给过数字：agent 用的 token 大约是普通对话的 4 倍，多 agent 系统大约是 15 倍。文章还说，多 agent 系统有效，主要是因为它帮你花掉了足够多的 token 去解决问题。所以任务的价值要够高，才付得起这笔开销。出处：<a href="https://www.anthropic.com/research/multi-agent-research-system">How we built our multi-agent research system</a>。</div></div>
+</section>
+
+<section class="sec" id="model">
+  <h2>证据一：同样的模型，多 agent 有时更差</h2>
+  <p>单 agent 系统有时成绩更好。下面的图来自 Kim 等人 2026 年的论文，他们把工具、提示词和 token 预算都固定下来，只换架构。论文的最新版本一共比较了 260 种配置，覆盖六个评测；下一节按评测分开的图只画了其中四个。</p>
+  {{fig 13 | 图片来源：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。}}
+  <ul>
+    <li>三格分别是 OpenAI、Google 和 Anthropic 的模型。横轴是模型的能力指数，越往右模型越强；纵轴是几个评测的平均成绩。</li>
+    <li>每格有五条线：单 agent（虚线）和四种多 agent 架构。四种架构在<a href="orchestration.html">第二部分</a>讲。</li>
+    <li>模型越强，五条线都往上走。换更强的模型，对每种做法都有帮助。</li>
+    <li>每格标了一个百分比。论文的图注说，它是同一个模型上成绩最好的多 agent 架构相对单 agent 的变化：GPT-5 是 +12.3%，Gemini 2.5 Pro 是 −4.6%，Claude Sonnet 4.5 是 −7.2%。</li>
+  </ul>
+  <p>也就是说，在图上三家各自最强的那个模型上，有两家是单 agent 的平均成绩高于所有多 agent 架构。</p>
+</section>
+
+<section class="sec" id="task">
+  <h2>证据二：差别主要来自任务</h2>
+  <p>平均成绩掩盖了更大的差别。同一篇论文按评测分开看，每个箱线图上方的百分比是四种多 agent 架构相对单 agent 的变化。</p>
+  {{fig 23 | 四个评测各一格，每格里是单 agent 和四种多 agent 架构的成绩分布。图片来源：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">评测</th><th scope="col">任务的性质</th><th scope="col">四种多 agent 架构里成绩最好的一种</th><th scope="col">成绩最差的一种</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Finance Agent</th><td>金融分析，可以拆成几条并行的分析</td><td class="good">比单 agent 高 81%</td><td class="good">比单 agent 高 57%</td></tr>
+        <tr><th scope="row">BrowseComp-Plus</th><td>网页浏览，要边找边调整</td><td class="good">比单 agent 高 9%</td><td class="bad">比单 agent 低 35%</td></tr>
+        <tr><th scope="row">Workbench</th><td>办公流程，工具很多</td><td class="good">比单 agent 高 6%</td><td class="bad">比单 agent 低 11%</td></tr>
+        <tr><th scope="row">PlanCraft</th><td>在 Minecraft 里做规划，一步接一步</td><td class="bad">比单 agent 低 39%</td><td class="bad">比单 agent 低 70%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>百分比读自上面的图，「任务的性质」一栏整理自论文正文。四种架构各自的数字见<a href="orchestration.html#fit">第二部分</a>。</figcaption>
+  </figure>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>论文怎样解释这个差别。</b>图上只有结果，原因在论文正文里。
+    <ul>
+      <li><b>能不能拆开。</b>金融分析的任务可以自然地拆成几条并行的分析，例如一个 agent 查监管和新闻，一个查公司报表，一个评估对运营的影响，最后由一个负责统筹的 agent（orchestrator）合起来。规划任务本来就是一步接一步：论文举的例子是在 Minecraft 里合成一面墙，单 agent 三步做完（查配方、放材料、合成）；多 agent 把它拆给三个 agent，其中查配方和查库存两步是多余的，token 花在了协调上，留给推理的反而少了。</li>
+      <li><b>单 agent 已经多好。</b>论文的回归分析发现，单 agent 正确率超过 45% 的任务，再加 agent 的收益倾向于为负，因为能改进的空间小，协调的成本却照付。论文的最新版本里还有两个评测，上面的图里没有。编程评测 SWE-bench Verified 就是这种情况：四种多 agent 架构都低于单 agent，从 −2.1% 到 −14.9%。命令行任务评测 Terminal-Bench 上单 agent 的平均成绩低于 45%，结果有高有低：独立方式比单 agent 高 1.7%，集中方式低 19.2%。45% 是统计上的趋势，有例外：上面的图里 Workbench 的单 agent 成绩在 60% 以上，去中心方式仍然高了 6%。</li>
+      <li><b>工具多不多。</b>工具很多的任务，每个 agent 分到的 token 预算变少，不够用来组织复杂的工具调用。</li>
+    </ul>
+    论文自己的总结是：决定协作成败的是架构和任务是否对得上，agent 的数量本身说明不了什么。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>，摘要和第 1、4 节。</div></div>
+</section>
+
+<section class="sec" id="coupled">
+  <h2>证据三：要改同一份代码的工作，拆开更差</h2>
+  <p>第五部分用 CooperBench 说明协调的代价，它同样是这里的证据。这个评测给两个 agent 各分配一个功能。论文对任务的描述是：两个功能在逻辑上可以并存，但要改的代码有重叠或互相依赖，不了解对方的计划就可能做出互相冲突的改动。对照组是把两个功能都交给一个 agent。</p>
+  <p>成功的标准是：两份改动能合并到一起，而且两个功能各自的测试都通过。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">两个功能都交给一个 agent 做，成功率</th><th scope="col" class="r">两个 agent 各做一个功能，成功率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">GPT-5</th><td class="r">48%</td><td class="r">28%</td></tr>
+        <tr><th scope="row">Claude Sonnet 4.5</th><td class="r">47%</td><td class="r">26%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字读自 CooperBench 论文的图，图上写作 0.48、0.28 这样的小数，这里换成了百分比。另外三个模型的结果在<a href="failures.html#cooper">第五部分</a>。</figcaption>
+  </figure>
+  <p>也就是说，同样的两个功能，分给两个 agent 去做，成功率只有交给一个 agent 时的一半多一点。论文测的五个模型，都是分开做更差。</p>
+  <p>这条证据给前面的结论加了一个限制。按后面的判断标准，这些任务看起来适合多 agent：每个 agent 负责一块独立的产出，最后再合并。结果却是五个模型都更差。一个很可能的原因是，两块产出要改的代码有重叠或互相依赖。两个 agent 各只知道自己那个功能的需求，这也可能有影响，实验没有把这些因素分开测量。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>为什么分头做会对不上。</b>Cognition（做 Devin 的公司）的文章 Don’t Build Multi-Agents 给了一个直观的解释，归成两条原则。
+    <ul>
+      <li><b>要共享上下文。</b>例子是让两个子 agent 分头做一个 Flappy Bird：一个做背景，一个做小鸟。做背景的那个把任务理解成了超级马里奥的风格，做小鸟的那个做出来的东西既不像游戏素材，动作也不对。最后负责合并的 agent 拿到的是两份互相对不上的东西。</li>
+      <li><b>每个动作都带着没说出口的决定。</b>就算两个子 agent 都看得到原始任务，它们看不到对方正在做什么，各自做的决定仍然可能互相冲突。</li>
+    </ul>
+    Anthropic 的文章也说了同样的边界：需要所有 agent 共享同一份上下文、或者 agent 之间依赖很多的领域，现在不适合用多 agent；大多数编程任务里真正能并行的部分，比研究类任务少。出处：<a href="https://cognition.ai/blog/dont-build-multi-agents">Don’t Build Multi-Agents</a>、<a href="https://www.anthropic.com/research/multi-agent-research-system">How we built our multi-agent research system</a>。</div></div>
+</section>
+
+<section class="sec" id="split">
+  <h2>把这些例子放在一起：「能拆开」指什么</h2>
+  <p>对照上面的例子和下一节的判断标准，「能拆开」可以归纳成两个能检查的条件。两个条件都是程度上的：判断标准的原话是「只需要很少的同步」，有少量共享和依赖的工作仍然可以试，协调的成本会跟着升高。</p>
+  <ol>
+    <li><b>各块不改同一份东西。</b>不改同一处代码或同一批文件，不改同一份共享的状态。</li>
+    <li><b>做的过程中不需要对方的中间结果。</b>后一步不依赖前一步，各块可以同时推进。</li>
+  </ol>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">例子</th><th scope="col" class="c">不改同一份东西</th><th scope="col" class="c">不需要对方的中间结果</th><th scope="col">结果</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">金融分析<br><span class="muted small">Finance Agent</span></th><td class="c good">满足</td><td class="c good">满足</td><td>多 agent 高 57% 到 81%</td></tr>
+        <tr><th scope="row">一步接一步的规划<br><span class="muted small">PlanCraft</span></th><td class="c bad">不满足</td><td class="c bad">不满足</td><td>多 agent 低 39% 到 70%</td></tr>
+        <tr><th scope="row">两个功能改同一个代码库<br><span class="muted small">CooperBench</span></th><td class="c bad">不满足</td><td class="c good">满足</td><td>分给两个 agent 之后，GPT-5 的成功率从 48% 降到 28%</td></tr>
+        <tr><th scope="row">编译 Linux 内核<br><span class="muted small"><a href="case_study.html#kernel">C 编译器案例</a></span></th><td class="c bad">起初不满足</td><td class="c good">满足</td><td>16 个 agent 卡在同一个 bug 上。作者把内核按文件拆开后，并行才恢复</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每个例子满足哪个条件，是按论文和文章对任务的描述判断的。最后一行不在前面三处证据里，它的经过在案例页。</figcaption>
+  </figure>
+  <p>最后一行说明，第一个条件不满足时，可以把工作重新切一遍，让各块不再碰同一份东西。另一条路是用明确的办法管住共享的部分，例如认领和分开的工作区，它在<a href="coordination.html">第四部分</a>讲，效果目前没有对照数据。</p>
+</section>
+
+<section class="sec" id="when">
+  <h2>所以：什么时候用哪一种</h2>
+  <p>下面的判断标准，和上面两个条件对得上。左栏前两条说的是两个条件不满足的情况：步骤高度依赖彼此，工作和一份共享的状态耦合得很紧。左栏第三条对应证据二里 45% 的趋势。右栏说的是两个条件都满足的情况，另外多一条要求：要有一个测量出来的瓶颈。</p>
+  <figure class="plate">
+    <div class="cards cols-2">
+      <div class="card">
+        <div class="label">Prefer a Single Agent System when…</div>
+        <h4>下面的情况优先用单 agent</h4>
+        <ul>
+          <li>各个步骤高度依赖彼此。</li>
+          <li>工作和一份共享的状态耦合得很紧，互相重叠的地方很多。</li>
+          <li>一个 agent 已经达到质量、成本和延迟的目标。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="label">Try a Multi Agent System when…</div>
+        <h4>下面的情况可以试试多 agent</h4>
+        <ul>
+          <li>子任务之间只需要很少的同步，就能各自推进。</li>
+          <li>信息可以分成几份集中的上下文。</li>
+          <li>每个 agent 可以负责一块独立的产出，最后再合并。</li>
+          <li>并行、专门化或者独立审查，能解决一个测量出来的瓶颈。</li>
+        </ul>
+      </div>
+    </div>
+  </figure>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>建议：</b>从一个强的单 agent 基线开始。加 agent 要有明确的目的，并且测量它带来的贡献是否大于协调的成本。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Anthropic 的说法。</b>Building effective agents 说的是同一个意思，范围更广：先找最简单的办法，只在需要时才增加复杂度；只有当复杂度确实改善了结果时，才值得加。出处：<a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。</div></div>
+  <p class="next">决定用多个 agent 之后，第一个设计问题是<b>编排</b>：<a href="orchestration.html">谁分派任务，谁做决定</a>。</p>
+</section>

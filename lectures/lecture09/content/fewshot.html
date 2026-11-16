@@ -1,0 +1,168 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>在 prompt（发给语言模型的那段输入文字）里放几个做好了的例子，叫 few-shot prompting。这些例子叫示例（demonstration）。选哪些示例、按什么顺序放，是最早被研究的上下文优化问题。</li>
+    <li>同样的几个示例，只是换一个顺序，分类的准确率可以从接近最好水平掉到和随机猜一样。不需要额外的标注数据，也能挑出比较好的顺序：让模型自己生成一批句子，再看每种顺序下模型对这批句子的预测是否均衡。</li>
+    <li>带推理过程的示例效果更好，但标注数据通常只有答案。办法是让模型自己写推理过程，只留下最后答对了的那些。STaR 把留下的推理拿去训练模型，DSPy 把它们直接当作示例放进 prompt。</li>
+    <li>先自动生成一批候选示例，再在数据上搜索最好的组合，是一个很有效的做法。它的效果可以和人写的推理示例相当，有时更好。</li>
+  </ul>
+</section>
+
+<section class="sec" id="fewshot">
+  <h2>在 prompt 里放例子</h2>
+  <p>few-shot prompting 的做法是：在任务说明之后放几个例子，每个例子是一个输入和它对应的正确输出，最后放上真正要问的输入，让模型接着写出输出。整个过程不更新模型的权重，模型只是读了这些例子。</p>
+  {{fig 14 | 一个例子：任务是把英语翻译成法语。第一行是任务说明，中间三行是示例，最后一行是要翻译的词，模型要在它后面接着写。图片来源：<a href="https://arxiv.org/abs/2005.14165">Brown 等，2020</a>。}}
+  <p>这个说法来自 2020 年的 GPT-3 论文。论文按给几个示例分了三种情况：不给示例、只给任务说明，叫 zero-shot；给一个示例，叫 one-shot；给多个示例，叫 few-shot。GPT-3 当时的上下文窗口是 2048 个 token（模型处理文字的最小单位，大致是一个词或半个词），论文里 few-shot 通常放 10 到 100 个示例。</p>
+  <p>既然示例是 prompt 的一部分，就有两个可以优化的问题：示例按什么顺序放，以及放哪些示例。下面先看顺序。</p>
+</section>
+
+<section class="sec" id="order">
+  <h2>顺序的影响有多大</h2>
+  <p>Lu 等人 2022 年的论文《Fantastically Ordered Prompts and Where to Find Them》专门研究了示例的顺序。他们取 4 个训练样本做示例，4 个样本有 24 种排列，把 24 种排列都试一遍。结论有四条。</p>
+  <ul>
+    <li><b>差别可以非常大。</b>在情感分类任务上，有的排列的准确率超过 85%，和用全部数据训练出来的模型相当；有的排列接近 50%，和随机猜一样。</li>
+    <li><b>大模型也有这个问题。</b>模型变大之后情况有所缓解，但在一部分分类任务上，参数量达到几十亿的模型仍然对顺序很敏感。增加示例的数量也消除不了这种波动。</li>
+    <li><b>问题不出在某几个样本上。</b>换一组样本，仍然是有的排列好、有的排列差。</li>
+    <li><b>好的顺序不能从一个模型搬到另一个模型。</b>论文举的例子是：同一种排列，在 15 亿参数的 GPT-2 上准确率是 88.7%，换到 8 亿参数的 GPT-2 上只有 51.6%。</li>
+  </ul>
+  <p>论文还发现了差的排列为什么差：大多数表现差的排列，模型给出的预测严重偏向某一个类别，比如几乎把所有句子都判成负面。这个观察是下面那个办法的基础。</p>
+</section>
+
+<section class="sec" id="probing">
+  <h2>不用额外的标注，怎样挑出好的顺序</h2>
+  <p>最直接的办法是拿一批有标注的验证数据，把 24 种排列都测一遍，留下最好的。有验证数据时可以这样做。Lu 等人研究的是手上只有这几个标注样本、没有另外的验证数据的情况，他们的办法分三步，全程不需要新的标注。</p>
+  {{fig 15 | 上半部分是第一、二步的示意：左边是 4 个训练样本和它们写成 prompt 的样子，中间是各种排列，每种排列交给语言模型（图里的 PLM）接着往下写，写出来的新句子合在一起，成为右边的探测集。下半部分是两个指标的公式。图片来源：<a href="https://arxiv.org/abs/2104.08786">Lu 等，2022</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">步骤</th><th scope="col">做什么</th><th scope="col">要注意的地方</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">一 列出候选</th><td>把这几个示例的所有排列都作为候选的 prompt</td><td>4 个示例是 24 种</td></tr>
+        <tr><th scope="row">二 造一个探测集<br><span class="muted small">probing set</span></th><td>把每一种排列交给模型，让它照着示例的格式接着往下写新的句子。把所有排列下写出来的句子合在一起</td><td>模型写新句子时也会顺手写上标签，这些标签不保证正确，所以全部丢掉，只留句子</td></tr>
+        <tr><th scope="row">三 给每种排列打分</th><td>用每一种排列做 prompt，让模型给探测集里的每个句子分类，按下面两个指标之一打分，留下分数最高的几种排列</td><td>论文的实验是从 24 种里留下 4 种</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>因为探测集没有正确的标签，打分不能看准确率，只能看模型预测的分布。两个指标都是熵。熵量的是一个分布有多分散：所有可能性机会均等时熵最大，完全集中在一种可能性上时熵是零。</p>
+  {{figs 16 17 | 左：全局熵的例子。四个句子在一种排列下被判成 0、1、0、1，两类各占一半，全局熵高；在另一种排列下全部被判成 0，全局熵低。右：局部熵的例子。同一个句子，一种排列下模型给两个类别的概率差不多，局部熵高；另一种排列下几乎全部概率都给了一个类别，局部熵低。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">指标</th><th scope="col">怎么算</th><th scope="col">背后的想法</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">全局熵<br><span class="muted small">GlobalE</span></th><td>对探测集里每个句子取模型预测的类别，统计每个类别占多少比例，算这个比例分布的熵</td><td>差的排列会让预测严重偏向一个类别，这时全局熵低。全局熵高，说明预测在各个类别之间比较均衡</td></tr>
+        <tr><th scope="row">局部熵<br><span class="muted small">LocalE</span></th><td>对探测集里每个句子，算模型给各个类别的概率的熵，再对所有句子取平均</td><td>如果模型对每个句子都极其肯定，它很可能没有在认真区分类别。局部熵高，说明模型在这些句子上平均来说没有那么肯定</td></tr>
+      </tbody>
+    </table>
+    <figcaption>两个指标都是越高越好。出处：<a href="https://arxiv.org/abs/2104.08786">Lu 等，2022</a>第 3 节。</figcaption>
+  </figure>
+  <h3>效果</h3>
+  <p>论文在六个模型、11 个文本分类数据集上，比较了挑选前后的准确率。</p>
+  {{fig 18 | 论文主要结果的一部分：两个尺寸的 GPT-3 在 11 个分类数据集上的准确率，小字是标准差。每个模型四行：不做挑选时所有排列的平均，按局部熵挑选，按全局熵挑选，以及 Oracle。最上面两行是参照：总是猜最多的那个类别，以及用全部数据微调。图片来源：<a href="https://arxiv.org/abs/2104.08786">Lu 等，2022</a>。}}
+  <p>图里的 Oracle 是一个上限：直接用验证集的准确率挑出最好的 4 种排列。它用到了验证集的真实标签，在只有几个标注样本的情况下拿不到，这里只用来说明还差多少。下面把情感分类数据集 SST-2 这一列在六个模型上的数字列出来。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">所有排列的平均</th><th scope="col" class="r">按局部熵挑</th><th scope="col" class="r">按全局熵挑</th><th scope="col" class="r">Oracle</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">GPT-2，1 亿参数</th><td class="r">58.9</td><td class="r">65.2</td><td class="r">63.8</td><td class="r">73.5</td></tr>
+        <tr><th scope="row">GPT-2，3 亿参数</th><td class="r">61.0</td><td class="r">75.3</td><td class="r">78.7</td><td class="r">85.5</td></tr>
+        <tr><th scope="row">GPT-2，8 亿参数</th><td class="r">74.5</td><td class="r">81.1</td><td class="r">84.8</td><td class="r">88.9</td></tr>
+        <tr><th scope="row">GPT-2，15 亿参数</th><td class="r">66.8</td><td class="r">76.7</td><td class="r">81.8</td><td class="r">86.1</td></tr>
+        <tr><th scope="row">GPT-3，27 亿参数</th><td class="r">78.0</td><td class="r">81.0</td><td class="r">80.2</td><td class="r">89.8</td></tr>
+        <tr><th scope="row">GPT-3，1750 亿参数</th><td class="r">93.9</td><td class="r">93.8</td><td class="r">93.9</td><td class="r">94.7</td></tr>
+      </tbody>
+    </table>
+    <figcaption>SST-2 上的准确率（%）。出处：<a href="https://arxiv.org/abs/2104.08786">Lu 等，2022</a>的表 2。</figcaption>
+  </figure>
+  <p>怎么读这张表：按熵挑选的结果一般落在「所有排列的平均」和 Oracle 之间。它补上了一部分差距，离上限通常还有几个百分点。最大的那个 GPT-3 上，不做挑选的平均值已经离上限不到 1 个百分点，挑不挑差别不大。</p>
+  <p>论文报告的总的结果是：在 11 个文本分类任务上，按全局熵挑选比不挑选平均相对提高 13%，按局部熵挑选平均相对提高 9.6%，同时不同排列之间的波动也明显变小。这里的 13% 是相对比例，是对各个任务和各个模型尺寸取的平均。</p>
+</section>
+
+<section class="sec" id="cot">
+  <h2>示例里要不要带推理过程</h2>
+  <p>顺序之外的另一个问题是示例里放什么。Wei 等人 2022 年的论文提出了 chain-of-thought prompting：示例除了问题和答案，中间还写上一步一步的推理过程。chain of thought 的意思就是从问题通向答案的一串中间推理步骤，下面简称 CoT。</p>
+  {{fig 19 | 左边是普通的示例：问题后面直接是答案，模型照着直接给答案，答错了。右边的示例在答案前面写了推理过程（蓝色高亮），模型照着先写推理（绿色高亮）再给答案，答对了。图片来源：<a href="https://arxiv.org/abs/2201.11903">Wei 等，2022</a>。}}
+  <p>效果很明显。论文里，PaLM 540B 这个模型在数学应用题数据集 GSM8K 上，用普通示例的准确率是 17.9%，换成 8 个带推理过程的示例之后是 56.9%。</p>
+  <p>问题在于数据。已有的标注数据大多只有问题和答案，没有推理过程。请人给每个任务手写推理过程，成本很高。下面两种办法都是让模型自己把推理过程补出来。</p>
+</section>
+
+<section class="sec" id="star">
+  <h2>STaR：让模型自己写推理，只留答对的</h2>
+  <p>STaR（Self-Taught Reasoner，Zelikman 等，2022）的出发点是：手上有少量带推理过程的示例（比如 10 个），和一个很大的、只有问题和答案的数据集。它用一个循环把大数据集里的推理过程补出来。</p>
+  {{fig 20 | 灰色框里是循环。语言模型读问题，生成推理过程和答案。答对的（上方的对勾）留下来，用于微调模型。答错的（下方的叉）走另一条路：把正确答案当作提示告诉模型，让它重新写一遍推理，如果这次答对了也留下来。右边是一个例子：一道五选一的常识题，以及模型写的推理过程和答案。图片来源：<a href="https://arxiv.org/abs/2203.14465">Zelikman 等，2022</a>。}}
+  <ul>
+    <li><b>生成。</b>把少量带推理的示例放在 prompt 里，让模型给大数据集里的每个问题写推理过程和答案。</li>
+    <li><b>筛选。</b>只留下最后答案正确的那些。这种「生成很多、只留通过检查的」做法叫拒绝采样（rejection sampling）。</li>
+    <li><b>补救。</b>对答错的问题，把正确答案作为提示给模型，让它倒过来写出一个能得到这个答案的推理过程。论文把这一步叫 rationalization。存进数据集时把提示去掉，看上去就像模型自己想出来的。论文的理由是：没有这一步，模型在做不对的题上得不到直接的训练信号，循环迟早不再能解出新的题。</li>
+    <li><b>微调。</b>用留下来的「问题、推理、答案」训练模型。fine-tuning（微调）指在已有模型的基础上用新数据继续训练，更新它的权重。然后用新模型回到第一步。每一轮都是从最初的预训练模型重新训练，论文说这是为了避免过拟合。</li>
+  </ul>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做法</th><th scope="col">模型</th><th scope="col" class="r">CommonsenseQA 准确率</th></tr></thead>
+      <tbody>
+        <tr><td>few-shot，示例带推理，不训练</td><td>GPT-J（60 亿参数）</td><td class="r">36.6%</td></tr>
+        <tr><td>直接微调成「问题到答案」，不写推理</td><td>GPT-J</td><td class="r">60.0%</td></tr>
+        <tr><td>STaR，不做补救那一步</td><td>GPT-J</td><td class="r">68.8%</td></tr>
+        <tr><td>STaR，完整的</td><td>GPT-J</td><td class="r">72.5%</td></tr>
+        <tr><td>直接微调成「问题到答案」</td><td>GPT-3，论文说它比 GPT-J 大 30 倍</td><td class="r">73.0%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>CommonsenseQA 是一个常识选择题数据集，准确率是在它的开发集上测的。出处：<a href="https://arxiv.org/abs/2203.14465">Zelikman 等，2022</a>的表 1。</figcaption>
+  </figure>
+  <p>STaR 改的是模型的权重，严格说属于<a href="sft.html">第四部分</a>的监督微调。把它放在这里，是因为下面 DSPy 的做法用的是同一个想法，只是把最后一步换掉了。</p>
+</section>
+
+<section class="sec" id="bootstrap">
+  <h2>DSPy 的 bootstrap：不微调，把答对的直接当示例</h2>
+  <p class="lead-in">DSPy（Khattab 等，2023）的做法更省事：<mark>连微调都不需要，把通过检查的推理过程直接放进 prompt 当示例</mark>。</p>
+  <p>先交代三个词。DSPy 把一个语言模型系统写成一段程序，程序里每一次对语言模型的调用是一个模块，每个模块有自己的 prompt。这样的程序下面叫语言模型程序。指标（metric）是一个函数，输入是程序的输出和正确答案，返回一个分数或者通过与否。trace 是程序跑一遍时每个模块的输入和输出的记录。</p>
+  {{fig 21 | 上面一行：输入交给模型，模型写出推理和输出，指标判为通过，这次的推理和输出保留下来。下面一行：指标判为不通过，这次的推理和输出丢弃。右边的文字是下一步：把保留下来的示例的各种组合在验证集上试，找出效果最好的一组。}}
+  <p>这个过程叫 bootstrap，意思是程序用自己的输出给自己造示例。它分两步。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">步骤</th><th scope="col">做什么</th><th scope="col">DSPy 里的名字</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">一 生成候选示例</th><td>拿训练集里的输入去跑程序。可以用程序自己不带示例的版本来跑，也可以指定一个更强的教师程序。指标判为通过的那些运行，把每个模块的输入、推理和输出记下来，作为这个模块的候选示例。不通过的丢掉</td><td>BootstrapFewShot</td></tr>
+        <tr><th scope="row">二 搜索组合</th><td>把上一步重复很多次，每次打乱训练集、取不同数量的示例，得到很多套不同的示例。每一套都放进程序，在验证集上算一次分数，留下分数最高的那一套</td><td>BootstrapFewShotWithRandomSearch</td></tr>
+      </tbody>
+    </table>
+    <figcaption>论文附录给的简化代码里，第二步默认试 16 套。出处：<a href="https://arxiv.org/abs/2310.03714">Khattab 等，2023</a>。</figcaption>
+  </figure>
+  <p>和 STaR 相比，相同的是「让模型写推理，只留答对的」。不同的是，留下来的东西放在 prompt 里，模型的权重不动，所以对只能通过 API 调用、不能训练的模型也能用。</p>
+  <h3>效果</h3>
+  <p>DSPy 的论文在数学应用题数据集 GSM8K 上，比较了几种得到示例的办法。</p>
+  {{fig 22 | 左边是两步的示意：第一步对程序的每个模块生成候选示例，第二步随机搜索各种组合，右侧的百分比是每种组合在验证集上的分数。右边是在数学应用题数据集 GSM8K 上的结果表的一部分。左图来源：<a href="https://arxiv.org/abs/2406.11695">Opsahl-Ong 等，2024</a>；右表来源：<a href="https://arxiv.org/abs/2310.03714">Khattab 等，2023</a>。}}
+  <p>下面的表取自同一张结果表，只列先写推理再回答的那个程序。训练集是从 GSM8K 里抽的 200 道题，开发集是另外抽的 300 道题。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">prompt 里的示例是怎么来的</th><th scope="col" class="r">GPT-3.5<br>开发集</th><th scope="col" class="r">GPT-3.5<br>测试集</th><th scope="col" class="r">Llama2-13b-chat<br>开发集</th></tr></thead>
+      <tbody>
+        <tr><td>不放示例</td><td class="r">50.0</td><td class="r">没有报告</td><td class="r">26.7</td></tr>
+        <tr><td>从训练集里随机取 8 道题，只有问题和答案</td><td class="r">63.0</td><td class="r">没有报告</td><td class="r">27.3</td></tr>
+        <tr><td>同上，再加上数据集自带的、人写的推理过程</td><td class="r">78.6</td><td class="r">72.4</td><td class="r">34.3</td></tr>
+        <tr><td>bootstrap：程序自己生成推理，再搜索组合</td><td class="r">80.3</td><td class="r">72.9</td><td class="r">43.3</td></tr>
+      </tbody>
+    </table>
+    <figcaption>GSM8K 上的准确率（%）。出处：<a href="https://arxiv.org/abs/2310.03714">Khattab 等，2023</a>的表 1。</figcaption>
+  </figure>
+  <p>从表里可以读出两点。</p>
+  <ul>
+    <li><b>比只给问题和答案好得多。</b>GPT-3.5 上从 63.0 升到 80.3，Llama2-13b-chat 上从 27.3 升到 43.3。</li>
+    <li><b>和人写的推理相当，有时更好。</b>GPT-3.5 的测试集上是 72.9 和 72.4，只差 0.5 个百分点，应该看作相当。Llama2-13b-chat 的开发集上是 43.3 和 34.3，差距明显。论文自己的说法是「能达到或超过」。</li>
+  </ul>
+  <p>论文摘要里的总的说法是：DSPy 编译出来的程序，比标准的 few-shot prompting 通常高 25% 以上（GPT-3.5）和 65% 以上（Llama2-13b-chat）。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <p>关于优化示例，可以记住一条：<mark>先让程序自己生成带推理和输出的候选示例，再搜索哪些示例放在一起最有用，是 prompt 优化里很有效的一种做法。</mark></p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方法</th><th scope="col">优化的是什么</th><th scope="col">需要什么数据</th><th scope="col">靠什么判断好坏</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">按熵挑顺序<br><span class="muted small">Lu 等，2022</span></th><td>示例的顺序</td><td>几个有标注的示例</td><td>模型在自己生成的探测集上，预测是否均衡</td></tr>
+        <tr><th scope="row">STaR<br><span class="muted small">Zelikman 等，2022</span></th><td>模型的权重</td><td>少量带推理的示例，加大量只有答案的数据</td><td>生成的答案对不对</td></tr>
+        <tr><th scope="row">DSPy 的 bootstrap<br><span class="muted small">Khattab 等，2023</span></th><td>每个模块的示例</td><td>一批输入，加一个指标。指标需要正确答案时，数据里也要有</td><td>指标判为通过才留下；各套示例再比验证集上的分数</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>示例之外，prompt 里还有一段用文字说明任务的指令。下一部分讲<a href="instructions.html">怎样让语言模型来改写指令</a>，其中的 MIPROv2 会把这一部分的 bootstrap 当作它的第一步。</p>
+</section>

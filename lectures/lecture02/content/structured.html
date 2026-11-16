@@ -1,0 +1,109 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>在 agent 里，语言模型只是中间的一个部件，它的输出要交给工具、数据库和别的程序。agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。部件之间需要事先约定好数据的格式。</li>
+    <li>约束解码（constrained decoding）在生成的每一步只允许合法的 token，从机制上保证输出符合格式。token 是模型处理文字的最小单位。格式里固定不变的部分可以不问模型直接填上，所以还更快。</li>
+    <li>另一种办法是在 prompt（交给模型的那段输入文字）里把格式写清楚，再用程序去解析模型的回答。DSPy 的 signature 把这件事自动化了。</li>
+    <li>如果只需要模型在几个选项里选一个，可以不让它生成文字：在模型上接一个分类头，或者把当前状态和候选动作都变成向量来比较。</li>
+  </ul>
+</section>
+
+<section class="sec" id="core">
+  <h2>模型在 agent 里的位置</h2>
+  <p>前面六个部分讲的都是语言模型本身。在一个 agent 里，它处在中间。</p>
+  {{fig 150 | agent 的几个组成部分。中间红框里是 LLM Core，也就是语言模型。上面是规划和推理、记忆，下面是工具（检索、计算器、代码、搜索、文件操作等）和 agent 的动作（调用工具、交互、回复用户）。右边是外部环境，agent 从环境里观察，再对环境采取行动。}}
+  <p>模型从上面和右边拿到输入，把输出交给下面的工具和动作。所以要回答的问题是：<mark>送进模型的东西和模型吐出来的东西，各自应该是什么结构</mark>。这一部分讲输出，<a href="context.html">第八部分</a>讲输入。</p>
+</section>
+
+<section class="sec" id="why">
+  <h2>为什么需要结构化的输入输出</h2>
+  <p>原因在于现在的 AI 应用很少只有一个模型，通常是好几个部件配合工作。</p>
+  {{fig 152 | 左边是一个单独的神经网络，右边是由几个模型、检索、数据库、计算器、终端组成的系统。下面一行字是：越来越多新的 AI 成果来自复合系统。图片来源：<a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">伯克利 BAIR 的文章，2024 年 2 月</a>。}}
+  <p>这张图出自伯克利 2024 年的一篇文章，它把这类系统叫作复合 AI 系统（compound AI system），定义是：用多个相互配合的部件来完成 AI 任务的系统，这些部件包括对模型的多次调用、检索器和外部工具。</p>
+  <p>部件之间要来回传数据，就需要一份共同的约定，规定数据长什么样。程序之间传数据靠的是固定的格式，比如 JSON（一种用花括号、引号和冒号组织数据的文本格式）。语言模型默认输出的是自由的文字。如果它多写了一句开场白，或者少了一个引号，接它输出的程序就会出错。</p>
+</section>
+
+<section class="sec" id="constrained">
+  <h2>约束解码：每一步只允许合法的 token</h2>
+  <p class="lead-in">约束解码的想法是：既然输出必须符合某个格式，那就<mark>在生成的每一步，把不符合格式的 token 的概率直接设成零</mark>，模型只能在合法的 token 里选。</p>
+  <p>怎样知道每一步哪些 token 合法？常见的做法是先把格式写成一个正则表达式（描述字符串样式的一种规则），再把它转换成一个有限状态机（FSM）。有限状态机是一张图：有若干个状态，每读到一个字符就从一个状态走到下一个状态，从每个状态出发能走的路是规定好的。解码时一直记着当前在哪个状态，下一步只允许能接着走下去的 token。</p>
+  {{fig 153 | 假设输出必须以一段固定的文字开头：左花括号、引号、summary、引号、冒号、空格、引号。(a) 普通的状态机，每个字符一步。(b) 把这一整串合并成一步的状态机。(c) 用普通状态机解码：黄色方块是生成出来的 token，绿色六边形是一次模型调用，每生成一个 token 就要调用一次模型。(d) 用合并后的状态机解码：固定的这几个 token 直接填上，之后才调用模型。图片来源：<a href="https://arxiv.org/abs/2312.07104">Zheng 等，2023</a>。}}
+  <p>图里的例子说明了一件容易忽略的事。那段固定的开头有好几个 token，每个位置上合法的 token 都只有一个。普通的做法仍然是一个 token 调用一次模型，其实答案早就确定了。SGLang 这个库的做法是把状态机里这种「只有一条路可走」的连续几步合并成一步，直接把这几个 token 填上，只有下一个 token 不确定时才调用模型。如果某个位置有两三个合法的选择，也只需要在这两三个 token 里比较概率。</p>
+  <p>这样做有两个好处。</p>
+  <ul>
+    <li><b>格式一定对。</b>不合法的 token 根本选不到。</li>
+    <li><b>更快。</b>省掉了那些结果早已确定的模型调用。</li>
+  </ul>
+  {{fig 154 | SGLang 和另外三个系统（vLLM、Guidance、LMQL）在 11 种任务上的吞吐量，用的是 Llama-7B 模型。每组柱子都按最高的那个归一化到 1，越高越好。横轴上的任务包括 agent、推理、JSON 解码、多轮对话等。图片来源：同上。}}
+  <p>论文报告，SGLang 的吞吐量（单位时间里处理的请求量）最高是其他系统的 6.4 倍。这个数是几项优化合起来的结果，状态机只是其中一项。单看合并状态机这一项，它在 JSON 解码的测试上把吞吐量提高到 1.6 倍。另一项优化和<a href="inference.html#kvcache">第五部分</a>的 KV cache（推理时保存下来重复使用的中间结果）有关：不同的请求如果开头相同，就自动接着用同一份缓存。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>约束解码管的是格式，内容对不对它不管。</b>对于字段固定、能用正则表达式写出来的格式，它能保证输出的 JSON 合法，字段齐全、类型正确。可以任意深度嵌套的结构超出了有限状态机能表达的范围，要用支持相应语法的约束解码实现。字段里填的值是否符合事实，仍然取决于模型。</div></div>
+</section>
+
+<section class="sec" id="dspy">
+  <h2>用 prompt 规定格式：DSPy 的 signature</h2>
+  <p>另一条路是不动解码过程，在 prompt 里把想要的格式讲清楚，再用程序把模型的回答解析成结构化的数据。DSPy 这个库把这件事包装成了 signature：像写函数签名那样，声明输入有哪些字段、输出有哪些字段、各是什么类型。</p>
+  {{fig 155 | 左边是一段 DSPy 代码：定义一个叫 Extract 的 signature，再用它处理一条消息。右边是得到的结果，三个输出字段各有一个值。图片来源：<a href="https://dspy.ai/current/">DSPy 官网</a>。}}
+  <pre class="code"><code>class Extract(dspy.Signature):
+    """Extract contact info."""
+    message: str = dspy.InputField()
+    name: str = dspy.OutputField()
+    email: Optional[str] = dspy.OutputField()
+    intent: Literal["meeting", "intro", "follow-up"] = dspy.OutputField()
+
+extract = dspy.Predict(Extract)
+extract(message="I'm Sarah (sarah@acme.co). Meet Thursday?")</code></pre>
+  <p>这段代码声明了一个输入字段 message 和三个输出字段：name 是字符串，email 是字符串或者空，intent 只能是 meeting、intro、follow-up 三个值之一。把一句「我是 Sarah，周四见面？」连同邮箱交给它，得到的结果是 name 为 Sarah、email 为 sarah@acme.co、intent 为 meeting。使用的人只写了一句任务说明「Extract contact info」，关于格式的 prompt 一句也没有写。</p>
+  {{fig 156 | DSPy 实际发给模型的内容。蓝色部分是 system prompt（放在对话最前面、设定模型行为的那段文字）：列出输入字段和输出字段的名字和类型，规定每个字段前面要有一行形如 [[ ## 字段名 ## ]] 的标记，并对 email 和 intent 的取值写了具体要求，最后是任务本身「Extract contact info」。灰色部分是用户 prompt：填进了那条消息，并再次要求按顺序输出各个字段，最后以 completed 标记结束。}}
+  <p>可以看到，DSPy 在背后做了三件事：把 signature 翻译成一段详细规定格式的 prompt；把输入填进去，发给模型；按约定的标记把模型的回答拆开，取出每个字段的值。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这条路默认靠的是「说清楚，再解析」。</b>按 DSPy 文档的描述，一个叫 adapter 的部件负责把 signature 和输入变成发给模型的消息，再把模型的回答解析成输出字段。模型如果没有照格式回答，解析就会失败，这和约束解码从机制上保证格式是两种办法。两者可以叠加：格式由 prompt 说明，解码时再加约束。DSPy 和约束解码的库具体怎样配合，没有在文档里核对到。另外，上图里的方括号标记是较早的默认格式，现在文档里的默认 adapter 用的是 XML 标签。出处：<a href="https://dspy.ai/current/getting-started/first-program/">DSPy 文档</a>。</div></div>
+</section>
+
+<section class="sec" id="classifier">
+  <h2>只要一个类别时：在模型上接一个分类头</h2>
+  <p>有时需要的输出只是几个类别里的一个，比如一句话的情感是正面还是负面。这时可以不让模型生成文字。</p>
+  {{fig 157 | 两个模型串在一起。下面的 DistilBERT 读入一句影评「a visually stunning rumination on love」，输出一个向量。上面的逻辑回归模型拿这个向量，输出两个类别的概率：负面 15%，正面 85%。图片来源：<a href="https://jalammar.github.io/a-visual-guide-to-using-bert-for-the-first-time/">Jay Alammar 的文章</a>。}}
+  <p>做法是：让语言模型把输入变成一个向量（这个向量叫 embedding，图里是 768 维），再在上面接一个很小的分类器，叫分类头（head），把向量变成每个类别的分数。分类头是用带标签的数据单独训练的，图里的例子用的是影评情感数据集 SST-2。</p>
+  <p>这样得到的输出只可能是事先定好的那几个类别之一，不存在格式出错的问题，而且只需要过一遍模型，不用一个 token 一个 token 地生成。在一个大的系统里，语言模型完全可以只当一个分类器来用。</p>
+</section>
+
+<section class="sec" id="system1">
+  <h2>System One 模型：把候选动作当成分类</h2>
+  <p>System One 是 2026 年很热的一个词，借用了心理学里的说法：系统一指快速、凭直觉的判断，系统二指缓慢、一步步的推理。System One 模型大致可以理解为：选项可以随时更换的分类器，专门用来快速做决定。</p>
+  {{fig 158 | 一个公开的例子，分三步。1：对比学习，状态编码器把游戏画面变成向量，动作编码器把动作的文字变成向量，训练时让每个画面的向量靠近当时实际采取的那个动作的向量。2：把候选动作（左、跳、向右跑）写成文字，交给动作编码器。3：用当前画面的向量和每个候选动作的向量做点积，再做 softmax（把分数变成加起来等于 1 的概率），图里「跳」得到 80%，于是马里奥跳起来。图片来源：<a href="https://contrastive-lm.notion.site/">Contrastive Language Models 的项目页面</a>。}}
+  <p>这个例子是斯坦福大学和 NVIDIA 的研究者 2026 年 9 月公开的 Contrastive Language Models。它和上一节的分类头有一个关键的不同：候选的选项在每次使用时临时给出，可以随时更换。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">分类头</th><th scope="col">Contrastive Language Models</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">有哪些选项</th><td>训练时定死，换一组选项要重新训练</td><td>使用时临时给。任何能写成文字的选项都可以交给动作编码器</td></tr>
+        <tr><th scope="row">怎么打分</th><td>分类头直接输出每个类别的分数</td><td>当前状态的向量和每个候选动作的向量算相似度</td></tr>
+        <tr><th scope="row">输出</th><td>固定类别里的一个</td><td>候选动作里的一个</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>图里的状态是游戏画面。换成语言任务，状态就是一段文字，候选动作可以是选择题的几个选项、正面和负面两个情感标签，或者一份工具清单里的各个工具。项目页面报告，它在电脑操作、游戏和工具调用任务上的成绩和一个用来对比的模型相当，延迟最多降到那个模型的九分之一左右。这些是项目自己报告的结果。工具清单经常变，所以这种做法适合用来选工具。</p>
+</section>
+
+<section class="sec" id="tools">
+  <h2>最典型的场合：调用工具</h2>
+  <p>结构化输出在 agent 里最重要的用处是调用工具。模型要表达的是「现在调用哪个工具、参数是什么」，这段输出必须能被程序准确地解析出来。</p>
+  {{fig 159 | 四段文字，每段中间夹着一次工具调用，用颜色标出。方括号里先写工具的名字和参数，后面跟着工具返回的结果。四个工具分别是问答系统（QA）、计算器（Calculator）、翻译（MT）和维基百科搜索（WikiSearch）。例如第二段：1400 名参与者里有 400 人通过了测试，模型调用计算器算 400 除以 1400，得到 0.29，再接着写「29%」。图片来源：<a href="https://arxiv.org/abs/2302.04761">Schick 等，2023</a>。}}
+  <p>这张图出自 Toolformer，一个较早教模型自己使用工具的工作，基础模型是 67 亿参数的 GPT-J。它的格式是把调用直接写在正文里。程序在模型的输出里看到这种方括号，就暂停生成，去执行对应的工具，把结果填回去，再让模型接着写。</p>
+  <p>现在让模型调用工具的格式有很多种。很常见、也可能是最有效的一种，是直接让模型写代码或者命令行命令，由运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序）去执行。不管用哪一种，要求是同一个：模型也许已经说出了它想做什么，但如果程序解析不出来，就不知道该去调用计算器还是搜索，这一步就得不到结果。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">办法</th><th scope="col">怎样得到结构化的输出</th><th scope="col">格式有没有保证</th><th scope="col">适合什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">约束解码</th><td>解码时把不合法的 token 的概率设成零</td><td>有，机制上保证</td><td>JSON 这类格式严格的输出，工具调用</td></tr>
+        <tr><th scope="row">prompt 加解析<br><span class="muted small">如 DSPy 的 signature</span></th><td>在 prompt 里规定格式，再用程序解析回答</td><td>没有硬性保证，模型可能不照做</td><td>字段多、想快速改动的场合，可以和约束解码叠加</td></tr>
+        <tr><th scope="row">分类头</th><td>模型输出向量，小分类器输出类别</td><td>有，输出只能是固定的类别</td><td>类别固定的判断，比如情感分类</td></tr>
+        <tr><th scope="row">状态和动作的向量比较</th><td>分别编码状态和候选动作，选最相似的</td><td>有，输出只能是候选之一</td><td>选项经常变、又要很快做决定的场合，比如选工具</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>输出这一侧讲完了。最后一部分讲输入这一侧：<a href="context.html">往上下文里放什么，怎么放</a>。</p>
+</section>

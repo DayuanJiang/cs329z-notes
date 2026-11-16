@@ -1,0 +1,103 @@
+<section class="sec" id="thesis">
+  <h2>一句话的结论</h2>
+  <p class="lead-in">训练 agent 用的任务和运行轨迹，现在造起来很便宜。<mark>要花力气的是决定留下哪些。</mark>任务要先确认本身是对的，再留下对模型不太容易也不太难的。轨迹要看它是怎么通过测试的，没通过的也有办法用。从这一讲的几个实验可以归纳出：候选数据有限、质量参差时，挑选最有价值；数据本来就都合格、还能再加时，数据量和多样性更重要。</p>
+  <p>这里的 agent，指能自己调用工具、分很多步去完成一个任务的语言模型系统。运行轨迹（trajectory）是 agent 一次运行里每一步的动作和看到的结果的完整记录。第 11 讲讲的是这些数据从哪里来，这一讲讲造出来之后怎么挑。要挑的东西有三样。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">任务</th><th scope="col">运行轨迹</th><th scope="col">训练用的那批数据</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">要回答的问题</th><td>哪些任务值得拿来训练</td><td>哪些轨迹值得模仿</td><td>要更多的数据，还是更好的数据</td></tr>
+        <tr><th scope="row">主要用在哪种训练上</th><td>强化学习：模型自己去做任务，按验证器（判断任务有没有做成的程序）的判定得到奖励</td><td>监督微调：用现成的示范继续训练模型，让它照着做</td><td>两种都有</td></tr>
+        <tr><th scope="row">怎么挑</th><td>把任务实际运行一遍，确认它需要做、也做得成；再让模型试做几遍，留下有对有错的</td><td>通过了测试的，检查有没有走捷径、过程好不好。没通过的，带上标记再用，或者只取有用的片段</td><td>数据少时精心挑；要加量时，优先加新的环境和新的代码仓库</td></tr>
+        <tr><th scope="row">不挑会怎样</th><td>LEGO-RL 没筛过的任务里，86% 是模型每次都做错或每次都做对的，拿去训练，成绩没有上升</td><td>Qwen 团队不加监控训练出来的模型，在三个基准测试上平均有 28.57% 的运行是靠捷径通过测试的</td><td>条数少时差别明显，条数多了差别变小：Orchard 的实验里，512 条轨迹时六种挑法之间最多差 5.5 个百分点，2,048 条时只差 2.0 个百分点</td></tr>
+        <tr><th scope="row">在哪一页</th><td><a href="valid.html">第二部分</a>、<a href="learnable.html">第三部分</a></td><td><a href="passed.html">第四部分</a>、<a href="failed.html">第五部分</a></td><td><a href="mix.html">第六部分</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>每个数的出处在对应的页面里。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="story">
+  <h2>六个问题</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="why.html">一 为什么要挑？</a></th><td>从候选任务到训练用的数据，中间有四步挑选。数据出问题有三种方式：信号是错的，没有信号，信号是重复的。同一个基础模型，训练数据不同，结果差别很大</td><td>CWM 留下了 300 万条轨迹，去掉了近似重复的，留着失败的。OpenThoughts-Agent 的实验里，数据规模相同（任务数相同，或者 token 总数相同）时，挑过的比随机的平均高 3 个百分点以上</td></tr>
+        <tr><th scope="row"><a href="valid.html">二 怎么确认任务<br>本身是对的？</a></th><td>三种办法：请人标注，用程序和语言模型分层检查，把任务实际运行很多遍。三个例子里，筛掉的比例从 16% 到约四分之三不等</td><td>SWE-bench Verified 请 93 个开发者标注，筛掉 68.3%。APIGen 的三层检查通过 34% 到 84%。CodeMidas 从 22,575 个候选任务里留下 5,545 个，训练效果好于没筛过的约 8,000 个</td></tr>
+        <tr><th scope="row"><a href="learnable.html">三 怎么确认任务<br>学得到东西？</a></th><td>这一讲里的强化学习算法靠比较同一个任务的几次运行来更新模型。几次的奖励都一样，就没有更新。所以要留下有对有错的任务。由此可以推出，模型变强之后任务池还要重新筛</td><td>LEGO-RL 让模型把每个任务做 4 遍，留下做对 1 到 3 遍的，21,681 个里留下 2,699 个。在三个运行框架（包在模型外面、给它工具并管理多轮对话的程序）中的一个下面，不产生更新的任务从训练第 1 轮的 44.7% 升到第 3 轮的 51.4%。WebRL 每一轮都根据没做成的任务出新题</td></tr>
+        <tr><th scope="row"><a href="passed.html">四 通过了测试的轨迹<br>都值得模仿吗？</a></th><td>不一定。有的靠捷径通过，有的过程里有无效、多余或有风险的步骤。要看过程，只看测试结果不够</td><td>加上轨迹监控之后，靠捷径通过的比例从 28.57% 降到 0.56%，不靠捷径通过的比例从 40.22% 升到 60.53%。SWE-Prime 挑出 10% 的成功轨迹，训练效果好于用全部</td></tr>
+        <tr><th scope="row"><a href="failed.html">五 没通过的轨迹<br>都该丢掉吗？</a></th><td>不一定。失败的轨迹里有做对的步骤。可以整条留下并标明它是失败的，也可以只挑出有用的片段。不加区分地混进去可能有害</td><td>NAT 在数学题上比只用成功的轨迹高 0.52 到 8.74 个百分点。EEF 在 WebShop 上的胜率是 58.4%，最强的只用成功轨迹的基线是 53.6%</td></tr>
+        <tr><th scope="row"><a href="mix.html">六 要更多的数据，<br>还是更好的数据？</a></th><td>看候选数据的情况。从几个实验可以归纳出：有限而且质量参差时，挑选最有价值；本来就都合格、还能再加时，加量更划算。多样性在多数实验里有帮助，数据很少时有反例</td><td>LIMI 用 78 条轨迹得到 73.5%。Orchard 把条数从 512 加到 2,048，最差的挑法也高了 8.2 个百分点。SWE-smith 同样是 700 条轨迹，取自 100 个仓库的比取自最少几个仓库的高 4.8 个百分点</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
+  </figure>
+  <p>最后可以归纳成一张五步的检查表：验证任务，筛难度，审查成功的轨迹，留下带标记的失败轨迹，扩大来源的多样性。它在<a href="mix.html#checklist">第六部分</a>。</p>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的六件事</h2>
+  <p>下面六件事，常见的说法大多出自论文的摘要，都比实际情况简单。每一件在对应的页面里有出处和细节。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>LIMI 用 78 条数据胜过 10,000 条，提高 53.7%</td><td>53.7% 是相对的比例，分数差是 25.7 个百分点。同一个模型不微调就有 45.1%，那 10,000 条数据只让它到 47.8%。测试用的基准测试只有 10 个任务，和 LIMI 出自同一批作者。离开训练时用的命令行工具，七项其他评测的平均分是 50.0% 和 48.7%</td><td><a href="mix.html#limi">多还是好</a></td></tr>
+        <tr><td>LIMO 用 817 条数据，把 AIME（一套数学竞赛题）上的准确率从 6.5% 提高到 57.1%</td><td>6.5% 是同一个模型用 10 万条数据微调之后的成绩，比不微调的 16.5% 还低。正式发表的版本改成了 800 条和 63.3%。论文自己的实验里，2,000 条时成绩最好</td><td><a href="mix.html#small">多还是好</a></td></tr>
+        <tr><td>WebRL 把 Llama-3.1-8B 在 WebArena-Lite 上的成功率从 4.8% 提高到 42.4%</td><td>强化学习是从监督微调之后的模型开始的，那时已经有 20.6%。强化学习这一段带来的是约 22 个百分点</td><td><a href="learnable.html#webrl">任务难不难</a></td></tr>
+        <tr><td>EEF 在 WebShop 上的胜率是 62%，RFT 是 53.6%</td><td>62% 的那个版本多用了 GPT-3.5 Turbo 的轨迹。用和基线相同的数据，EEF 是 58.4%</td><td><a href="failed.html#eef">失败的轨迹</a></td></tr>
+        <tr><td>agent 走捷径，是因为捷径能提高通过率</td><td>在 Qwen 团队加固过的环境里，七种捷径行为只有两种的通过率高于总体，另外五种都低于总体。即使这样，不加监控训练出来的模型，在三个基准测试上平均仍有 28.57% 的运行是靠捷径通过的</td><td><a href="passed.html#horizon">通过的轨迹</a></td></tr>
+        <tr><td>SWE-Prime 只用 10% 的轨迹，相对提高最多 24.2% 和 12.2%</td><td>两个数来自不同的模型，换成百分点是 10.0 和 2.05。只做第一阶段（挑整条轨迹）时，六种组合里有四种不如用全部轨迹，起决定作用的是第二阶段屏蔽低分片段</td><td><a href="passed.html#prime">通过的轨迹</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="colors">
+  <h2>页面里三种颜色的框</h2>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲只有一处，在第六部分。</div></div>
+</section>
+
+<section class="sec" id="modules">
+  <h2>按部分阅读</h2>
+  <div class="modlist">
+    <a href="why.html"><span class="m">第一部分</span><span><b>为什么要挑：每一步都在丢数据</b><p>CWM 的 300 万条轨迹；从候选任务到训练数据的漏斗；轨迹和环境两样东西；数据出问题的三种方式；一个还没有定论的问题。</p></span></a>
+    <a href="valid.html"><span class="m">第二部分</span><span><b>先确认任务本身是对的</b><p>一个有毛病的任务长什么样；SWE-bench Verified 的人工标注；APIGen 的三层自动检查；CodeMidas 的六个容器和三种运行后的筛选。</p></span></a>
+    <a href="learnable.html"><span class="m">第三部分</span><span><b>留下模型有时能做对的任务</b><p>奖励全都一样为什么学不到东西；DAPO 的动态采样；LEGO-RL 的难度筛选；任务池为什么会过时；WebRL 每一轮重新出题。</p></span></a>
+    <a href="passed.html"><span class="m">第四部分</span><span><b>通过了测试的轨迹，都值得模仿吗</b><p>七种捷径；通过率上升而真实成绩下降；监控整条轨迹；SWE-Prime 先挑轨迹、再挑片段。</p></span></a>
+    <a href="failed.html"><span class="m">第五部分</span><span><b>没通过测试的轨迹，都该丢掉吗</b><p>只用成功的轨迹丢掉了什么；NAT 给失败的轨迹加标记；EEF 挑出失败轨迹里有用的步骤；失败的轨迹什么时候能用。</p></span></a>
+    <a href="mix.html"><span class="m">第六部分</span><span><b>更多的数据，还是更好的数据</b><p>LIMA、LIMO、LIMI 三个先例；Orchard 的条数和挑法实验；两个结论怎么对上；多样性；五步检查表；整讲的小结。</p></span></a>
+  </div>
+</section>
+
+<section class="sec" id="sources">
+  <h2>资料</h2>
+  <h3>主要的三份阅读材料</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Yang 等，2025</th><td><a href="https://arxiv.org/abs/2504.21798">SWE-smith: Scaling Data for Software Engineering Agents</a>：先为每个代码仓库建环境，再往里面合成 bug，从 128 个 Python 仓库造出约 5 万个任务。论文里有几个关于数据量、仓库个数和任务难度的对照实验</td><td>六</td></tr>
+        <tr><th scope="row">Shankar 等，2024</th><td><a href="https://arxiv.org/abs/2404.12272">Who Validates the Validators? Aligning LLM-Assisted Evaluation of LLM Outputs with Human Preferences</a>：用语言模型当评审时，评审自己也要由人来校准。提出了「标准漂移」这个现象</td><td>二</td></tr>
+        <tr><th scope="row">Zhou 等，2023</th><td><a href="https://arxiv.org/abs/2305.11206">LIMA: Less Is More for Alignment</a>：用 1,000 条精选的 prompt 和回答微调，说明质量和多样性比数量更要紧</td><td>六</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>各部分用到的论文和文章</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">哪部分</th><th scope="col">资料</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">一</th><td><a href="https://arxiv.org/abs/2510.02387">CWM</a>（Meta FAIR CodeGen 团队，2025）；<a href="https://arxiv.org/abs/2606.24855">OpenThoughts-Agent</a>（Raoof 等，2026）</td></tr>
+        <tr><th scope="row">二</th><td>OpenAI，<a href="https://openai.com/index/introducing-swe-bench-verified/">Introducing SWE-bench Verified</a>（2024）、<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">Why SWE-bench Verified no longer measures frontier coding capabilities</a>（2026 年 2 月）和 <a href="https://openai.com/index/separating-signal-from-noise-coding-evaluations/">Separating signal from noise in coding evaluations</a>（2026 年 7 月）；<a href="https://arxiv.org/abs/2406.18518">APIGen</a>（Liu 等，2024）；<a href="https://arxiv.org/abs/2609.22068">CodeMidas</a>（Ye 等，2026）</td></tr>
+        <tr><th scope="row">三</th><td><a href="https://arxiv.org/abs/2503.14476">DAPO</a>（Yu 等，2025）；<a href="https://arxiv.org/abs/2608.17393">LEGO-RL</a>（Du 等，2026）；<a href="https://arxiv.org/abs/2411.02337">WebRL</a>（Qi 等，ICLR 2025）</td></tr>
+        <tr><th scope="row">四</th><td><a href="https://arxiv.org/abs/2606.26300">The Verification Horizon</a>（Qwen 团队，2026）；<a href="https://arxiv.org/abs/2608.27449">SWE-Prime</a>（Zheng 等，2026）</td></tr>
+        <tr><th scope="row">五</th><td><a href="https://arxiv.org/abs/2402.11651">NAT</a>（Wang 等，NAACL 2025）；<a href="https://arxiv.org/abs/2504.13145">EEF</a>（Lan 等，2025）</td></tr>
+        <tr><th scope="row">六</th><td><a href="https://arxiv.org/abs/2509.17567">LIMI</a>（Xiao 等，2025）；<a href="https://arxiv.org/abs/2502.03387">LIMO</a>（Ye 等，2025）；<a href="https://arxiv.org/abs/2605.15040">Orchard</a>（Peng 等，2026）；<a href="https://arxiv.org/abs/2501.01702">AgentRefine</a>（Fu 等，ICLR 2025）；<a href="https://github.com/GAIR-NLP/AgencyBench">AgencyBench 的代码仓库</a>和<a href="https://arxiv.org/abs/2601.11044">它后来的论文</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>

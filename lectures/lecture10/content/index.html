@@ -1,0 +1,95 @@
+<section class="sec" id="thesis">
+  <h2>一句话的结论</h2>
+  <p class="lead-in">软件越来越多地由模型和 agent 生成之后，判断它对不对的依据从代码变成了评估。<mark>评估本身是由一个个任务组成的软件，要像软件一样写、测试、发版本、持续修</mark>。</p>
+  <p>这里的 agent，指能自己调用工具、分很多步去完成一个任务的语言模型系统。这一讲用的例子是 Terminal-Bench 和 Harbor。Terminal-Bench 是一个让 agent 在命令行环境里完成真实技术工作的基准测试（benchmark，一组题目加一个打分的办法），项目的负责人里有 Ryan Marten 和 Alex Shaw（见官网的<a href="https://www.tbench.ai/contributors">贡献者页面</a>）。Harbor 是这个团队把做基准测试的经验整理成的一套工具。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">环节</th><th scope="col">对一个评估任务来说是什么</th><th scope="col">软件工程里对应的做法</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">写</th><td>一个文件夹：任务说明、环境、验证器（给结果打分的程序）、参考解法</td><td>写代码和它的测试</td><td><a href="task.html">第三部分</a></td></tr>
+        <tr><th scope="row">查</th><td>静态检查；让 agent 审查任务的文件；跑参考解法应该满分；什么都不做应该零分；让前沿的 agent 正常做一遍；让一个 agent 故意作弊一遍；再让 agent 读后两类运行的轨迹</td><td>代码检查工具、单元测试、集成测试、安全测试</td><td><a href="maintain.html#qa">第四部分</a></td></tr>
+        <tr><th scope="row">跑</th><td>在隔离的容器里并行地跑成千上万次，保存每一次的运行轨迹（每一步动作和结果的完整记录）、日志、产物（agent 交出的文件）和得分</td><td>构建和部署的基础设施</td><td><a href="maintain.html#infra">第四部分</a></td></tr>
+        <tr><th scope="row">修</th><td>使用中暴露的问题变成修改，按三位的版本号发布。版本号的哪一位变了，决定旧的结果是重新运行、重新评分还是直接沿用</td><td>问题跟踪、持续集成、语义化的版本号</td><td><a href="maintain.html#versioning">第四部分</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="story">
+  <h2>四个问题</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="shift.html">一 为什么评估<br>变成了开发的中心？</a></th><td>传统软件是人写规则，对不对可以读代码来判断。模型是学出来的，agent 是靠评估调出来的，这两样对不对只能靠测量。软件越来越多是 agent 生成的，代码仍然可以读，但量大到人读不过来，也越来越靠运行和测试来判断。所以开发流程的起点从规格说明换成了评估</td><td>同一个取电话号码的函数：用正则表达式（用一串符号描述文字格式的写法）写，读代码就知道它认哪种格式；改成调用语言模型，只有拿一批例子去测才知道</td></tr>
+        <tr><th scope="row"><a href="tbench.html">二 一个评估<br>长什么样？</a></th><td>Terminal-Bench 的每个任务是一段任务说明、一个容器、一组检查容器最终状态的测试。排行榜的每一行有解决率（测试通过的运行所占的比例）、95% 置信区间（一种误差范围）、token 总量（token 是模型处理文字的基本单位）和花费，并且能点进去看每一次运行的记录</td><td>一个任务的核心要求只有一句话：按一张二维工程图输出三维模型文件。测试有九条检查：一条查文件是否合法，另外八条各查一项几何性质，例如体积和表面积。现在的 4.1 版有 66 个任务，2026 年 11 月 16 日最好的成绩是 65.8%</td></tr>
+        <tr><th scope="row"><a href="task.html">三 一个评估任务<br>怎么写？</a></th><td>任务说明要写全、写短、写得像人话。环境尽量接近真实。验证器按结果评分，和任务说明一一对应。验证器和 agent 分在两个环境里，防止钻空子（靠利用评分办法的漏洞拿到分数）。参考解法用来证明任务做得成</td><td>4.1 版用改进后的验证器重新评分，纠正了 89 次把正确结果判成不通过的运行，和 45 次把不正确的结果判成通过的运行</td></tr>
+        <tr><th scope="row"><a href="maintain.html">四 怎么运行，<br>怎么持续修？</a></th><td>基础设施要可靠、可复现、快、可移植。任务发布前过一组自动检查，发布后靠使用中发现的问题不断修。三位的版本号让修任务的成本降下来</td><td>2.0 版每个任务平均审查了大约三小时，后来仍然在 89 个任务里的 28 个里查出问题。4.0 排行榜的运行共花了 11.6 万美元，升级到 4.1 时重新评分的新增模型费用是 0</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的五件事</h2>
+  <p>下面五件事，常见的说法都比实际情况简单。每一件在对应的页面里有出处和细节。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>Terminal-Bench 已经被运行了 700 多万次</td><td>这个数出自一张累计下载次数的曲线图，到 2026 年 9 月下旬是 7,798,899 次。很可能是拿下载次数来近似运行次数，两者并不相等</td><td><a href="tbench.html#scale">Terminal-Bench</a></td></tr>
+        <tr><td>版本号的第一位变了，就是换了一批新题。4.0 是 3.0 之后全新的一代</td><td>4.0 的任务就是 3.0 的 74 个任务删掉 8 个、修了 19 个。第一位加一，是因为每个任务给 agent 的资源和时间改了，旧的结果必须重跑。真正换题的是 2.0 和 3.0</td><td><a href="maintain.html#versioning">运行和维护</a></td></tr>
+        <tr><td>任务发布前仔细审过，就是对的</td><td>2.0 版发布前有自动检查、作弊测试和每个任务平均约三小时的人工审查。后来的系统检查仍然在 89 个任务里的 28 个里确认了问题，其中最多的一类是任务说明和验证器对不上</td><td><a href="maintain.html#continuous">运行和维护</a></td></tr>
+        <tr><td>排行榜上的一个分数，公布之后就固定了</td><td>验证器改进之后，同一批运行会被重新评分。GPT-6 Astra 加 Codex 在 4.0 版的一个榜单片段里是 58.2%，官网在 2026 年 11 月 16 日显示的 4.1 版结果是 60.3%，差别很可能主要来自重新评分。官方说所有系统的新分数都在原来的 95% 置信区间以内</td><td><a href="tbench.html#leaderboard">Terminal-Bench</a></td></tr>
+        <tr><td>Terminal-Bench 测的是 agent 用终端的能力，agent 只能用终端</td><td>论文明确说不要求只用终端，agent 可以用任何方式操作容器。测试只看容器最后的状态。现在的任务里有三维建模、音乐和声、海报版式还原，分别属于机械设计、音乐和平面设计的工作</td><td><a href="tbench.html#insight">Terminal-Bench</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="colors">
+  <h2>页面里三种颜色的框</h2>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲只用了一处橙色框，在第二部分；其余几件列在上面的表里。</div></div>
+</section>
+
+<section class="sec" id="modules">
+  <h2>按部分阅读</h2>
+  <div class="modlist">
+    <a href="shift.html"><span class="m">第一部分</span><span><b>为什么评估变成了开发的中心</b><p>写程序的三个阶段；演绎式和归纳式；一个取电话号码的例子；规格说明让位给评估；agent 的训练数据是什么。</p></span></a>
+    <a href="tbench.html"><span class="m">第二部分</span><span><b>Terminal-Bench：一个评估长什么样</b><p>出发点；一个真实的任务；六个版本；被使用的规模；排行榜上每个数的含义；Harbor。</p></span></a>
+    <a href="task.html"><span class="m">第三部分</span><span><b>怎么写一个评估任务</b><p>几个词的定义；任务的文件夹格式；任务说明、环境、验证器；钻空子和隔离；参考解法。</p></span></a>
+    <a href="maintain.html"><span class="m">第四部分</span><span><b>怎么运行，怎么持续修</b><p>九个步骤；基础设施的四条要求；任务质量检查；持续更新；版本号；公开的运行记录；自动评估之外的办法；整讲的小结。</p></span></a>
+  </div>
+</section>
+
+<section class="sec" id="sources">
+  <h2>资料</h2>
+  <h3>主要的五份</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Merrill 等，2026</th><td><a href="https://arxiv.org/abs/2601.11868">Terminal-Bench: Benchmarking Agents on Hard, Realistic Tasks in Command Line Interfaces</a>：Terminal-Bench 2.0 的论文。任务的组成，89 个任务是怎么选出来和审查的，16 个模型和 6 种 agent 的成绩</td><td>二、三、四</td></tr>
+        <tr><th scope="row">Terminal-Bench 官网</th><td><a href="https://www.tbench.ai/">排行榜</a>和<a href="https://www.tbench.ai/news">各个版本的公告</a>，其中 <a href="https://www.tbench.ai/news/continuous-benchmarks">Continuous Benchmarks</a> 一篇讲持续更新的做法和版本规则</td><td>二、三、四</td></tr>
+        <tr><th scope="row">Harbor 的文档</th><td><a href="https://docs.harborframework.com/">任务格式、验证器、隔离、重新评分</a>的说明，以及 2026 年 10 月的文章 <a href="https://docs.harborframework.com/news/reward-hacking">Cracking down on reward hacking</a></td><td>三、四</td></tr>
+        <tr><th scope="row">Anthropic，2026</th><td><a href="https://www.anthropic.com/research/demystifying-evals-for-ai-agents">Demystifying evals for AI agents</a>：评估 agent 用到的词的定义，三类评分办法，从零做起的九个步骤，自动评估和其他办法的比较</td><td>三、四</td></tr>
+        <tr><th scope="row">Buchanan 等，2026</th><td><a href="https://arxiv.org/abs/2611.08417">Benchmarks as Software: Terminal-Bench and the Case for Continuous Benchmarks</a>：回头检查 Terminal-Bench 2.0，在 28 个任务里确认了问题，修复后发布为 2.1 版</td><td>二、四</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>其他资料</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">资料</th><th scope="col">用在哪里</th></tr></thead>
+      <tbody>
+        <tr><td>Terminal-Bench 的<a href="https://github.com/harbor-framework/terminal-bench">代码仓库</a></td><td>第二、三部分里几个真实任务的任务说明、验证办法和修改记录</td></tr>
+        <tr><td>Anthropic，<a href="https://www.anthropic.com/engineering/infrastructure-noise">Quantifying infrastructure noise in agentic coding evals</a>（2026）</td><td>第四部分：容器的资源配置对分数的影响</td></tr>
+        <tr><td>Alex Shaw 的演讲《<a href="https://www.ai.engineer/talks/jRCpXUjz4CI-everything-is-rollout">Everything Is a Rollout</a>》的第三方文字整理稿</td><td>第一部分的对应表，第四部分一次运行的三种用途</td></tr>
+        <tr><td><a href="https://www.cs.cmu.edu/~crary/819-f09/Hoare69.pdf">Hoare，1969</a>；<a href="https://softwarepreservation.computerhistory.org/FORTRAN/BackusEtAl-Preliminary%20Report-1954.pdf">FORTRAN 初步报告，1954</a>；<a href="https://writing.kemitchell.com/2022/06/11/Backus-Priesthood">Backus 1976 年演讲的摘录</a>；<a href="https://www.wired.com/2008/06/pb-theory/">Anderson，2008</a>；<a href="https://x.com/fchollet/status/2024519439140737442">Chollet 的帖子，2026</a></td><td>第一部分引用的几段话</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>

@@ -1,0 +1,101 @@
+<section class="sec" id="thesis">
+  <h2>一句话的结论</h2>
+  <p class="lead-in">一个基准测试的分数，是两样东西合起来的结果：<mark>题目本身，和这个分数是怎么跑出来的</mark>。前一样叫任务定义，后一样叫评估协议。题目出得不好，分数说明不了能力。题目出得好，跑分的方式不一致，分数之间也没法比。</p>
+  <p>这里的 agent，指能自己调用工具、分很多步去完成一个任务的语言模型系统。这一讲的前一半教你把一个 agent 基准测试拆开来看，后一半分别说这两样要满足什么：好的基准测试有七条性质，可信的分数有四条要求。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">题目这一侧</th><th scope="col">跑分这一侧</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">叫什么</th><td>任务定义：问题描述、环境、验证</td><td>评估协议：跑几次、何时停、模型设置、运行框架（包在模型外面、给它工具并管理多轮对话的程序）和工具、怎么汇总</td></tr>
+        <tr><th scope="row">谁负责</th><td>出题的人</td><td>拿基准测试来跑分的人</td></tr>
+        <tr><th scope="row">要满足什么</th><td>七条性质：有挑战、自然、有区分度、容易运行、容易验证、可解释、耐用</td><td>四条要求：公平、可复现、透明、诚实</td></tr>
+        <tr><th scope="row">出了问题会怎样</th><td>分数高低和能力高低对不上。例：τ-bench 的航空任务里，什么都不做的 agent 能拿 38%</td><td>分数之间不可比。例：同一个模型，换一个运行框架、多跑几次再挑，分数可以从 48% 变成 72%</td></tr>
+        <tr><th scope="row">在哪一页</th><td><a href="good.html">第四部分</a></td><td><a href="trust.html">第五部分</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>38% 来自 Zhu 等人 2025 年的论文。48% 和 72% 是示意用的数，见<a href="trust.html#fair">第五部分</a>。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="story">
+  <h2>五个问题</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="benchmark.html">一 基准测试是什么，<br>为什么离不开它？</a></th><td>一组题目加一个报告成绩的办法。它让开发有数可依，让一个领域的人做同一批问题，让结果可以比较。代价是分数一旦成了目标，就会有办法把它做高而能力没有跟上</td><td>题目从语言学的小任务，变成考试、聊天、安全，再到 agent 任务。强化学习的 agent 为了游戏得分原地转圈，得分比人高 20%，却从不跑完比赛</td></tr>
+        <tr><th scope="row"><a href="anatomy.html">二 agent 的基准测试<br>由哪几块组成？</a></th><td>任务定义（问题描述、环境、验证）加评估协议。和考试类的区别是：给的是任务和环境，过程是很多轮，交出来的是一条运行轨迹和一个被改动过的环境</td><td>两条轴加一张四格表：问题描述从写明一切到只给目标，环境从模拟到真实，评分按两个问题分成四格</td></tr>
+        <tr><th scope="row"><a href="cases.html">三 真实的基准测试<br>长什么样？</a></th><td>十二个案例，最早的是 2018 年的文字游戏，最新的是 2026 年的机器学习研究任务。环境真实、问题描述开放的时候，评分往往更难做对</td><td>其中三个发布时最好的成功率：SWE-bench 1.96%，OSWorld 12.24%，WebArena 14.41%。后来的研究在其中几个的评分里查出了问题</td></tr>
+        <tr><th scope="row"><a href="good.html">四 什么样的<br>基准测试算好？</a></th><td>七条性质。它们很难同时做到，也会随着模型变强而变化，所以基准测试有从提出到被替换的生命周期</td><td>SWE-bench 在 2023 年发布时很有挑战；现在容易运行了，但挑战、区分度和耐用都下降了</td></tr>
+        <tr><th scope="row"><a href="trust.html">五 什么样的<br>分数可信？</a></th><td>四条要求：照基准测试的规定跑，记下所有版本，除了分数还报误差范围和花费，测试集只用来测量</td><td>一张真实的排行榜表：两个系统的成功率是 70% 和 67%，差距落在误差范围（重复测量时分数可能波动的幅度）以内，而分数高的那个每个任务的花费是另一个的 3 倍</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
+  </figure>
+  <p>最后的结论是：没有哪一个评测能说明一切。要判断一个模型或 agent 的能力，得同时看很多个基准测试。</p>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的五件事</h2>
+  <p>下面五件事，常见的说法都比实际情况简单。每一件在对应的页面里有出处和细节。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>SWE-bench Verified 是「更严的评分」的好例子</td><td>Verified 是把有问题的题筛掉，没有加强测试。OpenAI 在 2026 年 2 月宣布不再报告它的分数：他们抽查了模型经常做不出来的 138 道题，其中至少 59.4% 的题，测试会把功能正确的提交判成不通过；前沿模型还能背出某些题的标准答案</td><td><a href="good.html#durable">好的基准测试</a></td></tr>
+        <tr><td>能自动评分，分数就是对的</td><td>τ-bench 的航空任务里，什么都不做能拿 38%。WebArena 的分数被高估 1.4% 到 5.2%。OSWorld 和 Chrome 有关的那部分任务上，一个 agent 的成绩被低估 28 个百分点</td><td><a href="cases.html#flaws">十二个案例</a></td></tr>
+        <tr><td>排行榜上标了误差范围，就可以直接比两个分数</td><td>有的误差范围只反映同一批题重跑时的波动，题目数量少带来的不确定性没有算进去。两个范围重叠，只说明这张表不足以确认谁更强</td><td><a href="trust.html#transparent">可信的分数</a></td></tr>
+        <tr><td>新的基准测试是旧的升级版，比如 WebShop、WebArena、OSWorld、BrowseComp 一个接替一个</td><td>有的顺序是按难度排的，和发布时间并不一致。有的顺序里混了不同类型的任务：BrowseComp 是上网查资料回答问题，前三个是操作界面</td><td><a href="good.html#lifecycle">好的基准测试</a></td></tr>
+        <tr><td>一句话就能说清一个基准测试，比如 τ-bench 按数据库状态评分，OSWorld 看截图操作，Terminal-Bench 有 89 个任务</td><td>τ-bench 还要检查回复的内容。OSWorld 发布时最好的成绩来自只读文字的输入方式。89 个任务是 Terminal-Bench 的 2.0 版</td><td><a href="cases.html#notes">十二个案例</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="colors">
+  <h2>页面里三种颜色的框</h2>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲只有一处。</div></div>
+</section>
+
+<section class="sec" id="modules">
+  <h2>按部分阅读</h2>
+  <div class="modlist">
+    <a href="benchmark.html"><span class="m">第一部分</span><span><b>基准测试是什么，为什么离不开它</b><p>从训练损失到一道一道的题；四类基准测试；八个例子；三个用处；古德哈特定律。</p></span></a>
+    <a href="anatomy.html"><span class="m">第二部分</span><span><b>agent 的基准测试由哪几块组成</b><p>和考试类的区别；问题描述、环境、验证各自的轴；评估协议的五个问题；另一种拆法。</p></span></a>
+    <a href="cases.html"><span class="m">第三部分</span><span><b>十二个案例</b><p>每个案例的任务定义和评估协议；几个容易说错的细节；后来查出的评分问题。</p></span></a>
+    <a href="good.html"><span class="m">第四部分</span><span><b>什么样的基准测试算好</b><p>七条性质逐条看；哪几条很难同时做到；七组先后接替的基准测试；Press 和 Zhu 等人的说法。</p></span></a>
+    <a href="trust.html"><span class="m">第五部分</span><span><b>什么样的分数可信</b><p>公平、可复现、透明、诚实；怎样读误差范围；检查表；整讲的小结。</p></span></a>
+  </div>
+</section>
+
+<section class="sec" id="sources">
+  <h2>资料</h2>
+  <h3>主要的三份</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Zhu 等，2025</th><td><a href="https://arxiv.org/abs/2507.02825">Establishing Best Practices for Building Rigorous Agentic Benchmarks</a>：逐项检查了 10 个常用的 agent 基准测试，提出任务有效性和结果有效性两个条件，以及一份给出题的人用的清单</td><td>三、四、五</td></tr>
+        <tr><th scope="row">Press</th><td><a href="https://ofir.io/How-to-Build-Good-Language-Modeling-Benchmarks/">How to Build Good Language Modeling Benchmarks</a>：SWE-bench 的作者之一写的经验，三条主要性质是自然、可以自动评分、有挑战。文章发表后还在不断修订，最近一次是 2026 年 6 月</td><td>二、四、五</td></tr>
+        <tr><th scope="row">Polo 等，2024</th><td><a href="https://arxiv.org/abs/2402.14992">tinyBenchmarks: Evaluating LLMs with Fewer Examples</a>：精选 100 道题来估计模型在整个基准测试上的成绩</td><td>四</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>各个基准测试的论文</h3>
+  <p>考试、聊天、安全三类的八个基准测试的链接在<a href="benchmark.html#non-agent">第一部分的表</a>里，十二个 agent 基准测试的链接在<a href="cases.html#formulation">第三部分的表</a>里。</p>
+  <h3>其他资料</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">资料</th><th scope="col">用在哪里</th></tr></thead>
+      <tbody>
+        <tr><td>OpenAI，<a href="https://openai.com/index/introducing-swe-bench-verified/">Introducing SWE-bench Verified</a>（2024）和 <a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">Why SWE-bench Verified no longer measures frontier coding capabilities</a>（2026）</td><td>SWE-bench Verified 是怎么做的，后来为什么被停用</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2607.07946">DeepSWE 的论文</a>和<a href="https://deepswe.datacurve.ai/">排行榜</a></td><td>第五部分那张排行榜表的出处，误差范围是怎么算的</td></tr>
+        <tr><td><a href="https://www.tbench.ai/">Terminal-Bench 官网</a>、<a href="https://swefficiency.com/">SWE-fficiency 官网</a></td><td>第二部分的两张排行榜截图</td></tr>
+        <tr><td>OpenAI，<a href="https://openai.com/index/faulty-reward-functions/">Faulty reward functions in the wild</a>（2016）；<a href="https://arxiv.org/abs/2210.10760">Gao 等，2022</a></td><td>第一部分古德哈特定律的两个例子</td></tr>
+        <tr><td><a href="https://www.bbc.com/news/technology-33005728">BBC</a> 和 <a href="https://venturebeat.com/dev/baidu-apologizes-for-exceeding-submission-limit-for-imagenet-challenge/">VentureBeat</a> 2015 年的报道</td><td>ImageNet 比赛里提交次数过多的那件事</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>

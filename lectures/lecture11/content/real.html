@@ -1,0 +1,235 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>agent 数据有五种来源：请人演示，从网上和现实里现成的材料中提取，让模型合成运行轨迹，让模型合成任务和环境，用模拟的用户和环境。这一部分讲前两种，它们离真实的人和真实的系统最近。</li>
+    <li>请人演示：人照着任务做一遍，工具把每一步录下来。Mind2Web 这样得到 2,350 个网页任务，OpenCUA 得到 22,625 个桌面任务。数据真实，但规模受人力限制。</li>
+    <li>从现成的材料里提取：GitHub 上 issue 和修复它的代码、网上的操作教程、YouTube 上的录屏教学视频，都记录了人怎样完成任务。SWE-rebench、AgentTrek、VideoAgentTrek 分别把这三种材料转成了 21,336 个带环境的编程任务、10,398 条网页运行轨迹和大约 152 万步桌面操作。</li>
+    <li>材料是真实的，转换这一步却由模型和规则完成，会带进错误。VideoAgentTrek 从视频里还原出的动作，人工抽查只有 65.8% 是对的。</li>
+  </ul>
+</section>
+
+<section class="sec" id="five">
+  <h2>五种来源一览</h2>
+  <p>要收集大量的环境、任务和运行轨迹，有五种办法。看每一种的时候，都问三个问题：花多少钱，离真实情况多近，能做到多大。再想一想它为什么适合或者不适合某个领域。</p>
+  {{fig 20 | 五种来源：人工演示，从网上和现实里提取，合成任务，合成运行轨迹，模拟的用户和环境。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">来源</th><th scope="col">一句话</th><th scope="col">这一讲的例子</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">人工演示</th><td>人把任务做一遍，录下每一步</td><td>Mind2Web、OpenCUA</td><td>这一部分</td></tr>
+        <tr><th scope="row">从现成的材料里提取</th><td>把代码历史、教程、视频转成任务和运行轨迹</td><td>SWE-rebench、AgentTrek、VideoAgentTrek</td><td>这一部分</td></tr>
+        <tr><th scope="row">合成运行轨迹</th><td>模型自己写出步骤，或者自己在环境里探索，再筛选</td><td>Synatra、OS-Genesis、NNetNav</td><td><a href="synth.html">第四部分</a></td></tr>
+        <tr><th scope="row">合成任务和环境</th><td>成批造出沙盒、任务和验证器，大部分步骤由程序和模型完成</td><td>SWE-smith、R2E-Gym、AgentScaler</td><td><a href="synth.html#envs">第四部分</a></td></tr>
+        <tr><th scope="row">模拟的用户和环境</th><td>让一个语言模型扮演用户，或者扮演环境</td><td>τ-bench、APIGen-MT、DreamGym</td><td><a href="sim.html">第五部分</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>每个例子后面会注明它属于哪个领域：网页（Web）、操作电脑（CUA，computer-use agent）、代码（Code）、工具调用（Tools）。</figcaption>
+  </figure>
+  <p>几个会反复出现的词先解释一下。运行轨迹（trajectory）是一次解题过程的完整记录：任务，加上一步一步的观察和动作。环境是任务、可以动手的沙盒和验证器三样的组合。agent 是能自己调用工具、分很多步完成任务的语言模型系统。细节见<a href="types.html">第二部分</a>。</p>
+</section>
+
+<section class="sec" id="human">
+  <h2>人工演示：人做一遍，工具录下每一步</h2>
+  <p>最直接的办法是请人来做任务，同时用一个记录工具把每一步保存下来。</p>
+  {{fig 22 | 人工演示的五个步骤，以及最后得到的东西：一条运行轨迹，由任务和一串「屏幕、动作」对组成。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">步骤</th><th scope="col">做什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1 定义<br><span class="muted small">Define</span></th><td>在真实的网站或应用上写出任务目标</td></tr>
+        <tr><th scope="row">2 执行<br><span class="muted small">Perform</span></th><td>标注者动手把每个任务做完</td></tr>
+        <tr><th scope="row">3 记录<br><span class="muted small">Record</span></th><td>记下每一个屏幕状态，以及每一次点击和按键</td></tr>
+        <tr><th scope="row">4 筛选<br><span class="muted small">Filter</span></th><td>去掉失败的和杂乱的记录，确认任务确实做成了</td></tr>
+        <tr><th scope="row">5 打包<br><span class="muted small">Package</span></th><td>存成「任务加一串步骤」的形式，可以再给每一步配上推理的文字</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>下面两个数据集走的都是这五步，做法上有不少差别。</p>
+</section>
+
+<section class="sec" id="mind2web">
+  <h2>Mind2Web：137 个真实网站上的 2,350 个任务</h2>
+  <p>Mind2Web（Deng 等，NeurIPS 2023）是一个网页任务的数据集。众包标注者在 137 个真实网站上提出任务并演示怎么做，最后留下 2,350 个任务和它们的动作序列。</p>
+  {{fig 25 | 一条数据的三个组成部分。左上是任务描述：找出离邮编 10002 最近的汽车修理店的评价。左下是 10 步的动作序列，每一步是「目标元素加操作」，红色的步骤会跳转到新网页。右边是其中六步对应的网页快照，红框标出被操作的元素。图片来源：<a href="https://arxiv.org/abs/2306.06070">Deng 等，2023</a>。}}
+  <h3>数据是怎么收集的</h3>
+  <ol>
+    <li><b>选网站。</b>作者先定了旅行、购物、服务、娱乐、信息 5 个大类，再细分成 31 个领域，每个领域按在美国的访问量人工挑 3 到 5 个有代表性的网站，一共 137 个。</li>
+    <li><b>提任务。</b>在 Amazon Mechanical Turk 上招募的标注者看到一个网站之后，自己提出任务。要求有三条：类型多样，需要多轮操作，只描述目标、不写具体步骤。为了给标注者启发，作者让 ChatGPT 为每个网站生成了 50 个种子任务，每次随机给标注者看 10 个。种子任务只供参考，和它们太像的提案会被拒绝。所有提案都要经过作者筛选。</li>
+    <li><b>演示。</b>提出任务的标注者自己来演示。记录工具基于 Playwright（一个用程序控制浏览器的库）。标注者不能直接操作浏览器：每一步先点选目标元素，工具拦下这次点击，再让标注者在对话框里选要做的操作，然后由工具来执行。</li>
+    <li><b>核对。</b>每一条演示都由作者人工检查。收集到的 2,411 个任务里丢弃了 61 个；留下的 2,350 个里，有 390 个改写了任务描述，187 个删掉了多余的步骤。</li>
+  </ol>
+  <h3>每条数据里存了什么</h3>
+  <p>每条数据有三部分：任务描述、动作序列、网页快照。动作只有三种：点击（悬停和按回车也算在这一类里）、输入文字、选择下拉选项。每个任务平均 7.3 个动作。网页快照有多种格式：包含原始 HTML 的 MHTML 文件、DOM 快照、记录全部网络请求的 HAR 文件，以及完整的操作记录文件。数据里没有标注者的想法或推理，只有动作。</p>
+  {{fig 24 | Mind2Web 的 5 个大类和 31 个领域。每个大类后面的百分比是它所占的份额：旅行 27.4%，信息 20.4%，服务 18.3%，购物 17.5%，娱乐 16.1%。论文没有写明这些份额是按任务数还是按网站数算的。图片来源：<a href="https://arxiv.org/abs/2306.06070">Deng 等，2023</a>。}}
+  <h3>花了多少钱，效果怎样</h3>
+  <p>每个通过审核的任务，标注者得到 0.80 美元，报酬是按每小时大约 10.10 美元设计的。论文没有给出总预算，作者自己核对花的时间也没有算进去。</p>
+  <p>2,350 个任务里只有 1,009 个是训练集，其余 1,341 个分成了三个测试集。论文里最好的模型在训练集上微调之后，在跨任务的测试集（从训练用的那些领域和网站里随机留出的任务）上，单步的成功率是 52.0%，整个任务从头到尾全做对的比例只有 5.2%。</p>
+</section>
+
+<section class="sec" id="opencua">
+  <h2>OpenCUA：在标注者自己的电脑上录 22,625 个桌面任务</h2>
+  <p>OpenCUA（Wang 等，NeurIPS 2025）把人工演示从网页扩展到了整个桌面。标注者在自己的电脑上装一个叫 AgentNet Tool 的程序，它在后台记录三样东西：屏幕的视频、鼠标和键盘的信号、无障碍树（accessibility tree，操作系统提供的一份界面元素清单，列出每个按钮和输入框的名称、类型和位置）。得到的数据集叫 AgentNet。</p>
+  {{fig 26 | 左：标注者在 Windows、macOS、Ubuntu 三种系统上使用 AgentNet Tool。右：工具产出的三类数据：一条条运行轨迹，屏幕视频，以及无障碍树、HTML、时间戳等元数据。图上印的年份是 2026，论文实际发表在 NeurIPS 2025。图片来源：<a href="https://arxiv.org/abs/2508.09123">Wang 等，2025</a>。}}
+  <h3>从原始记录到运行轨迹</h3>
+  <ol>
+    <li><b>任务由标注者自己选。</b>标注者拿到一份大约 200 个应用和网站的清单，自己决定做什么任务。要求任务有 15 步以上，少于 5 步的会被拒收。一共有 634 名标注者参与。</li>
+    <li><b>后台录制，允许出错。</b>演示里有做错的步骤也可以，作者的看法是只要后面能把错误认出来，错误也有用。</li>
+    <li><b>合并动作。</b>一个任务的原始记录里有几千个底层事件，直接拿来训练太密了。工具用规则把它们合并：鼠标移动只保留起点和终点，连续的滚动合成一次，连续的按键合成一段输入的文字，Ctrl+C 这样的组合键合成一个快捷键动作。</li>
+    <li><b>给每个动作配一张截图。</b>截图要取动作发生之前的画面。对点击来说，如果直接取点击那一刻的画面，鼠标已经停在按钮上了，模型看一眼鼠标的位置就知道该点哪里。所以工具会往回找到鼠标开始移动之前的最后一帧。</li>
+    <li><b>人工审核。</b>所有任务都经过人工检查，标成拒收、可以、好、优秀四档。</li>
+    <li><b>合成每一步的推理。</b>人只留下了动作，没有留下想法。作者用 Claude 3.7 Sonnet 事后为每一步补写推理：先比较动作前后的截图，判断这一步是不是做错了或者多余的（这样的步骤在训练时会被跳过），再根据任务目标、之前的动作和这一步实际的动作，写出「看到了什么、为什么这么做、接下来做什么」。</li>
+  </ol>
+  <h3>规模、花费和效果</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">项目</th><th scope="col">数字</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">公开的任务数</th><td>22,625 个，其中 Windows 约 1.2 万，macOS 约 5 千，Ubuntu 约 5 千</td></tr>
+        <tr><th scope="row">平均每个任务的步数</th><td>18.6 步</td></tr>
+        <tr><th scope="row">覆盖的应用和网站</th><td>摘要里写的是 200 多个应用和网站；统计一节写的是 140 多个应用和 190 多个网站</td></tr>
+        <tr><th scope="row">花费</th><td>标注用了 6 个月，大约 2 万美元；合成推理平均每个任务 0.6 美元；整个数据集大约 3.2 万美元</td></tr>
+        <tr><th scope="row">训练出的模型</th><td>OpenCUA-72B 在 OSWorld-Verified（一个操作桌面的基准测试）上，每个任务最多 100 步时的成功率是 45.0%。它的基础模型 Qwen2.5-VL-72B 没有经过这样的训练时是 5.0%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2508.09123">Wang 等，2025</a>。按这些数粗略估算，每个任务的人工标注成本不到 1 美元。训练 OpenCUA-72B 时还用了没有公开的标注数据，以及 8 千条由 agent 在 Ubuntu 环境里跑出来的轨迹。</figcaption>
+  </figure>
+  <p>论文认为，光有人录下的「截图和动作」不够。它报告说，直接拿 2.7 万条这样的轨迹（比公开的 22,625 条多）来微调，在 OSWorld 上的成功率只有 4.4%；后来的提高来自一整套训练办法，补写推理是其中之一。单独看补写推理的作用，论文有另一组对照：在 Qwen2-VL-7B 上，把这种带反思的长推理换成较短的推理，OSWorld 上的成功率从 15.3% 降到 11.5%。</p>
+</section>
+
+<section class="sec" id="human-compare">
+  <h2>两个数据集的差别</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">Mind2Web</th><th scope="col">OpenCUA</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">谁来录</th><td>众包标注者，用一个专门的记录工具，每一步由工具代为执行</td><td>标注者在自己的电脑上正常操作，工具在后台录</td></tr>
+        <tr><th scope="row">环境</th><td>只有网页：137 个网站，31 个领域</td><td>桌面：3 种操作系统，200 多个应用和网站</td></tr>
+        <tr><th scope="row">记录了什么</th><td>每一步的动作，加上网页快照</td><td>屏幕视频、鼠标和键盘输入、无障碍树</td></tr>
+        <tr><th scope="row">任务数</th><td>2,350</td><td>22,625</td></tr>
+        <tr><th scope="row">平均步数</th><td>7.3</td><td>18.6</td></tr>
+        <tr><th scope="row">推理</th><td>没有，只有原始的动作</td><td>有，是事后用模型合成的，每一步都有</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>人工演示的好处是真实：任务是人会去做的任务，操作是人实际的操作。OpenCUA 的作者自己写了它的限制：数据集能做多大，受人工标注的投入限制；标注者也不一定会用最有效的办法完成任务，比如用快捷键或者写脚本。</p>
+</section>
+
+<section class="sec" id="mined">
+  <h2>从现成的材料里提取</h2>
+  <p>网上和现实里已经有大量「人怎样完成任务」的记录，只是形式不能直接拿来训练。第二种办法是把这些现成的材料转成任务、运行轨迹或环境。</p>
+  {{fig 30 | 左：三类原始材料。中：转换的三个步骤。右：得到的运行轨迹，包括任务指令、观察和动作的步骤、通过或不通过的信号。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">原始材料</th><th scope="col">里面有什么</th><th scope="col">缺什么</th><th scope="col">例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">代码历史</th><td>GitHub 上的 issue，以及修复它们的 PR（pull request，合并请求）。有任务描述，有最终的代码改动，有测试</td><td>中间的过程：开发者怎样找到问题、试过什么。还缺一个能把测试跑起来的环境</td><td>SWE-rebench</td></tr>
+        <tr><th scope="row">文字教程</th><td>一步一步的操作指南</td><td>每一步对应的真实界面，以及界面上要操作的具体元素</td><td>AgentTrek</td></tr>
+        <tr><th scope="row">视频</th><td>录屏教学视频、游戏录像。有每一刻的画面</td><td>动作的标注：鼠标点了哪里、键盘敲了什么</td><td>VideoAgentTrek</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>转换分三步，不同的系统做其中的几步。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">步骤</th><th scope="col">做什么</th><th scope="col">谁做了这一步</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1 提取任务</th><td>issue 的文字、教程的标题、视频的目标，变成给 agent 的指令</td><td>SWE-rebench 和 AgentTrek。VideoAgentTrek 的视频没有任务标注</td></tr>
+        <tr><th scope="row">2 还原动作</th><td>解析代码改动或教程里的步骤；对视频，用逆动力学模型（inverse dynamics model）标出动作</td><td>AgentTrek 和 VideoAgentTrek。SWE-rebench 保留的是最终的代码改动，中间的过程没有还原</td></tr>
+        <tr><th scope="row">3 重放和验证</th><td>在真实的环境里重新跑一遍，只留下成功的</td><td>SWE-rebench 运行测试，AgentTrek 让 agent 在浏览器里重做。VideoAgentTrek 没有这一步</td></tr>
+      </tbody>
+    </table>
+    <figcaption>「谁做了这一步」一列是按三篇论文的做法归纳的。逆动力学模型的解释见本页 <a href="#videoagenttrek">VideoAgentTrek</a> 一节。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="swe-rebench">
+  <h2>SWE-rebench：从 GitHub 自动提取 21,336 个带环境的编程任务</h2>
+  <p>先看这类任务的样子。它来自 SWE-bench（Jimenez 等，2023）：给模型一个 GitHub issue 和修复之前的代码仓库，模型交出一份代码改动，然后运行测试。修复这个 issue 的那个 PR 带来的测试，要从不通过变成通过；原来通过的测试要继续通过。</p>
+  {{fig 31 | SWE-bench 的任务形式。左：issue 的文字和代码仓库。中：语言模型生成一个 PR，改动了几个文件。右：单元测试在 PR 之前和之后的结果，前三个测试从不通过变成通过，后两个一直通过。这张图出自 SWE-bench 的论文。图上另外印着 SWE-rebench 论文的引用，年份印的是 2026，那篇论文实际发表在 NeurIPS 2025。图片来源：<a href="https://arxiv.org/abs/2310.06770">Jimenez 等，2023</a>。}}
+  <p>SWE-bench 只覆盖 12 个 Python 仓库，一个原因是每个仓库的运行环境都要人工配置。SWE-rebench（Badertdinov 等，NeurIPS 2025）把整条流程自动化了，从 3,468 个仓库里得到 21,336 个可以验证的任务，全部是 Python。</p>
+  {{fig 32 | 左：自动收集流程的四个阶段，分别是初步筛选、搭建环境、用语言模型标注、得到最终的数据集。右：让语言模型从仓库的文件里提取安装步骤的 prompt，要求它输出一个 JSON，写明 Python 版本、要装的包、安装命令和运行测试的命令。图上印的年份是 2026，论文实际发表在 NeurIPS 2025。图片来源：<a href="https://arxiv.org/abs/2505.20411">Badertdinov 等，2025</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">阶段</th><th scope="col">做什么</th><th scope="col">数字</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1 初步筛选</th><td>下载和 issue 关联的 PR，按规则筛选：issue 已解决，PR 已合并，一个 PR 只对应一个 issue，PR 同时改了测试和测试以外的代码，改动 1 到 15 个文件。再把 PR 拆成两份改动：解决问题的那份，和测试的那份</td><td>大约 45 万个 PR，来自 3 万多个仓库。筛选后剩下大约 15.34 万个候选任务</td></tr>
+        <tr><th scope="row">2 搭建环境</th><td>让语言模型（Qwen2.5-72B-Instruct）先找出可能写着安装方法的文件，比如 README、Dockerfile、setup.py，再从中写出一份结构化的安装步骤。每个任务最多写三份候选；安装或测试失败时，模型根据报错再改</td><td>31% 的仓库里，至少有一个任务得到了可用的安装步骤</td></tr>
+        <tr><th scope="row">3 运行验证</th><td>任务要满足三个条件才留下：打上解决问题的那份改动之前，至少有一个测试不通过；打上之后，这些测试全部通过；原来通过的测试仍然通过。测试要重复运行多次，有一次失败就丢弃</td><td>最后留下 21,336 个任务，大约是候选任务的 14%（粗略估算）</td></tr>
+        <tr><th scope="row">4 标注质量</th><td>用一个微调过的模型给每个任务预测三个标签：issue 写得清不清楚，任务复杂不复杂，测试对不对。标签作为元数据附在任务上，供使用者筛选，不会把任务删掉</td><td>在 413 个验证样本上，三个标签的准确率分别是 79%、81%、67%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2505.20411">Badertdinov 等，2025</a>。</figcaption>
+  </figure>
+  <p>有三点值得注意。</p>
+  <ul>
+    <li><b>它产出的是任务和环境，没有运行轨迹。</b>数据集里是一个个带着可运行环境和测试的任务，可以直接用来做强化学习，也可以让模型在上面跑，把跑出来的过程录成轨迹。</li>
+    <li><b>「可以验证」的含义有限。</b>它保证的是 PR 自己的测试在改动之前不通过、之后通过。issue 的文字够不够让人把问题解决掉，没有人逐个检查过，只有第四阶段那几个准确率在 67% 到 81% 之间的标签可供参考。论文自己也写了这一点：全自动的流程会让一部分任务描述不清，或者只靠 issue 解决不了。</li>
+    <li><b>它同时是一个不容易被数据污染的基准测试。</b>数据污染（data contamination）指测试题进入了模型的训练数据。SWE-rebench 的流程可以不断产出新任务，排行榜只用 2025 年创建的 issue；如果一次评估用到的 issue 早于模型的发布日期，榜上会明确标出来。<a href="hacking.html#memorize">第六部分</a>会讲旧的基准测试为什么需要这样做。</li>
+  </ul>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>这条路已经被用在大规模训练里。</b>DeepSeek-V3.2 的论文写到，它的代码 agent 训练数据来自从 GitHub 上提取的几百万对 issue 和 PR，经过规则和语言模型筛选之后，由一个自动搭环境的 agent 建出了几万个可以运行的环境，覆盖 Python、Java、JavaScript、Go 等多种语言。判定环境搭成的标准和 SWE-rebench 一样：打上标准答案之后，要有测试从不通过变成通过，并且没有测试从通过变成不通过。出处：<a href="https://arxiv.org/abs/2512.02556">DeepSeek-V3.2 论文</a>。</div></div>
+</section>
+
+<section class="sec" id="agenttrek">
+  <h2>AgentTrek：让 agent 照着网上的教程在真实浏览器里重做一遍</h2>
+  <p>AgentTrek（Xu 等，ICLR 2025）从网上收集操作教程，让一个能看图的语言模型（VLM，vision-language model）照着教程在真实的浏览器里把任务做一遍，再让模型判断做成了没有，只留下做成的。</p>
+  {{fig 33 | 流程的三个部分。左：从互联网的文本快照里筛出教程。中：agent 拿着教程在真实的网页环境里重放，评估器判断成功还是失败。右：用重放得到的数据训练模型。图片来源：<a href="https://arxiv.org/abs/2412.09605">Xu 等，2024</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">步骤</th><th scope="col">做什么</th><th scope="col">数字</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1 规则预筛</th><td>从 RedPajama（一个公开的大规模文本数据集）里，按关键词、长度和网址的样式筛出可能是教程的条目</td><td>从 208 亿条减少到 6,880 万条</td></tr>
+        <tr><th scope="row">2 分类</th><td>先用 GPT-4o mini 给 9 万条标上「是教程」或「不是教程」，再用这些标签训练一个轻量的 FastText 分类器，去处理全部条目</td><td>留下大约 1,880 万条</td></tr>
+        <tr><th scope="row">3 改写成统一格式</th><td>GPT-4o mini 把每篇教程改写成固定的结构：平台、任务描述、前提条件、分步的操作、预期的结果</td><td></td></tr>
+        <tr><th scope="row">4 带着教程重放</th><td>GPT-4o 拿到改写后的教程和目标网址，在真实的 Chromium 浏览器里执行。它看到的是当前屏幕的截图和无障碍树，动作是 Playwright 的接口调用。过程中记录截图、目标元素、坐标、网页快照、视频，以及模型每一步的推理</td><td>有教程时成功率是 52%，只给一句目标时是 15.78%（400 个任务的对照实验）</td></tr>
+        <tr><th scope="row">5 自动评估</th><td>GPT-4o 根据任务描述、动作历史和每一步的推理，判断这条轨迹是否完成了任务</td><td>和人工判断一致的比例是 84.0%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>最后从 23,430 篇教程得到 10,398 条成功的轨迹，覆盖 127 个网站，平均每条 12.1 步。出处：<a href="https://arxiv.org/abs/2412.09605">Xu 等，2024</a>。</figcaption>
+  </figure>
+  {{fig 35 | 一条重放得到的轨迹。任务是在 Under Armour 的网站上找到男士橄榄球服装的退货政策。左边是六张截图，对应九个步骤；右边是 agent 每一步的想法和动作，比如「先打开 Under Armour 的网站」，对应的动作是 <code>goto</code>。图片来源：<a href="https://arxiv.org/abs/2412.09605">Xu 等，2024</a>。}}
+  <h3>每条 0.55 美元是怎么算的</h3>
+  <p>论文给出的成本是每条通过评估的轨迹 0.55 美元，不需要人工标注。这个数只算了调用模型的费用，并且已经把失败的重放摊到了成功的轨迹上。每 1,000 条的价格是：改写 0.886 美元，重放 215.359 美元，评估 3.104 美元。改写的费用除以教程里和网页有关的比例 0.275，重放和评估的费用除以重放的成功率 39.9%，加起来是每 1,000 条 550.75 美元。这里用的 39.9% 和上面表里的 52% 来自不同的统计：52% 是 400 个任务的对照实验里的成功率。按最后的 10,398 条轨迹和 23,430 篇教程相除是 44.4%（粗略估算）。论文没有解释这三个数为什么不同。前面的预筛、训练分类器和运行浏览器的开销没有算在里面。</p>
+  <h3>效果</h3>
+  <p>用这些轨迹微调之后，Qwen2.5-7B 在 WebArena（一个网页任务的基准测试）上的任务成功率从 3.80% 升到 10.46%；同样微调的 Qwen2.5-32B 是 22.40%。合成的轨迹和人工的数据也可以一起用：在 Mind2Web 的跨领域测试集上，只用 AgentTrek 的数据单步成功率是 42.1%，只用 Mind2Web 的人工数据是 47.7%，两样一起用是 52.6%。</p>
+</section>
+
+<section class="sec" id="videoagenttrek">
+  <h2>VideoAgentTrek：从录屏教学视频里还原出鼠标和键盘的动作</h2>
+  <p>YouTube 上有大量教人使用软件的录屏视频。视频里有每一刻的画面，但没有记下鼠标点在哪里、键盘敲了什么。VideoAgentTrek（Lu 等，2025）用逆动力学模型把这些动作还原出来。</p>
+  <p>逆动力学模型（inverse dynamics model）做的事情是：看到前后画面的变化，反推出是什么动作造成了这个变化。这个想法来自机器人领域。可以这样理解它为什么可行：这比预测「下一步该做什么」容易，动作已经发生了，前后两个画面都摆在面前，只需要认出发生了什么。</p>
+  {{fig 36 | 三个阶段。左：从 YouTube 收集视频。中：筛出有屏幕操作的片段，由逆动力学模块把视频转成带推理和动作的轨迹数据。右：用这些数据训练 agent。图片来源：<a href="https://arxiv.org/abs/2510.19488">Lu 等，2025</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">步骤</th><th scope="col">做什么</th><th scope="col">数字</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">1 找视频</th><td>从「Excel tutorial」这样的种子关键词出发搜索；抽查一个频道的视频，如果 80% 以上合格，就把整个频道收进来</td><td>5.5 万个候选视频，大约 1 万小时</td></tr>
+        <tr><th scope="row">2 筛出屏幕操作</th><td>用一个检测鼠标指针的模型，只保留连续 6 秒以上、80% 以上的帧里有指针的片段</td><td>1 万小时里留下 7,377 小时</td></tr>
+        <tr><th scope="row">3 检测动作</th><td>一个微调过的视觉语言模型看视频片段，输出里面每个动作的类型和起止时间</td><td>在 23 小时的测试视频上，检测出的动作里 88% 是对的，实际发生的动作里有 70% 被找到</td></tr>
+        <tr><th scope="row">4 识别动作的内容</th><td>另一个微调过的模型看每个动作的片段，给出具体的参数：点击的坐标，或者输入的文字</td><td>人工抽查 500 个，65.8% 正确</td></tr>
+        <tr><th scope="row">5 补写推理</th><td>语言模型根据动作、前后的画面，以及视频里这个动作前后的讲解词，为每一步写一小段想法</td><td></td></tr>
+      </tbody>
+    </table>
+    <figcaption>一共处理了 3.9 万个视频，平均每个视频 39 步，合计大约 152 万步。出处：<a href="https://arxiv.org/abs/2510.19488">Lu 等，2025</a>。</figcaption>
+  </figure>
+  {{fig 37 | 第 1 步的细节：从种子关键词和标签出发搜索并评估视频，再扩展到相关的视频和高质量的频道，最后经过屏幕筛选得到可用的视频。图片来源：<a href="https://arxiv.org/abs/2510.19488">Lu 等，2025</a>。}}
+  <p>这个流程有两个地方离不开人工的数据。第一，第 3 步和第 4 步的模型本身要用带真实动作记录的视频来训练。检测动作的那个模型，用的是 OpenCUA 的录制工具录下来的 154 小时视频，那些视频同时带有真实的鼠标和键盘记录。第二，从视频得到的标注有不少错误，所以训练分两个阶段：先在视频得到的大量数据上训练，再在一小批干净的人工数据上训练。</p>
+  <p>效果是这样的。基础模型 Qwen2.5-VL-7B 在 OSWorld-Verified 上的任务成功率是 4.5%。只用人工数据训练是 9.3%。先用视频数据、再用人工数据，在每个任务最多 20 步时是 14.13%，最多 50 步时是 15.78%。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>逆动力学模型在游戏录像上更早用过。</b>OpenAI 2022 年的 VPT（Video PreTraining）用少量带标注的数据训练出一个逆动力学模型，再用它给网上大量没有标注的 Minecraft 游戏视频标上鼠标和键盘的动作，然后拿这些视频训练 agent。VideoAgentTrek 把同样的思路用到了电脑操作的教学视频上。出处：<a href="https://arxiv.org/abs/2206.11795">Baker 等，2022</a>。</div></div>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">系统</th><th scope="col">领域</th><th scope="col">产出</th><th scope="col">论文给出的花费</th><th scope="col">主要的限制</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Mind2Web</th><td>网页</td><td>2,350 个任务的人工演示</td><td>每个任务付给标注者 0.80 美元</td><td>每条演示都要作者人工核对</td></tr>
+        <tr><th scope="row">OpenCUA</th><td>操作电脑</td><td>22,625 个任务的人工演示，带合成的推理</td><td>大约 3.2 万美元，6 个月</td><td>规模受人力限制</td></tr>
+        <tr><th scope="row">SWE-rebench</th><td>代码</td><td>21,336 个带环境和测试的任务</td><td>论文里没有找到</td><td>只有 Python；任务没有人逐个检查</td></tr>
+        <tr><th scope="row">AgentTrek</th><td>网页</td><td>10,398 条运行轨迹</td><td>每条 0.55 美元的模型调用费</td><td>评估器只有 84% 的时候判断正确</td></tr>
+        <tr><th scope="row">VideoAgentTrek</th><td>操作电脑</td><td>大约 152 万步操作</td><td>论文里没有找到</td><td>还原出的动作有不少是错的；没有检查任务是否完成</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>人工演示最真实，规模受人力限制。从现成的材料里提取便宜得多，能做到的规模也大得多，但转换的每一步都可能出错。后三种来源更进一步：原始材料里没有现成的任务记录时，缺的部分由模型来写或者来扮演。教程、网页、代码仓库和少量真实的轨迹仍然会被当作输入。下一部分讲<a href="synth.html">合成运行轨迹、任务和环境</a>。</p>
+</section>

@@ -1,0 +1,118 @@
+<section class="sec" id="thesis">
+  <h2>一句话的结论</h2>
+  <p class="lead-in">语言模型算不准、没见过、够不着的事，交给模型外面的程序去做，<mark>模型只负责写出「调用哪个工具、传什么参数」</mark>。让模型会用工具有两个方向：训练模型去认识工具，或者给工具定一个任何模型都能读的标准接口。现在通行的是后一个。</p>
+  <p>这里的工具，指在模型外部运行的程序的函数接口，比如计算器、搜索、数据库查询。agent 指能自己调用工具、分很多步去完成任务的语言模型系统。这一讲先收尾上一讲的检索增强生成（RAG，先检索资料再让模型读着资料回答），然后依次讲为什么需要工具、模型怎样学会调用工具、工具怎样接到模型上、怎样评估。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">改模型去适应工具</th><th scope="col">改工具的描述方式</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">做法</th><td>造出带工具调用的训练数据，微调模型（在已经训练好的模型上用新数据继续训练）</td><td>把每个工具的名字、用途和参数写成统一的格式，运行时交给模型读</td></tr>
+        <tr><th scope="row">代表</th><td>Toolformer、ToolkenGPT、ToolLLM、Gorilla</td><td>REST API、函数调用（function calling）、MCP（Model Context Protocol，模型上下文协议）</td></tr>
+        <tr><th scope="row">新增一个工具要做什么</th><td>重新造数据、重新训练</td><td>写一份这个工具的描述</td></tr>
+        <tr><th scope="row">实验或实际的规模</th><td>从 5 个工具到约 1.6 万个 API</td><td>不受训练限制。一个工具服务写一次，各种 AI 应用都能接</td></tr>
+        <tr><th scope="row">在哪一页</th><td><a href="learn.html">第三部分</a>、<a href="scale.html">第四部分</a></td><td><a href="interface.html">第五部分</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>API（应用程序接口）是一个程序提供给别的程序调用的入口。两个方向是接着来的：模型先要有「读描述、写调用」的通用能力，具体的工具才能放到运行时再给。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="story">
+  <h2>六个问题</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="rag.html">一 检索回来的内容，<br>模型都用得上吗？</a></th><td>不一定。答案所在的文档排在长输入的中间时最容易被漏掉；多给文档，帮助很快到头；模型给出的引用也可能对不上</td><td>给 20 篇或 30 篇文档、答案排在中间时，GPT-3.5-Turbo 的准确率比不给文档时的 56.1% 还低。四个生成式搜索引擎平均只有 74.5% 的引用支持所标注的句子</td></tr>
+        <tr><th scope="row"><a href="why.html">二 为什么需要工具，<br>工具是什么？</a></th><td>模型有三类事做不好：算不准的，训练时没见过的，够不着的。工具是外部程序的函数接口，模型只生成调用和参数</td><td>不给例子时，GPT-4 做三位数乘三位数的准确率是 59%，四位数乘四位数是 4%</td></tr>
+        <tr><th scope="row"><a href="learn.html">三 模型怎样学会<br>调用工具？</a></th><td>Toolformer 让模型自己给文本加工具调用，只留下能让后文更好预测的那些，再用来微调。ToolkenGPT 把每个工具做成一个新 token，只训练它的向量</td><td>学会 5 个工具后，67 亿参数的 Toolformer 在算术题上答对 29% 到 44%，1,750 亿参数的 GPT-3 是 10% 到 20%。但它在开放问答上不如 GPT-3</td></tr>
+        <tr><th scope="row"><a href="scale.html">四 工具多到上千个<br>怎么办？</a></th><td>训练数据由更强的模型生成，工具文档靠检索找出来。工具多了会编造不存在的 API，Gorilla 用语法树匹配来度量</td><td>ToolLLM 用了 16,464 个真实 API。不带检索时，Gorilla 在 Torch Hub 上准确率 59.13%、编造 6.98%，GPT-4 是 38.70% 和 36.55%</td></tr>
+        <tr><th scope="row"><a href="interface.html">五 工具怎样接到<br>任何模型上？</a></th><td>靠标准接口，一共三代。REST 的文档给人看。函数调用用 JSON Schema 把工具描述给模型。MCP 让应用在运行时向工具服务器取工具列表</td><td>MCP 的两个请求：tools/list 问有哪些工具，tools/call 运行一个工具。把一个 REST API 包成 MCP 工具只要十来行代码</td></tr>
+        <tr><th scope="row"><a href="eval.html">六 怎样评估，<br>常见哪些失败？</a></th><td>分三层评估：单次调用（BFCL），多步调用（ToolBench），工具、agent 和用户三方（τ-bench）。失败归成三组八种</td><td>τ-bench 上 gpt-4o 在零售领域单次成功率 61.2%，同一个任务连做 8 次全部成功的比例不到 25%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一行的出处和细节在对应的页面里。token 是模型处理文字的最小单位。JSON Schema 是一种描述 JSON 数据应该长什么样的格式。</figcaption>
+  </figure>
+  <p>最后的结论是：接口统一之后，工具可以随时增减，剩下的难点是可靠性。调用是模型生成的一段文字，它会选错工具、填错参数、在不该调用的时候调用，所以每一层都要有对应的检查和评估。</p>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的七件事</h2>
+  <p>下面七件事，常见的说法都比实际情况简单。每一件在对应的页面里有出处和细节。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>生成式搜索引擎的引用精确率是 74.5%，说明四分之一的引用是编造的</td><td>74.5% 量的是引用的网页是否支持那句话，对不上的引用通常指向真实的网页。编造一篇不存在的文献是另一种错误</td><td><a href="rag.html#citation">RAG 的问题</a></td></tr>
+        <tr><td>大海捞针测试证明 Claude 2.1 用不好 20 万 token 的上下文</td><td>结果和 prompt（交给模型的输入文字）的写法关系很大。Anthropic 在让模型开始回答的地方加了一句话，同一个测试的得分从 27% 升到 98%</td><td><a href="rag.html#needle">RAG 的问题</a></td></tr>
+        <tr><td>Toolformer 用小模型加工具，全面超过了大 25 倍的 GPT-3</td><td>补全事实、算术、日期推算上超过了。开放问答的三个数据集上都不如 GPT-3。多语言问答上没有稳定地超过微调前的模型</td><td><a href="learn.html#results">学会调用</a></td></tr>
+        <tr><td>给模型加上检索，工具调用一定更准</td><td>不带检索训练的 Gorilla 在 Torch Hub 上准确率是 59.13%，使用时接上一个关键词检索器后降到 37.63%。检索到的文档不对，模型会被带偏</td><td><a href="scale.html#results">上千个工具</a></td></tr>
+        <tr><td>函数调用是一种统一的格式</td><td>各家只是思路相同。同样是「参数的 Schema」，OpenAI 叫 parameters，Anthropic 叫 input_schema，MCP 叫 inputSchema，模型输出调用的结构也不同。这正是需要 MCP 的原因之一</td><td><a href="interface.html#function-calling">标准接口</a></td></tr>
+        <tr><td>MCP 是有状态的会话协议，连接后要先握手</td><td>2025-06-18 版规范是这样。2026-07-28 版改成了无状态：取消握手，每个请求自带协议版本和客户端支持的功能</td><td><a href="interface.html#messages">标准接口</a></td></tr>
+        <tr><td>τ-bench 按数据库的最终状态自动评分，所以分数可靠</td><td>评分还要检查回复里的关键信息。航空任务里，什么都不做的 agent 能拿 38%。2026 年 2 月，官方修正了 50 多个有问题的任务</td><td><a href="eval.html#tau-issues">评估和失败</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="colors">
+  <h2>页面里三种颜色的框</h2>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲有两处。</div></div>
+</section>
+
+<section class="sec" id="modules">
+  <h2>按部分阅读</h2>
+  <div class="modlist">
+    <a href="rag.html"><span class="m">第一部分</span><span><b>检索回来的内容，模型不一定用得上</b><p>RAG 的九个问题；中间丢失；多给文档的效果；引用出错和编造的文献；大海捞针测试。</p></span></a>
+    <a href="why.html"><span class="m">第二部分</span><span><b>为什么需要工具，工具是什么</b><p>乘法和其他多步任务上的失败；三类做不好的事；工具的定义；五类使用场景；一次调用的过程。</p></span></a>
+    <a href="learn.html"><span class="m">第三部分</span><span><b>模型怎样学会调用工具</b><p>Toolformer 的三步造数据、推理方式、结果和局限；ToolkenGPT 把工具当成 token。</p></span></a>
+    <a href="scale.html"><span class="m">第四部分</span><span><b>工具多到上千个</b><p>ToolLLM 用 ChatGPT 造数据；编造 API 的问题；Gorilla 的数据、带检索的训练和语法树匹配；四种方法的对照。</p></span></a>
+    <a href="interface.html"><span class="m">第五部分</span><span><b>标准接口：REST、函数调用和 MCP</b><p>为什么要标准接口；三代接口各自的做法和局限；MCP 的三个角色和两个请求；一个带权限控制的例子。</p></span></a>
+    <a href="eval.html"><span class="m">第六部分</span><span><b>怎样评估工具使用，常见哪些失败</b><p>BFCL、ToolBench、τ-bench；pass^k；后来查出的问题；八种失败模式；整讲的小结。</p></span></a>
+  </div>
+</section>
+
+<section class="sec" id="sources">
+  <h2>资料</h2>
+  <h3>主要的三份</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Schick 等，2023</th><td><a href="https://arxiv.org/abs/2302.04761">Toolformer: Language Models Can Teach Themselves to Use Tools</a>：让模型自己给文本标注工具调用，按损失筛选后微调，学会 5 个工具</td><td>三</td></tr>
+        <tr><th scope="row">Patil 等，2023</th><td><a href="https://arxiv.org/abs/2305.15334">Gorilla: Large Language Model Connected with Massive APIs</a>：在 1,645 个机器学习 API 上微调，训练时带上检索到的文档，用语法树匹配度量编造</td><td>四</td></tr>
+        <tr><th scope="row">MCP 规范</th><td><a href="https://modelcontextprotocol.io/specification/2025-06-18">Model Context Protocol Specification，2025-06-18 版</a>：主机、客户端、服务器三个角色，工具、资源、提示模板三种服务器功能，以及消息格式。最新的版本是 <a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">2026-07-28 版</a></td><td>五</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>其他论文</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">论文</th><th scope="col">用在哪里</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://arxiv.org/abs/2307.03172">Liu 等，2023，Lost in the Middle</a>；<a href="https://arxiv.org/abs/2304.09848">Liu、Zhang 和 Liang，2023，Evaluating Verifiability in Generative Search Engines</a></td><td>第一部分：答案位置的影响，引用的精确率和召回率</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2305.18654">Dziri 等，2023，Faith and Fate</a>；<a href="https://arxiv.org/abs/2403.15452">Wang 等，2024，What Are Tools Anyway?</a></td><td>第二部分：模型在多步任务上的失败，工具的定义和分类</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2305.11554">Hao 等，2023，ToolkenGPT</a></td><td>第三部分</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2307.16789">Qin 等，2023，ToolLLM</a>；<a href="https://arxiv.org/abs/2403.07714">Guo 等，2024，StableToolBench</a></td><td>第四部分和第六部分：ToolBench 的构造、评分和后来查出的问题</td></tr>
+        <tr><td><a href="https://icml.cc/virtual/2025/poster/46593">Patil 等，2025，BFCL</a></td><td>第六部分</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2406.12045">Yao 等，2024，τ-bench</a>；<a href="https://arxiv.org/abs/2506.07982">Barres 等，2025，τ²-bench</a>；<a href="https://arxiv.org/abs/2603.04370">τ-knowledge</a>；<a href="https://arxiv.org/abs/2603.13686">τ-voice</a>；<a href="https://arxiv.org/abs/2507.02825">Zhu 等，2025</a></td><td>第六部分：τ-bench 的设计、pass^k、后续版本和评分里查出的问题</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <h3>其他资料</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">资料</th><th scope="col">用在哪里</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://github.com/gkamradt/LLMTest_NeedleInAHaystack">Kamradt 的大海捞针测试</a>；Anthropic，<a href="https://www.anthropic.com/news/claude-2-1-prompting">Long context prompting for Claude 2.1</a></td><td>第一部分的两张热力图和后续的说明</td></tr>
+        <tr><td><a href="https://gptzero.me/news/neurips/">GPTZero 关于 NeurIPS 2025 的文章</a>；<a href="https://blog.iclr.cc/2026/03/31/a-retrospective-on-the-iclr-2026-review-process/">ICLR 2026 审稿流程回顾</a></td><td>第一部分：论文里编造的参考文献</td></tr>
+        <tr><td>OpenAI，<a href="https://openai.com/index/function-calling-and-other-api-updates/">Function calling and other API updates</a>（2023）和<a href="https://platform.openai.com/docs/guides/function-calling">函数调用指南</a>；<a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Anthropic 的工具使用文档</a></td><td>第五部分：函数调用的来历和各家的字段</td></tr>
+        <tr><td>Anthropic，<a href="https://www.anthropic.com/news/model-context-protocol">Introducing the Model Context Protocol</a>（2024）；<a href="https://modelcontextprotocol.io/docs/learn/architecture">MCP 文档的架构概览</a></td><td>第五部分：MCP 的来历和三个角色</td></tr>
+        <tr><td>FastMCP 文档的 <a href="https://gofastmcp.com/integrations/openapi">OpenAPI 一节</a>和<a href="https://gofastmcp.com/servers/auth/token-verification">令牌验证一节</a></td><td>第五部分的两个代码例子</td></tr>
+        <tr><td><a href="https://gorilla.cs.berkeley.edu/leaderboard.html">BFCL 排行榜</a>；<a href="https://taubench.com/">τ-bench 官网</a></td><td>第六部分的排行榜截图和版本时间线</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>

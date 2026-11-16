@@ -1,0 +1,173 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>设计一个记忆系统，要回答三个问题：存什么、取什么；什么时候触发存和取；用什么办法存和取。各个系统的差别，都可以归结为这三个问题的答案不同。</li>
+    <li>触发存取的方式常见的有三种：agent（能自己调用工具、分很多步去完成任务的语言模型系统）按需调用工具，后台的流程自动处理，由某个事件触发。</li>
+    <li>存放的办法常见的有三种：文件系统、数据库、知识图谱。文件系统最简单，查找时靠模型自己一步步翻，所以慢。数据库查得快。知识图谱能表达事物之间的关系和随时间的变化，建起来最费事。</li>
+    <li>一个实用的建议是：能用文件系统就先用文件系统。对查找速度有要求时，再考虑另外两种。</li>
+    <li>后面三部分讲四种架构模式：从经验里学做法，分层的记忆，反思式整理，记忆维护。</li>
+  </ul>
+</section>
+
+<section class="sec" id="three">
+  <h2>三个问题：存什么，何时，怎么存</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">问题</th><th scope="col">常见的答案</th><th scope="col">在哪里细讲</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">存什么，取什么<br><span class="muted small">What</span></th><td>事实（具体的和一般的），做法，对话的进展</td><td><a href="basics.html#four">第一部分</a>的四种记忆就是在回答这个问题</td></tr>
+        <tr><th scope="row">什么时候触发存和取<br><span class="muted small">When</span></th><td>agent 按需调用工具；后台的流程；事件触发</td><td><a href="#when">下一节</a></td></tr>
+        <tr><th scope="row">用什么办法存和取<br><span class="muted small">How</span></th><td>文件系统；数据库加检索；知识图谱</td><td>本页<a href="#how">后面几节</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一格里列的都只是常见的答案，不同的系统还有别的做法。</figcaption>
+  </figure>
+  <p>读后面任何一个记忆系统时，都可以拿这三个问题去问它。<a href="upkeep.html#recap">第五部分最后的对照表</a>就是按这三个问题把四种模式排在一起的。</p>
+</section>
+
+<section class="sec" id="when">
+  <h2>什么时候存取：三种触发方式</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">触发方式</th><th scope="col">怎么回事</th><th scope="col">例子</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">agent 按需调用工具<br><span class="muted small">on-demand</span></th><td>读写记忆是 agent 手里的工具。它在做任务的过程中自己判断什么时候该查、什么时候该记</td><td>MemGPT 的搜索和写入函数；agent 读一个技能文件</td></tr>
+        <tr><th scope="row">后台的流程<br><span class="muted small">background worker</span></th><td>另有一套流程看着对话，由它决定存什么、取什么。做任务的那个模型不用为记忆分心</td><td>Mem0 每收到一轮新的对话就提取并更新记忆；Letta 的 sleep-time agent 在主 agent 空闲时整理它的记忆</td></tr>
+        <tr><th scope="row">事件触发<br><span class="muted small">event-driven</span></th><td>某件事发生时，系统自动启动一次记忆操作</td><td>MemGPT 在上下文窗口（context window，模型一次能读进去的全部文字）快满时发出警告，提醒模型把重要的内容存起来</td></tr>
+      </tbody>
+    </table>
+    <figcaption>这些系统分别在<a href="tiers.html">第四部分</a>和<a href="upkeep.html">第五部分</a>细讲。</figcaption>
+  </figure>
+  <p>三种方式可以同时用。MemGPT 就是表里第一种和第三种的结合：平时由模型自己决定存什么、查什么，上下文窗口快满时由事件提醒它。</p>
+  <p>选哪种方式，背后是一个取舍。让 agent 自己决定最灵活，但它可能忘了去存，也可能忘了去查，<a href="basics.html#cases">第一部分开头的 Luna</a> 就是存了却没有去查的例子。交给后台的流程更可靠，代价是多一套要设计和运行的东西。</p>
+</section>
+
+<section class="sec" id="how">
+  <h2>怎么存取：三种存放的办法</h2>
+  <p>不管记忆是哪一种，底层都需要一个办法把信息写到磁盘上，以后再读出来。最常见的三种办法是文件系统、数据库和知识图谱。下面三节各讲一种，<a href="#choose">之后一节</a>放在一起比较。</p>
+</section>
+
+<section class="sec" id="files">
+  <h2>文件系统：每条记忆是一个文件</h2>
+  <p>最直接的办法是把每条记忆存成一个文件，让 agent 自己管理这些文件。这样做有三个特点。</p>
+  <ul>
+    <li><b>天然有层级。</b>文件放在文件夹里，文件夹可以再套文件夹。agent 可以先看一个文件夹里有什么，再进到子文件夹里看。</li>
+    <li><b>不需要专门的记忆工具。</b>列目录的 <code>ls</code>、搜索文字的 <code>grep</code> 这些命令行工具，就是读记忆的工具。写记忆就是写文件。</li>
+    <li><b>模型本来就会用。</b>现在的模型很擅长操作文件系统，不用额外教。</li>
+  </ul>
+  {{fig 26 | 三种长期记忆各对应一组文件。程序性记忆是 AGENTS.md 和 mcp.json。语义记忆是几个文件夹，里面有 SKILL.md 和知识文件。情景记忆是 conversations 文件夹里按日期存的对话记录。图片来源：<a href="https://www.langchain.com/blog/how-we-built-agent-builders-memory-system">LangChain 的博客</a>。}}
+  <p>图里的三种长期记忆是<a href="basics.html#four">第一部分</a>讲过的：程序性记忆（procedural memory）存做法，语义记忆（semantic memory）存知识，情景记忆（episodic memory）存经历。AGENTS.md 是放在项目里、给 agent 看的说明文件，写着这个项目的规矩和常用做法。mcp.json 列出 agent 可以连接的外部工具。</p>
+  <h3>一个真实产品的做法和教训</h3>
+  <p>这张图出自 LangChain 2026 年 2 月的一篇博客，讲的是他们的产品 LangSmith Agent Builder 怎样做记忆。这个产品让不写代码的人搭建 agent，这类 agent 通常反复做同一种任务，所以这一次学到的东西下一次很可能用得上。博客里有几处细节值得知道。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">方面</th><th scope="col">他们怎么做</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">为什么用文件</th><td>模型擅长使用文件系统。让 agent 直接读写文件，就不用给它专门的记忆工具</td></tr>
+        <tr><th scope="row">文件实际存在哪里</th><td>没有用真正的文件系统。文件存在 Postgres 数据库里，再以文件系统的样子呈现给 agent。理由是模型习惯文件系统，而从基础设施的角度看数据库更容易管理</td></tr>
+        <tr><th scope="row">什么时候写</th><td>agent 一边做任务一边改这些文件。每一处改动都要人批准之后才生效，主要是为了防 prompt 注入。prompt 是给模型的输入文字，prompt 注入指藏在外部内容里、诱导模型做坏事的指令。用户不担心的话可以关掉这一步</td></tr>
+        <tr><th scope="row">最难的部分</th><td>写 prompt。agent 该记的时候不记，不该记的时候乱记，把内容写错了文件，或者不知道技能文件该用什么格式，这些问题几乎都靠改 prompt 解决。团队里有一个人全职做这件事</td></tr>
+        <tr><th scope="row">agent 不会自己归纳</th><td>agent 擅长往文件里加东西，不会主动合并。博客里的例子是一个处理邮件的助手，它在记忆里一条条列出该忽略的推销方，没有把规则改成「忽略所有陌生的推销邮件」</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://www.langchain.com/blog/how-we-built-agent-builders-memory-system">LangChain 的博客</a>，2026 年 2 月 21 日。</figcaption>
+  </figure>
+  <p>最后一条教训和<a href="upkeep.html#maintain">第五部分</a>的记忆维护是同一个问题：只往里加、不整理，记忆会越来越乱。博客说他们计划加一个后台进程，大约每天运行一次，回顾所有对话并更新记忆。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>图和产品有两处对不上。</b>图是一张概念图。按博客正文，这个产品目前没有情景记忆，图里 conversations 那一行是计划中的做法：把以前的对话作为文件放进文件系统。另外，产品用的是自己定义的 tools.json，没有用图里写的 mcp.json，原因是他们想让用户只把一个外部工具集里的一部分工具交给 agent，免得工具说明把上下文窗口占满。博客还把技能文件归为语义记忆，这一讲把它归为程序性记忆，见<a href="basics.html#fuzzy">第一部分</a>的说明。</div></div>
+</section>
+
+<section class="sec" id="db">
+  <h2>数据库：把记忆存成可以检索的记录</h2>
+  <p>第二种办法是把记忆存进数据库，用检索的办法取。第 3 讲讲过检索增强生成（RAG，先检索相关的资料，再让模型根据资料作答），那里介绍的技术在这里都用得上。按怎么查，可以分成三种。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">查法</th><th scope="col">怎么做</th><th scope="col">适合什么情况</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">向量相似度</th><td>把每条记忆转成向量（embedding，一串数字，意思相近的文字转出来的数字也相近）存进向量数据库。查询也转成向量，找最相近的几条</td><td>问法和记忆的原文用词不同，但意思相关</td></tr>
+        <tr><th scope="row">按元数据查</th><td>在 SQLite 这类关系数据库里，给每条记忆存上时间、来源、类别等信息，用 SQL 语句按条件筛选</td><td>要按时间范围、按类别这类明确的条件找</td></tr>
+        <tr><th scope="row">关键词匹配</th><td>用 BM25（一种按词的出现频率给文档打分的经典算法）找包含某些词的记忆</td><td>要找的是一个确切的词，比如人名、编号、报错信息</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>三种查法经常混着用，也可以对不同的内容用不同的查法。<a href="tiers.html#layout">第四部分</a>的 MemGPT 就是这样：上传的文档转成向量来搜，对话的原文则保留全文，按字符串和日期来查。哪些内容该转成向量、哪些该保留全文做精确查找，没有统一的答案，要看具体的应用。</p>
+</section>
+
+<section class="sec" id="graph">
+  <h2>知识图谱：把记忆存成实体和关系</h2>
+  <p>第三种办法最不直观。知识图谱（knowledge graph）把信息存成一张图：节点是实体，比如人、公司、产品；边是实体之间的关系，比如「任职于」「喜欢」。这里用 Zep 来说明。Zep 是一个面向 agent 的商业记忆服务，它的论文在 2025 年 1 月上传，核心是一个叫 Graphiti 的知识图谱引擎。</p>
+  {{fig 28 | 左：Zep 官网上的示意图。节点是人、公司、话题、产品，边上写着关系，其中一条是「任职于，到 2026 年 3 月为止」。右：一篇教程里画的 Zep 的三层结构，从上到下是原始数据、实体和关系、实体的聚类和摘要。图片来源：<a href="https://www.getzep.com/">getzep.com</a> 和 <a href="https://blog.dailydoseofds.com/p/hands-on-build-an-ai-agent-with-human">Daily Dose of Data Science</a>。}}
+  <h3>三层结构</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">层</th><th scope="col">存什么</th><th scope="col">怎么来的</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">原始片段<br><span class="muted small">episode</span></th><td>原样保存的输入：消息、文本或 JSON 数据</td><td>直接存入，不做任何删减。另外两层都从这里提取</td></tr>
+        <tr><th scope="row">实体和关系<br><span class="muted small">semantic entity</span></th><td>从原始片段里提取的实体，以及实体之间的关系。每条关系就是一条事实</td><td>语言模型读每条新消息和它前面的 4 条消息，提取实体和事实。新提取的实体会和图里已有的实体比对，是同一个就合并</td></tr>
+        <tr><th scope="row">社区<br><span class="muted small">community</span></th><td>联系紧密的一群实体，加上一段概括这群实体的摘要</td><td>用一种图上的聚类算法把实体分组，再让语言模型写摘要</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2501.13956">Rasmussen 等，2025</a>，第 2 节。</figcaption>
+  </figure>
+  <p>举一个例子。用户在一次对话里聊到自己的狗，还提到表弟很喜欢这条狗。系统读了这段对话，会建两个实体，「表弟」和「狗」，再在两者之间连一条边「喜欢」。对话越积越多，这张图会变得很大。这时第三层就有用了：先在各个社区的摘要里找到相关的那一群实体，再进去看细节。</p>
+  <p>按 Zep 论文自己的说法，原始片段这一层对应情景记忆，实体和关系这一层对应语义记忆。知识图谱主要用来存语义记忆。做法这类程序性记忆也可以硬写成「先做这一步、再做那一步」的图，但很少有人这样做。</p>
+  <h3>事实会过期</h3>
+  <p>Zep 的一个特点是每条事实都带时间。一条边上记着这件事从什么时候开始成立、到什么时候不再成立。新的信息进来时，语言模型把它和图里相关的旧事实对比，如果发现矛盾，旧的那条边会被标上失效的时间，但不会被删掉。图里那条「任职于，到 2026 年 3 月为止」的边就是这个意思：这个人曾经在这家公司工作，现在不在了，两件事图里都记着。</p>
+  <p>这个设计针对的是<a href="basics.html#without">第一部分</a>里饮食偏好那个例子暴露的问题：用户的情况变了，记忆得知道哪一条是现在的、哪一条是过去的。</p>
+  <h3>查的时候有什么不同</h3>
+  <p>图谱比前两种办法多出来的，是可以沿着关系查。Zep 提供三种搜索：向量相似度，BM25 关键词匹配，以及从某个节点出发、沿着边向外一层层找的广度优先搜索。前两种找的是文字上或意思上相近的内容，第三种找的是在图上离得近的内容。搜到的结果再经过一次重新排序，最后把事实连同它成立的时间段一起交给 agent。</p>
+  <p>换一个角度看，三种办法的差别在于查找时的判断由谁来做。文件系统的办法让模型自己一步步去翻。图谱的办法在存入时先把关系整理好，查找时由检索程序沿着这些关系去找，留给模型做的判断就少一些。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Zep 论文里的两组成绩，以及作者自己的保留意见。</b>
+    <ul>
+      <li><b>深度记忆检索（DMR）。</b>这是 MemGPT 论文提出的测试，考 agent 能不能回答关于以前对话的问题。用 GPT-4 Turbo 时，Zep 的准确率是 94.8%，MemGPT 论文报告的是 93.4%，把完整对话直接放进上下文窗口是 94.4%。三个数很接近。Zep 的作者自己说，这个测试里每组对话只有 60 条消息，放得进现在模型的上下文窗口，不足以用来评价记忆系统。</li>
+      <li><b>LongMemEval。</b>对话历史平均约 11.5 万 token（模型处理文字的最小单位，大致是一个词或半个词）。用 GPT-4o 时，把全部历史放进上下文窗口的准确率是 60.2%，每次回答约 28.9 秒；用 Zep 只取大约 1,600 个 token 的内容，准确率是 71.2%，每次约 2.58 秒。论文摘要里说的「准确率最多提高 18.5%」是相对比例，换成百分点是 11 个百分点。分类型看，有一类问题的成绩是下降的。</li>
+    </ul>
+    这是产品方自己发表的论文，拿来对比的参照做法（基线，baseline）是把全部历史放进上下文窗口，没有和别的记忆系统在这个测试上比。出处：<a href="https://arxiv.org/abs/2501.13956">Rasmussen 等，2025</a>。</div></div>
+</section>
+
+<section class="sec" id="choose">
+  <h2>三种办法怎么选</h2>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">文件系统</th><th scope="col">数据库</th><th scope="col">知识图谱</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">一条记忆是什么</th><td>一个文件</td><td>一条记录：一段文字，加上向量和元数据</td><td>实体（节点）和关系（边）</td></tr>
+        <tr><th scope="row">怎么查</th><td>agent 用命令行工具自己翻</td><td>向量相似度、SQL 条件、关键词</td><td>沿着关系查，也可以配合向量和关键词</td></tr>
+        <tr><th scope="row">查找时谁出力</th><td>模型。它要一步步决定看哪个文件</td><td>检索程序。一次查询就返回结果</td><td>检索程序，并且用上了事先建好的关系</td></tr>
+        <tr><th scope="row">好处</th><td>最简单，自带层级，模型本来就会用</td><td>查得快，技术成熟</td><td>能表达事物之间的关系和随时间的变化</td></tr>
+        <tr><th scope="row">代价</th><td>慢。查一次要好几轮模型调用</td><td>没检索到的内容模型就看不到</td><td>建图要调用很多次语言模型，结构最复杂</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>每篇论文都会说自己的系统最好，所以很难给出一个通用的排名。一个实用的建议是：能用文件系统的地方，就先用文件系统。这条建议来自实践中的经验，属于一种看法：搭一个最简单的结构、把主导权交给模型，效果往往不错。告诉模型「这是你的文件系统，把它当记忆来用」，很多时候就能工作。要在查找速度上做取舍的时候，才需要另外两种办法。</p>
+  <p>文件系统的代价是延迟。agent 每查一次记忆，都要运行命令、读结果、推理、再决定下一步，来回好几轮。<a href="eval.html#lme">第六部分</a>的 LongMemEval-V2 基准测试（benchmark，一组题目加一个打分的办法）给出了一组具体的数字。它考的是记忆系统能不能从 agent 过去的大量运行轨迹（trajectory，每一步的动作和看到的结果的完整记录）里找到答案。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">记忆的做法</th><th scope="col">具体怎么做</th><th scope="col" class="r">回答问题的准确率</th><th scope="col" class="r">每个问题的查询耗时</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">最基本的检索</th><td>按向量相似度取出相关的片段和笔记</td><td class="r">51.0%</td><td class="r">0.2 秒</td></tr>
+        <tr><th scope="row">加强的检索</th><td>存入时提取结构化的条目，查询时由一个小模型生成多条查询</td><td class="r">58.6%</td><td class="r">26.9 秒</td></tr>
+        <tr><th scope="row">文件加写代码的 agent</th><td>轨迹存成文件，再给写代码的 agent 配上一份说明文档、文件清单和一个辅助脚本，查询时由它搜索和查看</td><td class="r">74.9%</td><td class="r">108.3 秒</td></tr>
+      </tbody>
+    </table>
+    <figcaption>LongMemEval-V2 较小的那一档（每组 100 条历史轨迹）上的结果。第三行如果不配这些辅助材料、让写代码的 agent 直接去翻文件，准确率是 69.9%，每个问题 177.2 秒。前两行和第三行用的模型不同：前两行检索用的向量模型是 Qwen3-Embedding-8B，第二行生成查询的小模型是 Qwen3.5-9B；第三行负责查找的是 GPT-5.4-mini。所以第三行和前两行的差距不能全算在存放办法上。三行最后写答案的都是同一个模型。出处：<a href="https://arxiv.org/abs/2605.12493">Wu 等，2026</a>，表 2。</figcaption>
+  </figure>
+  <p>准确率最高的做法，查询耗时是最基本的检索的几百倍。这是「文件系统准、数据库快」这个取舍的一个实例，其中有一部分差距来自模型不同。</p>
+</section>
+
+<section class="sec" id="patterns">
+  <h2>四种架构模式一览</h2>
+  <p>有了存放的办法，还要决定怎样组织和使用记忆。已有的系统可以归纳成四种模式。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模式</th><th scope="col">一句话</th><th scope="col">例子</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">从经验里学做法<br><span class="muted small">Learning Procedures<br>from Experience</span></th><td>把过去做成功的任务整理成可以再用的做法</td><td>Voyager、Agent Workflow Memory、技能文件</td><td><a href="skills.html">第三部分</a></td></tr>
+        <tr><th scope="row">分层的记忆<br><span class="muted small">Tiered Memory Hierarchy</span></th><td>把记忆分成短期和长期的几层，在层与层之间搬运</td><td>MemGPT、MemoryOS</td><td><a href="tiers.html">第四部分</a></td></tr>
+        <tr><th scope="row">反思式整理<br><span class="muted small">Reflective Memory<br>Consolidation</span></th><td>让模型对经历做反思，把反思得出的结论也存进记忆</td><td>Reflexion、Generative Agents</td><td><a href="upkeep.html#reflect">第五部分</a></td></tr>
+        <tr><th scope="row">记忆维护<br><span class="muted small">Memory Maintenance</span></th><td>存了之后继续整理：清理、更新、删除旧的记忆</td><td>Sleep-time compute、A-Mem、Mem0</td><td><a href="upkeep.html#maintain">第五部分</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>这四种模式是对已有论文的一种归纳，没有公认的标准分法。一个系统也可以同时用到几种模式，比如 Generative Agents 既有反思，也有按时间衰减的检索。把它们分开讲，是为了看清每一种做法各自解决什么问题、带来什么代价。</p>
+  <p>下一部分从第一种模式讲起：<a href="skills.html">从做成的事里学会做法</a>。</p>
+</section>

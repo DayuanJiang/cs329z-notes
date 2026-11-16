@@ -1,0 +1,190 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>上下文工程（context engineering）管的是每次调用模型时，上下文窗口里的全部 token 怎么安排。上下文窗口是一次能放进模型的 token 数的上限，token 是模型处理文字的最小单位。</li>
+    <li>不能把所有东西都放进去，原因有两个：上下文越长，模型用好其中信息的能力越差，这叫 context rot；上下文越长，每一步越贵。</li>
+    <li>四条实际的做法：只放必要的工具和内容；用检索挑出最相关的再放；新内容只往后面加，让前面算过的缓存一直能用；每个安排都用实验来验证。</li>
+    <li>上下文满了之后要做 compaction，也就是把历史总结成一段摘要再继续。留多了很快又满，丢多了会丢掉完成任务必需的信息。</li>
+    <li>还有一种不同的思路叫递归语言模型：把很长的输入放在代码环境的一个变量里，让模型写代码去查看它、拆分它，并对其中的片段再调用模型。</li>
+  </ul>
+</section>
+
+<section class="sec" id="what">
+  <h2>从 prompt 工程到上下文工程</h2>
+  <p>ChatGPT 刚出现的那段时间，大家关心的是 prompt 工程（prompt engineering）：一段交给模型的指令该怎么措辞，模型才答得好。那时流行过各种写法，比如告诉模型「答不好这个问题世界就要毁灭」。</p>
+  <p>现在的 agent 要在很多轮里连续工作，agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。能给模型的信息非常多，问题变成了：这么多信息，哪些放进去，怎么组织，怎么删减。这就是上下文工程，它是在 prompt 工程之上的一层。</p>
+  {{fig 161 | 左：prompt 工程，上下文窗口里只有 system prompt 和一条用户消息，模型回一条消息。右：agent 的上下文工程。最左一栏是可以放进去的全部材料（文档、工具、记忆文件、详细的说明、领域知识、消息历史），经过中间的挑选，只有一部分进入上下文窗口。模型的输出除了消息还有工具调用，工具的结果又回到左边的材料里，等待下一轮挑选。图片来源：<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025 年 9 月</a>。}}
+  <p>这张图出自 Anthropic 2025 年 9 月的文章《Effective context engineering for AI agents》。文章里的两个定义是：上下文指对语言模型做一次抽样时包含进去的那组 token；上下文工程指在推理过程中挑选并维护最合适的那组 token 的一整套办法，其中也包括 prompt 之外进入上下文的所有其他信息。</p>
+  <h3>agent 的上下文里有什么</h3>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">组成部分</th><th scope="col">是什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">system prompt</th><td>放在最前面、设定模型角色和规则的那段文字，通常也包含对各个工具的说明</td></tr>
+        <tr><th scope="row">消息历史</th><td>用户和 agent 之前的多轮对话</td></tr>
+        <tr><th scope="row">记忆</th><td>agent 以前保存下来、这次取回来的内容</td></tr>
+        <tr><th scope="row">工具调用的结果</th><td>调用工具之后返回的内容，比如读到的文件、搜索的结果</td></tr>
+        <tr><th scope="row">附带的文件</th><td>用户直接附上的文档、图片等</td></tr>
+      </tbody>
+    </table>
+    <figcaption>实际还可以有更多种。</figcaption>
+  </figure>
+</section>
+
+<section class="sec" id="rot">
+  <h2>为什么不把所有东西都放进去</h2>
+  <p class="lead-in">第一个原因是 <mark>context rot：上下文里的 token 越多，模型准确用到其中信息的能力越差</mark>。第二个原因是花费：<a href="transformer.html#recurrence">第二部分</a>讲过，标准注意力的计算量随长度的平方增长。</p>
+  <p>下面用一个专门测长上下文的基准测试 OOLONG 来看第一个原因。</p>
+  {{fig 163 | OOLONG 的两类题。左：给一批带日期的新闻，问「关于经济的新闻，9 月多还是 8 月多」。模型要判断每篇是不是讲经济的，记下日期，再数数。右：给 12 小时的桌面游戏对话记录，问「角色 Jester 在这几集里一共施放了几次治疗术」。图片来源：<a href="https://arxiv.org/abs/2511.02817">Bertsch 等，2025</a>。}}
+  <p>这类题和<a href="linear.html#cost">第三部分</a>里在长文章中找一个数字的测试不同。找数字的题，上下文里绝大部分内容是无关的。OOLONG 的题要求模型把上下文里每一小块都看一遍、各自做一个简单的判断，再把结果汇总起来，没有哪一部分可以跳过。</p>
+  {{fig 164 | 得分随上下文长度的变化，每条线是一个模型。左图是合成数据的部分，横轴从 8K 到 512K 个 token；右图是真实对话记录的部分，横轴从 64K 到 512K。黑色虚线是随机猜的基线。图片来源：同上，论文的第一版。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">上下文 8K 时的得分</th><th scope="col" class="r">上下文 128K 时的得分</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">GPT-5</th><td class="r">85.56</td><td class="r">46.36</td></tr>
+        <tr><th scope="row">o3</th><td class="r">86.80</td><td class="r">37.45</td></tr>
+        <tr><th scope="row">Claude Sonnet 4</th><td class="r">74.43</td><td class="r">48.02</td></tr>
+      </tbody>
+    </table>
+    <figcaption>合成数据部分的得分，满分 100，数字来自论文第一版的表格。答案是类别、日期这类的题按是否完全一致给分，答案是数字的题按离正确答案的远近给部分分。</figcaption>
+  </figure>
+  <p>三个模型在 8K 时都在 74 分以上，到 128K 时都不到 50 分，而 128K 仍然在这些模型的上下文窗口以内。论文第一版的摘要写的是：GPT-5、Claude Sonnet 4 和 Gemini 2.5 Pro 在 128K 时，两部分的准确率都低于 50%。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>图里最醒目的那条黄线，不适合拿来说明 context rot。</b>左图里黄色的线是 Gemini 2.5 Pro，它在上下文短的时候接近 90%，之后一路掉下去，看上去是 context rot 最严重的例子。这条线确实从 8K 时的 88.13 开始下降，到 256K 时从图上看只有 13% 左右，已经低于随机猜的基线。但论文自己解释了主要原因：上下文很长时，Gemini 的推理过程常常超出最大输出长度，而它的 API 在这种情况下不返回任何内容，这道题就直接记 0 分。别的模型在同样情况下返回的是被截断的输出，还可能拿到部分分。所以上面的表没有列它。在真实对话记录的那部分，论文没有观察到这个问题，Gemini 是成绩最好的模型。出处：<a href="https://arxiv.org/abs/2511.02817v1">OOLONG 论文的第一版</a>第 4 节。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>context rot 这个词的来历，以及 Anthropic 的解释。</b>这个词出自 Chroma 2025 年 7 月的技术报告。报告测了 18 个模型，结论是模型并不均匀地使用上下文，输入越长，表现越不可靠。Anthropic 的文章把它和注意力的结构联系起来：n 个 token 之间有 n 的平方对两两关系，上下文越长，模型顾及这些关系的能力越弱；训练数据里短序列又比长序列常见，模型处理长距离依赖的经验更少。文章把这叫作模型的「注意力预算」，每加进一个 token 都会消耗一点。它还强调这是一个逐渐变差的过程，没有一个突然失效的点。出处：<a href="https://research.trychroma.com/context-rot">Chroma 的报告</a>；<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic 的文章</a>。</div></div>
+  <p>怎样搭上下文没有唯一正确的办法，需要针对自己的 agent 去试。下面是几条实际的做法和要考虑的事。Anthropic 的文章给的总原则是：找到<mark>尽可能小的一组信息量高的 token</mark>，让得到想要的结果的可能性最大。</p>
+</section>
+
+<section class="sec" id="bloat">
+  <h2>做法一：只放必要的工具和内容</h2>
+  <p>有时候几个工具就够了。Pi 是一个开源的、很精简的写代码的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序），它只给模型四个工具：读文件、写文件、编辑文件和执行命令行命令。</p>
+  {{fig 166 | 同一个模型配三种运行框架（Pi、Codex、Claude Code），在 Terminal-Bench 2（一个在命令行终端里完成任务的基准测试）上的结果。左边一组柱子是每次运行的花费，右边一组是成功率。绿色边框标出每个模型里花费最低和成功率最高的那一个。图里是四个 Claude 模型。图片来源：<a href="https://arena.ai/blog/coding-agents-harness-tax">Arena 的 HarnessTax 文章，2026 年 9 月</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">Pi<br>成功率</th><th scope="col" class="r">Codex<br>成功率</th><th scope="col" class="r">Claude Code<br>成功率</th><th scope="col" class="r">Pi<br>每次花费</th><th scope="col" class="r">Codex<br>每次花费</th><th scope="col" class="r">Claude Code<br>每次花费</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Claude Fable 5</th><td class="r">71.1%</td><td class="r">72.2%</td><td class="r">75.6%</td><td class="r">1.08 美元</td><td class="r">0.98 美元</td><td class="r">1.55 美元</td></tr>
+        <tr><th scope="row">Claude Opus 4.8</th><td class="r">72.2%</td><td class="r">72.2%</td><td class="r">68.9%</td><td class="r">0.76 美元</td><td class="r">0.85 美元</td><td class="r">0.90 美元</td></tr>
+        <tr><th scope="row">Claude Sonnet 4.6</th><td class="r">65.6%</td><td class="r">63.3%</td><td class="r">62.2%</td><td class="r">0.61 美元</td><td class="r">0.55 美元</td><td class="r">0.67 美元</td></tr>
+        <tr><th scope="row">Claude Haiku 4.5</th><td class="r">47.8%</td><td class="r">31.1%</td><td class="r">41.1%</td><td class="r">0.25 美元</td><td class="r">0.21 美元</td><td class="r">0.25 美元</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字读自上面的配图。每个组合在 30 个随机抽出的任务上各跑 3 遍，每次最多 100 轮。</figcaption>
+  </figure>
+  <h3>这张图能说明什么</h3>
+  <p>这项研究一共测了 7 个模型和 3 种运行框架的 21 种组合，用了 SWE-bench Lite 和 Terminal-Bench 2.0 两个基准测试。文章自己的结论有三条。</p>
+  <ul>
+    <li><b>运行框架对成功率影响小，对花费影响大。</b>同一个模型可以用相差最多 5 倍的花费达到相近的成功率。在 Terminal-Bench 2.0 上，换运行框架对成功率的平均影响在正负 5% 左右以内（原文没有写明是百分点还是相对比例），而 Claude Code 的花费按几何平均大约是 Pi 的 1.5 倍。</li>
+    <li><b>简单的运行框架有竞争力。</b>只有四个工具的 Pi，在两个基准测试上都处在「同样花费下成功率最高」的那条边界上。</li>
+    <li><b>模型在别家的运行框架里可能表现更好。</b>在 Anthropic 和 OpenAI 的 6 个模型、2 个基准测试共 12 组比较里，有 9 组是别家的运行框架拿到了最高的成功率。</li>
+  </ul>
+  <p>花费的差别从第一次调用模型就开始了：7 个模型平均下来，Claude Code 的初始上下文是 Pi 的 10 倍以上，里面是更长的说明和更大的工具定义。这些内容每一步都要读一遍。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读这张图时要留的余地。</b>图里四个模型，Pi 的成功率在 Sonnet 4.6 和 Haiku 4.5 上最高，在 Opus 4.8 上和 Codex 并列，在 Fable 5 上最低。每个数只来自 30 个任务，图上每根柱子都带着误差线。从图上看，同一个模型的三根柱子的误差线都互相重叠，差距最大的一组也是这样：Haiku 4.5 上 Pi 比 Codex 高 16.7 个百分点。所以不宜读成「Pi 在几乎所有模型上都最好」。更稳妥的读法就是文章的第一条结论：成功率差不多，花费差得多。文章也提醒，这些结果只来自两个公开的基准测试，模型在训练时可能见过它们。</div></div>
+  <p>Anthropic 的文章对工具给了同样方向的建议：最常见的失败之一是工具集过于庞大，功能重叠，让人说不清某个情况该用哪个工具。如果一个人类工程师都没法明确说出该用哪个，就不能指望 agent 做得更好。</p>
+</section>
+
+<section class="sec" id="retrieval">
+  <h2>做法二：用检索挑出最相关的内容</h2>
+  <p>记忆和文件可能非常多。与其全部放进上下文，可以先检索，只把最相关的几条放进去。</p>
+  {{fig 167 | 检索的流程。prompt 先进入绿色框里的检索链：用一个 embedding 模型（把文字变成向量的模型）把它变成向量，在向量数据库里搜索相近的文档，再用一个重排模型给搜到的结果重新排序。排在前面的文档和 prompt 一起交给语言模型，得到回答。图片来源：<a href="https://developer.nvidia.com/blog/build-a-rag-agent-with-nvidia-nemotron/">NVIDIA 开发者博客</a>。}}
+  <p>检索的细节第 3 讲会讲到。这里只需要知道它在上下文工程里的作用：由它来决定哪些内容值得占用上下文。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>另一种取内容的方式：用到时再取。</b>Anthropic 的文章描述了一种越来越常见的做法。agent 平时只在上下文里留一些很轻的引用，比如文件路径、保存好的查询、网页链接，需要时再用工具把内容读进来。这样做的代价是比事先检索慢，并且需要给 agent 合适的工具和引导。文章认为两种可以混用：一部分内容事先放好，其余的让 agent 自己去找。出处：<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic 的文章</a>。</div></div>
+</section>
+
+<section class="sec" id="cache">
+  <h2>做法三：新内容只往后加</h2>
+  <p><a href="inference.html#kvcache">第五部分</a>讲过 KV cache：每个 token 的 key 和 value 算一次就存下来，后面接着用。多轮对话里，上一轮算好的缓存，下一轮可以直接接着用，只需要处理新增的 token。前提是前面的内容一个 token 都没有变。</p>
+  <p>设想这样一个很自然的做法：对话进行到一半，用户提到一份文档，于是把这份文档插到上下文的最前面。</p>
+  {{fig 169 | 原来的四个 token「The class was about」前面插进了一个「Actually」。红色箭头指出后面每个 token 的位置向量都变了，上面已经存好的 KV cache 被打上红叉，全部作废。}}
+  <p>在开头插入内容，后面每个 token 的位置都往后挪了一位。它们的 key 和 value 是带着原来的位置算出来的，现在全都对不上了，整份缓存作废，所有 token 要重新算一遍。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>位置改变只是原因之一，更一般的原因是「后面的依赖前面的」。</b>在带因果掩码的注意力里（因果掩码规定每个 token 只能看它前面的 token），每个 token 在每一层的结果，都是在它前面所有 token 的基础上算出来的。前面任何一处有改动，后面所有 token 从第二层起的 key 和 value 都会跟着变，即使它们的位置没有动。所以缓存能不能接着用，只看一个条件：开头的那一段是否和上次完全相同。各家 API 的缓存也是按这个规则设计的：Anthropic 的文档说，缓存让 API 从 prompt 里特定的前缀处接着算，后续请求的前缀相同时自动使用缓存的内容。出处：<a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching">Anthropic 的 prompt caching 文档</a>。「后面的依赖前面的」这个更一般的解释，是根据注意力的计算方式作出的推论。</div></div>
+  <p>落实到搭 agent 上，有三条具体的规则。</p>
+  <ul>
+    <li>稳定不变的内容放在最前面，比如 system prompt 和工具的定义。</li>
+    <li>每一轮新增的内容，接在已有内容的后面。</li>
+    <li>已经在上下文里的内容不要改动。要补充一份文档，就把它加在当前这一轮的位置上。</li>
+  </ul>
+</section>
+
+<section class="sec" id="empirical">
+  <h2>做法四：用实验来决定</h2>
+  <p>上下文怎么安排更好，很多时候猜不出来，只能测。办法是先搭好一套基准测试或评估，每改一处就跑一遍。</p>
+  {{fig 170 | Toolformer 论文里的一组对比。三张图分别是三类任务上的成绩，横轴是模型的参数量（单位是百万）。蓝线是可以调用工具的模型，红线是同一个模型关掉工具，紫色虚线是 GPT-3 作为参照。图片来源：<a href="https://arxiv.org/abs/2302.04761">Schick 等，2023</a>。}}
+  <p>这组图比较的是给不给工具。它说明了为什么要测：工具对最小的两个模型几乎没有帮助，蓝线和红线贴在一起。论文的说法是，利用工具的能力要到大约 7.75 亿参数才出现。同一个设计，换一个模型，结论可能相反。</p>
+  <p>同样的办法适用于各种选择。比如上下文里的材料用 Markdown 格式好，还是用 YAML 格式好？把两种都跑一遍基准测试，看结果。这样做，上下文工程才成为一种工程实践。</p>
+</section>
+
+<section class="sec" id="compaction">
+  <h2>上下文满了之后：compaction</h2>
+  <p>agent 工作得足够久，上下文总会接近上限。这时常用的处理叫 compaction：把到目前为止的对话历史总结成一段摘要，开一个新的上下文窗口，带着这段摘要继续工作。</p>
+  <p>到了需要 compaction 的时候，上下文已经非常长。新的决定是：摘要里留什么。</p>
+  <ul>
+    <li>留得太多，很快又会满，又要再做一次。</li>
+    <li>丢得太多，可能丢掉完成任务必需的关键信息。</li>
+  </ul>
+  {{fig 171 | 上面是 compaction 要考虑的四点。下面是一条 2026 年 2 月 23 日的帖子，转述了一起事故：Meta 的 Summer Yue 让 agent 只提出删除邮件的建议、等她确认后再动手。按帖子的说法，收件箱太大，触发了 compaction，「先确认再行动」这条指示丢了，agent 开始成批删除邮件。图片来源：<a href="https://www.threads.com/@therundownai">therundownai</a>。}}
+  <h3>这起事故的经过</h3>
+  <p>当事人 Summer Yue 是 Meta 超级智能实验室里负责 AI 安全和对齐研究的一位负责人。她用的是开源的 agent 程序 OpenClaw。按报道，此前几周她一直在一个测试用的小收件箱上试这个流程，都正常。2026 年 2 月 23 日她发帖讲了这次的经过：她让它接着处理自己真实的收件箱，指示是：也检查这个收件箱，建议哪些该归档或删除，在她说可以之前不要动手。</p>
+  <p>按她自己的说法，真实的收件箱太大，触发了 compaction，她原来的那条指示在这个过程中丢了。之后 agent 成批地删除和归档邮件。她在手机上连发几条停止的指令都没有用，最后跑到运行这个程序的电脑前把进程结束掉。丢失指示这个原因是当事人自己的判断，摘要里实际留下了什么，报道里没有给出。出处：<a href="https://rits.shanghai.nyu.edu/ai/metas-alignment-director-lost-control-of-openclaw-it-deleted-her-inbox/">上海纽约大学的一篇报道</a>，其中引用了她本人发的帖子；<a href="https://techcrunch.com/2026/02/23/a-meta-ai-security-researcher-said-an-openclaw-agent-ran-amok-on-her-inbox/">TechCrunch 的报道</a>说明，它没能独立核实她的邮箱里实际发生了什么。</p>
+  <p>如果当事人的判断属实，这件事说明，摘要里丢掉的一句话，可以是整个任务里最重要的一句。它也提示了一个做法：必须一直生效的规则，放在每次都会完整带上的位置，比如 system prompt 或者一个固定的文件里，不要只在对话里说一遍。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Anthropic 的文章对 compaction 和长任务的建议。</b>
+    <ul>
+      <li><b>先求全，再求精。</b>调整做摘要的 prompt 时，先保证它能留下所有相关的信息，再逐步去掉多余的内容。过于激进的 compaction 会丢掉一些当时不起眼、后来才显出重要的内容。</li>
+      <li><b>从最安全的地方删起。</b>早先的工具调用和它们的原始结果，通常不需要再看一遍。清掉这些是最轻的一种 compaction。</li>
+      <li><b>一个实际的例子。</b>Claude Code 做 compaction 时，让模型留下架构上的决定、还没解决的 bug 和实现细节，丢掉重复的工具输出，再附上最近访问过的 5 个文件。</li>
+      <li><b>另外两种办法。</b>结构化的笔记：agent 定期把进展写到上下文之外的文件里，需要时再读回来。子 agent：把一块工作交给另一个有干净上下文的 agent，它自己可以用掉几万个 token，交回来的只是一段 1000 到 2000 个 token 的总结。</li>
+    </ul>
+    出处：<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic 的文章</a>。子 agent 的做法第 8 讲会讲到。</div></div>
+</section>
+
+<section class="sec" id="rlm">
+  <h2>另一种思路：递归语言模型</h2>
+  <p>前面几条做法，都是在想办法决定什么留在上下文里。递归语言模型（Recursive Language Model，RLM）换了一个思路：<mark>很长的输入根本不放进模型的上下文，把它当成环境的一部分</mark>。它出自 MIT 的 Zhang、Kraska 和 Khattab 2025 年底的论文。</p>
+  {{fig 172 | 一次 RLM 调用的过程。最外层的模型拿到的 prompt（一本很长的书和一个问题）被存进一个 Python 环境的变量里。黑色的方框是模型写的代码和代码的输出：先打印 prompt 的前 100 个字符看看，再把 prompt 按章节切开，对每一部分调用 llm_query 函数。右边两个小框是这些调用各自启动的下一层模型，每个只处理一个片段，把结果交回来。最后模型给出最终回答。图片来源：<a href="https://arxiv.org/abs/2512.24601">Zhang 等，2025</a>。}}
+  <ol>
+    <li><b>prompt 变成一个变量。</b>用户给的很长的输入被存进一个 Python 交互环境里的变量。模型自己的上下文里只有任务说明和「输入在某个变量里」这句话。</li>
+    <li><b>模型写代码去看。</b>模型可以写代码打印变量的前 100 个字符、按某个标记把它切开、用关键词搜索，每次只看到代码输出的那一小部分。输出过长时会被截断。</li>
+    <li><b>模型可以调用模型。</b>环境里有一个函数，可以把一个片段和一个问题交给另一个语言模型，拿回答案。被调用的那一层拿到的同样是一个 prompt，所以这个结构是递归的。</li>
+    <li><b>给出最终回答。</b>模型把各个片段的结果汇总，把最终答案放进一个约定的变量里，循环结束。</li>
+  </ol>
+  <p>这样，处理很长的输入时，最外层模型的上下文始终很短，长内容由下面各层分头处理，只把需要的结果交上来。</p>
+  {{fig 173 | OOLONG 的一个子集上的得分，每道题的上下文大约是 26.3 万个 token。五根柱子从左到右：GPT-5 直接读全部上下文；GPT-5-mini 直接读全部上下文；以 GPT-5-mini 为基础的 RLM；以 GPT-5 为基础、但关掉了递归调用的 RLM；一个用 GPT-5 加关键词检索的 agent。图片来源：<a href="https://alexzhang13.github.io/blog/2025/rlm/">Alex Zhang 的文章</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做法</th><th scope="col" class="r">得分</th><th scope="col">说明</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">GPT-5，直接读</th><td class="r">34.2%</td><td>全部上下文一次放进模型</td></tr>
+        <tr><th scope="row">GPT-5-mini，直接读</th><td class="r">23.2%</td><td>同上，换成小一号的模型</td></tr>
+        <tr><th scope="row">RLM（GPT-5-mini）</th><td class="r">51.1%</td><td>最外层和被调用的各层都是 GPT-5-mini</td></tr>
+        <tr><th scope="row">RLM（GPT-5），关掉递归调用</th><td class="r">40.9%</td><td>模型可以写代码查看输入，但不能再调用模型</td></tr>
+        <tr><th scope="row">ReAct 加 GPT-5 加 BM25</th><td class="r">30.7%</td><td>把每一行当成一篇文档，agent 每次用关键词检索取回 10 行</td></tr>
+      </tbody>
+    </table>
+    <figcaption>数字读自上面的配图。这批题的上下文都在 GPT-5 和 GPT-5-mini 的上下文窗口以内，所以直接读的两行出错与输入被截断无关。</figcaption>
+  </figure>
+  <p>怎么读这张表：</p>
+  <ul>
+    <li><b>小模型加上这个结构，超过了大模型直接读。</b>RLM（GPT-5-mini）比 GPT-5 高 16.9 个百分点，相对高出约 49%。文章说它每道题的平均花费还比 GPT-5 低。</li>
+    <li><b>递归调用起了多大作用，要看同一个基础模型的对照。</b>图里关掉递归调用的版本（40.9%）用的是 GPT-5，完整的版本（51.1%）用的是 GPT-5-mini，两行的基础模型不同，所以这个差距不能全算作递归调用的作用。文章作者的解释是，这类题要对很多条内容逐条做语义上的判断，光靠写代码搜索不够。论文的表 1 里有同一个基础模型的对照：最外层是 GPT-5、被调用的是 GPT-5-mini，在 OOLONG（上下文约 13.1 万个 token）上，不允许递归调用的版本得 36.0 分，允许一层递归调用的版本得 56.0 分。</li>
+    <li><b>关键词检索在这类题上帮不上忙。</b>30.7% 比 GPT-5 直接读还低。OOLONG 的每一条内容都相关，没法靠检索挑出一小部分。</li>
+  </ul>
+  <p>论文更大范围的结论是：RLM 能处理比模型上下文窗口长一个数量级以上的输入，在四类长上下文任务上，成绩好于直接调用模型和几种常见的运行框架，花费相当。</p>
+</section>
+
+<section class="sec" id="summary">
+  <h2>整讲的小结</h2>
+  <p>这一讲从一个公式讲到了怎样安排 agent 的上下文。按五个题目回顾一遍。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">题目</th><th scope="col">讲了什么</th><th scope="col">对搭 agent 的人意味着什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="lm.html">语言模型是什么</a></th><td>给 token 序列算概率，可以从中抽样</td><td>每次调用模型都是在抽样，temperature 和解码策略按任务来定</td></tr>
+        <tr><th scope="row">模型结构<br><span class="muted small"><a href="transformer.html">二</a>、<a href="linear.html">三</a></span></th><td>Transformer 的注意力，线性注意力，两者混用</td><td>长上下文贵；选模型时要看它用哪种注意力</td></tr>
+        <tr><th scope="row"><a href="training.html">训练</a></th><td>预训练、中期训练、后训练、agent 训练</td><td>模型会什么、不会什么，取决于它在哪些数据和环境上练过</td></tr>
+        <tr><th scope="row">推理<br><span class="muted small"><a href="inference.html">五</a>、<a href="scaling.html">六</a></span></th><td>prefill 和 decode，KV cache，推理时多花算力</td><td>输入便宜、输出贵；缓存只认相同的开头；难的任务可以多花 token</td></tr>
+        <tr><th scope="row">agent 里的 LLM<br><span class="muted small"><a href="structured.html">七</a>、八</span></th><td>结构化的输入输出，上下文工程</td><td>输出要能被程序解析；上下文要小而精，并用实验来验证</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>之后的各讲不再讲模型内部，只是使用它。下一讲的题目是检索增强生成，也就是<a href="#retrieval">做法二</a>里的检索具体怎么做。</p>
+</section>
