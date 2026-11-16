@@ -80,16 +80,16 @@
         <tr><th scope="row">Terminal-Bench 2.0</th><td>Codex CLI 加 GPT-5.2：63%</td><td>没有测</td></tr>
         <tr><th scope="row">OSWorld</th><td>12.24%</td><td>72.36%</td></tr>
         <tr><th scope="row">CodeClash</th><td>Claude Sonnet 4.5 的 Elo 分最高，1389</td><td>最好的模型和专家写的程序比，一轮都没赢</td></tr>
-        <tr><th scope="row">BrowseComp</th><td>OpenAI 的 Deep Research 51.5%；带浏览功能的 GPT-4o 1.9%</td><td>29.2% 的题在两小时内做了出来</td></tr>
+        <tr><th scope="row">BrowseComp</th><td>OpenAI 的 Deep Research 51.5%；带浏览功能的 GPT-4o 1.9%</td><td>人解出了 29.2% 的题。做不出来的题，可以在两小时后放弃</td></tr>
         <tr><th scope="row">Vending-Bench</th><td>Claude 3.5 Sonnet 五次运行的平均净资产 2,217.93 美元，最低的一次 476 美元</td><td>一个人做了 5 小时，844.05 美元</td></tr>
         <tr><th scope="row">AIRS-Bench</th><td>4 个任务上超过了人类的最好成绩，16 个没达到。所有 agent 平均的折算分是 24.1%</td><td>人类的最好成绩是折算的参照点，达到它记为 100%，超过它就大于 100%</td></tr>
       </tbody>
     </table>
-    <figcaption>来自各自的论文。这些是论文发表时的数，现在的系统在其中多数基准测试上已经高得多。</figcaption>
+    <figcaption>来自各自的论文。这些是论文发表时的数。</figcaption>
   </figure>
-  <p>对照<a href="anatomy.html#protocol">第二部分的五个问题</a>看第一张表，有两点值得注意。</p>
+  <p>对照<a href="anatomy.html#protocol">第二部分的五个问题</a>看上面评估协议的那张表，有两点值得注意。</p>
   <ul>
-    <li><b>早期的论文很少把协议写全。</b>WebArena 和 OSWorld 的论文里找不到每个任务跑几次。到 2026 年的 Terminal-Bench，论文同时报告了成功率的 95% 置信区间（一种误差范围，解释见<a href="trust.html#transparent">第五部分</a>）、花费、token 数和轮数。</li>
+    <li><b>有的论文没有把协议写全。</b>WebArena 和 OSWorld 的论文里找不到每个任务跑几次。到 2026 年的 Terminal-Bench，论文同时报告了成功率的 95% 置信区间（一种误差范围，解释见<a href="trust.html#transparent">第五部分</a>）、花费、token 数和轮数。</li>
     <li><b>运行框架固定不固定，各家的选择不同。</b>CodeClash 和 Vending-Bench 固定运行框架，比的是模型。Terminal-Bench 和 BrowseComp 不规定，比的是「模型加运行框架」的整体。读分数时要先弄清比的是哪一种。</li>
   </ul>
 </section>
@@ -107,11 +107,11 @@
         <tr><th scope="row">SWE-bench</th><td>环境是 Docker 容器，手里有真实的仓库和工具</td><td>这是现在用 agent 跑 SWE-bench 时的样子。2023 年的论文里，模型没有工具，也不和环境交互：它拿到 issue 和检索出来的文件，一次写出补丁。论文搭测试环境用的是 conda（一种管理 Python 环境的工具），全文没有出现 Docker</td></tr>
         <tr><th scope="row">WebArena</th><td>真实网站的副本；按结果评分，归在「检查状态」一类</td><td>网站是作者用开源软件自己搭的，再导入抽样的真实数据。查信息的那部分任务，评的是文字答案对不对，其中一种比对办法是让 GPT-4 判断意思是否相同</td></tr>
         <tr><th scope="row">TextWorld</th><td>按游戏得分评分，属于连续分数一类</td><td>只有人写的那 50 个老游戏是按游戏得分算的。自动生成的游戏只在通关时给奖励</td></tr>
-        <tr><th scope="row">Vending-Bench</th><td>经营很多天，按最后的净资产评分</td><td>运行的长度是按消息条数封顶的，所以不同的模型经营的天数不一样。人的基线只有一个人。净资产里没卖出的货按进价算，所以论文同时报告了卖出的件数</td></tr>
+        <tr><th scope="row">Vending-Bench</th><td>经营很多天，按最后的净资产评分</td><td>运行的长度是按消息条数封顶的，所以不同的模型经营的天数不一样。人的基线只有一个人。净资产里没卖出的货按进价算。论文另外报告了卖出的件数，很可能是因为只进货不卖货也能保住大部分净资产</td></tr>
         <tr><th scope="row">AIRS-Bench</th><td>20 个任务，和人类的最好成绩比</td><td>这 20 个是从大约 100 个任务里挑出来的。折算时，人类的最好成绩记为 100%，所有被测 agent 里最差的一次记为 0，所以分数也和「一起参加评测的有谁」有关</td></tr>
       </tbody>
     </table>
-    <figcaption>右列来自各自的论文。</figcaption>
+    <figcaption>右列来自各自的论文。Terminal-Bench 现在的版本信息来自它的官网。</figcaption>
   </figure>
 </section>
 
@@ -153,7 +153,7 @@
   <h2>把十二个案例放在一起看</h2>
   <ul>
     <li><b>两条轴上的各种位置都有人做。</b>环境有文字游戏、模拟的网店、自己搭的网站、完整的操作系统和真实的互联网。问题描述有写明所有条件的购物要求、真实的 bug 报告和只有一个目标的比赛。新的基准测试并不都更真实：2025 年的 Vending-Bench 用的仍然是模拟环境。</li>
-    <li><b>越真实，评分越难做对。</b>上一节查出的问题集中在三处：文字匹配、语言模型评审、依赖外部网站。用测试来评分的也没有幸免，SWE-bench Verified 就是例子。</li>
-    <li><b>其中几个发布时成功率很低，给模型留出了很大的提高空间。</b>SWE-bench 是 1.96%，OSWorld 是 12.24%，WebArena 是 14.41%。这对应<a href="good.html#challenging">第四部分</a>的第一条性质。Terminal-Bench 2.0 发布时最好的成绩已经有 63%，论文自己也说它可能在一年内被做满。</li>
+    <li><b>环境真实、问题开放的时候，评分往往更难做对。</b>上一节查出的问题集中在四处：检查环境状态时没有考虑办不了的任务，文字匹配，语言模型评审，依赖外部网站。用测试来评分的也没有幸免，SWE-bench Verified 就是例子。</li>
+    <li><b>其中几个发布时成功率很低，给模型留出了很大的提高空间。</b>SWE-bench 是 1.96%，OSWorld 是 12.24%，WebArena 是 14.41%。这对应<a href="good.html#challenging">第四部分</a>的第一条性质。Terminal-Bench 2.0 发布时最好的成绩已经有 63%，论文自己也说它可能在一年内被做满，也就是最好的系统接近满分。</li>
   </ul>
 </section>

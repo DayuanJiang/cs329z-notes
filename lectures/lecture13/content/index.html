@@ -13,19 +13,19 @@
         <tr><th scope="row">在哪一页</th><td><a href="good.html">第四部分</a></td><td><a href="trust.html">第五部分</a></td></tr>
       </tbody>
     </table>
-    <figcaption>38% 来自 Zhu 等人 2025 年的论文。48% 和 72% 是为了说明问题假设的数，见<a href="trust.html#fair">第五部分</a>。</figcaption>
+    <figcaption>38% 来自 Zhu 等人 2025 年的论文。48% 和 72% 是示意用的数，见<a href="trust.html#fair">第五部分</a>。</figcaption>
   </figure>
 </section>
 
 <section class="sec" id="story">
-  <h2>整条线：五个问题</h2>
+  <h2>五个问题</h2>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
         <tr><th scope="row"><a href="benchmark.html">一 基准测试是什么，<br>为什么离不开它？</a></th><td>一组题目加一个报告成绩的办法。它让开发有数可依，让一个领域的人做同一批问题，让结果可以比较。代价是分数一旦成了目标，就会有办法把它做高而能力没有跟上</td><td>题目从语言学的小任务，变成考试、聊天、安全，再到 agent 任务。强化学习的 agent 为了游戏得分原地转圈，得分比人高 20%，却从不跑完比赛</td></tr>
-        <tr><th scope="row"><a href="anatomy.html">二 agent 的基准测试<br>由哪几块组成？</a></th><td>任务定义（问题描述、环境、验证）加评估协议。和考试类的区别是：给的是任务和环境，过程是很多轮，交出来的是一条运行轨迹和一个被改动过的环境</td><td>三条轴：问题描述从写明一切到只给目标，环境从模拟到真实，评分分成四格</td></tr>
-        <tr><th scope="row"><a href="cases.html">三 真实的基准测试<br>长什么样？</a></th><td>十二个案例，最早的是 2018 年的文字游戏，最新的是 2026 年的机器学习研究任务。环境越真实、问题描述越开放，评分越难做对</td><td>其中三个发布时最好的成功率：SWE-bench 1.96%，OSWorld 12.24%，WebArena 14.41%。后来的研究在其中几个的评分里查出了问题</td></tr>
+        <tr><th scope="row"><a href="anatomy.html">二 agent 的基准测试<br>由哪几块组成？</a></th><td>任务定义（问题描述、环境、验证）加评估协议。和考试类的区别是：给的是任务和环境，过程是很多轮，交出来的是一条运行轨迹和一个被改动过的环境</td><td>两条轴加一张四格表：问题描述从写明一切到只给目标，环境从模拟到真实，评分按两个问题分成四格</td></tr>
+        <tr><th scope="row"><a href="cases.html">三 真实的基准测试<br>长什么样？</a></th><td>十二个案例，最早的是 2018 年的文字游戏，最新的是 2026 年的机器学习研究任务。环境真实、问题描述开放的时候，评分往往更难做对</td><td>其中三个发布时最好的成功率：SWE-bench 1.96%，OSWorld 12.24%，WebArena 14.41%。后来的研究在其中几个的评分里查出了问题</td></tr>
         <tr><th scope="row"><a href="good.html">四 什么样的<br>基准测试算好？</a></th><td>七条性质。它们很难同时做到，也会随着模型变强而变化，所以基准测试有从提出到被替换的生命周期</td><td>SWE-bench 在 2023 年发布时很有挑战；现在容易运行了，但挑战、区分度和耐用都下降了</td></tr>
         <tr><th scope="row"><a href="trust.html">五 什么样的<br>分数可信？</a></th><td>四条要求：照基准测试的规定跑，记下所有版本，除了分数还报误差范围和花费，测试集只用来测量</td><td>一张真实的排行榜表：两个系统的成功率是 70% 和 67%，差距落在误差范围（重复测量时分数可能波动的幅度）以内，而分数高的那个每个任务的花费是另一个的 3 倍</td></tr>
       </tbody>
@@ -42,7 +42,7 @@
     <table class="tbl">
       <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
-        <tr><td>SWE-bench Verified 是「更严的评分」的好例子</td><td>Verified 是把有问题的题筛掉，没有加强测试。OpenAI 在 2026 年 2 月宣布不再报告它的分数：他们抽查了模型经常做不出来的 138 道题，其中至少 59.4% 的测试会拒绝功能正确的提交；前沿模型还能背出某些题的标准答案</td><td><a href="good.html#durable">好的基准测试</a></td></tr>
+        <tr><td>SWE-bench Verified 是「更严的评分」的好例子</td><td>Verified 是把有问题的题筛掉，没有加强测试。OpenAI 在 2026 年 2 月宣布不再报告它的分数：他们抽查了模型经常做不出来的 138 道题，其中至少 59.4% 的题，测试会把功能正确的提交判成不通过；前沿模型还能背出某些题的标准答案</td><td><a href="good.html#durable">好的基准测试</a></td></tr>
         <tr><td>能自动评分，分数就是对的</td><td>τ-bench 的航空任务里，什么都不做能拿 38%。WebArena 的分数被高估 1.4% 到 5.2%。OSWorld 和 Chrome 有关的那部分任务上，一个 agent 的成绩被低估 28 个百分点</td><td><a href="cases.html#flaws">十二个案例</a></td></tr>
         <tr><td>排行榜上标了误差范围，就可以直接比两个分数</td><td>有的误差范围只反映同一批题重跑时的波动，题目数量少带来的不确定性没有算进去。两个范围重叠，只说明这张表不足以确认谁更强</td><td><a href="trust.html#transparent">可信的分数</a></td></tr>
         <tr><td>新的基准测试是旧的升级版，比如 WebShop、WebArena、OSWorld、BrowseComp 一个接替一个</td><td>有的顺序是按难度排的，和发布时间并不一致。有的顺序里混了不同类型的任务：BrowseComp 是上网查资料回答问题，前三个是操作界面</td><td><a href="good.html#lifecycle">好的基准测试</a></td></tr>
@@ -65,7 +65,7 @@
     <a href="benchmark.html"><span class="m">第一部分</span><span><b>基准测试是什么，为什么离不开它</b><p>从训练损失到一道一道的题；四类基准测试；八个例子；三个用处；古德哈特定律。</p></span></a>
     <a href="anatomy.html"><span class="m">第二部分</span><span><b>agent 的基准测试由哪几块组成</b><p>和考试类的区别；问题描述、环境、验证各自的轴；评估协议的五个问题；另一种拆法。</p></span></a>
     <a href="cases.html"><span class="m">第三部分</span><span><b>十二个案例</b><p>每个案例的任务定义和评估协议；几个容易说错的细节；后来查出的评分问题。</p></span></a>
-    <a href="good.html"><span class="m">第四部分</span><span><b>什么样的基准测试算好</b><p>七条性质逐条看；哪几条很难同时做到；生命周期的七条链；另外两份材料的说法。</p></span></a>
+    <a href="good.html"><span class="m">第四部分</span><span><b>什么样的基准测试算好</b><p>七条性质逐条看；哪几条很难同时做到；七组先后接替的基准测试；Press 和 Zhu 等人的说法。</p></span></a>
     <a href="trust.html"><span class="m">第五部分</span><span><b>什么样的分数可信</b><p>公平、可复现、透明、诚实；怎样读误差范围；检查表；整讲的小结。</p></span></a>
   </div>
 </section>
