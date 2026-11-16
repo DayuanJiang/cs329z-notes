@@ -1,0 +1,182 @@
+<section class="sec" id="key">
+  <h2>先看结论</h2>
+  <ul class="takeaways">
+    <li>运行框架（harness，也叫 scaffold）是包在语言模型外面的那层程序：它给模型工具，管理多轮对话的历史，执行模型发出的动作，再把结果交还给模型。一个 agent 等于模型加运行框架。</li>
+    <li>搭一个运行框架要做一连串设计选择：给哪些工具，历史怎么存、怎么裁剪，命令怎么执行。四个开源的例子（mini-SWE-agent、OpenHands、Pi、OpenClaw）在这些事上的选择各不相同。</li>
+    <li>没有哪一种搭法是唯一正确的。好的运行框架要在任务成功率、花费、延迟和用户的控制权之间取得平衡，怎样平衡取决于用途。</li>
+    <li>同一个模型换一个运行框架，结果会变。一项对三个成熟运行框架的测量里，变得最明显的是花费；成功率在多数模型上只差几个百分点，那批数据分辨不出谁高谁低。</li>
+  </ul>
+</section>
+
+<section class="sec" id="what">
+  <h2>运行框架是什么</h2>
+  <p>在<a href="engineer.html#spectrum">第一部分</a>的那条线上，这一部分走到了最右端：控制流由模型决定的 agent（能自己调用工具、分很多步完成任务的语言模型系统）。前面三部分的 DSPy 和 LangGraph 是框架（framework），是给你写程序用的库。这一部分的主角是运行框架，是别人已经搭好、装上就能用的 agent 程序。</p>
+  {{fig 80 | 一个 agent 的组成。红框里是运行框架和模型：规划和推理、记忆、模型本身、工具，以及 agent 发出的动作。红框外面是环境，比如桌面操作系统、浏览器、数据库。agent 对环境做动作，再观察环境的变化。}}
+  <p class="lead-in">图里除了外部环境以外的东西，都算在 agent 这一边。<mark>其中围绕着模型搭起来、让 agent 能工作的那部分程序，就是运行框架</mark>。</p>
+  <p>两个出处给的定义可以对照着看：</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">出处</th><th scope="col">怎么定义运行框架</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="https://arxiv.org/abs/2603.28052">Meta-Harness 论文</a></th><td>决定存储什么信息、检索什么信息、把什么信息呈现给模型的那些代码</td></tr>
+        <tr><th scope="row"><a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax 文章</a></th><td>管理一个模型的工具、上下文和任务执行的软件系统</td></tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="sec" id="choices">
+  <h2>运行框架之间差在哪</h2>
+  <p>搭一个 agent 要做很多设计选择。主要的有四类：</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">选择</th><th scope="col">要决定的事</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">工具</th><td>给模型哪些工具。是只给一个能执行任意命令的终端，还是给读文件、改文件、搜索等一组专门的工具</td></tr>
+        <tr><th scope="row">记忆</th><td>哪些信息要跨越多次对话保留下来，存在哪里，什么时候取出来</td></tr>
+        <tr><th scope="row">上下文管理</th><td>每次调用模型时，把历史里的哪些内容放进 prompt（给模型的输入文字）。工具返回的结果怎样写回历史。历史太长了怎么办</td></tr>
+        <tr><th scope="row">执行</th><td>模型发出的动作怎样执行。命令在哪里跑，上一条命令留下的状态下一条还在不在，要不要先征得用户同意</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>不同的运行框架针对各自的任务和运行环境，做了不同的取舍。一个好的运行框架要在四件事之间取得平衡：任务成功率、花费、延迟、用户的控制权。合适的平衡点取决于用途。Claude Code（Anthropic 的编程 agent）这样的产品是给人在终端里一边看一边用的，用户怎样和它交互就很重要。另一些运行框架主要用来自动地跑完任务，中途有没有人参与就不那么要紧。</p>
+</section>
+
+<section class="sec" id="four">
+  <h2>四个开源的例子</h2>
+  <p>下面四个运行框架都是开源的。先用一张表列出它们各自最有特点的选择，再逐个说明。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">运行框架</th><th scope="col">面向什么</th><th scope="col">设计上最有特点的选择</th><th scope="col" class="r">GitHub 的 star 数</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="https://github.com/SWE-agent/mini-swe-agent">mini-SWE-agent</a></th><td>编程任务</td><td>只有 bash 一个工具；历史是一条线，每一步都追加到消息列表的末尾；每条命令开一个新的进程，互不相干</td><td class="r">9,654</td></tr>
+        <tr><th scope="row"><a href="https://github.com/OpenHands/OpenHands">OpenHands</a></th><td>编程任务</td><td>每一步记成一个事件，发给模型的消息由事件转换而来；终端会话持续存在；检测到 agent 卡住就停下</td><td class="r">93,581</td></tr>
+        <tr><th scope="row"><a href="https://github.com/earendil-works/pi">Pi</a></th><td>编程任务</td><td>只有 read、write、edit、bash 四个工具；没有权限系统；历史是一棵树，可以回到之前的某条消息另开一支；没有计划模式和子 agent 工具</td><td class="r">122,306</td></tr>
+        <tr><th scope="row"><a href="https://github.com/openclaw/openclaw">OpenClaw</a></th><td>长期在线的个人助手，通过聊天软件和用户交互</td><td>定时自己醒来；一个长期运行的进程管着所有聊天渠道；身份和记忆写在几个 Markdown 文件里；每晚整理记忆</td><td class="r">394,566</td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一项的出处和细节见下面四个小节。star 数是 2026 年 11 月 16 日从 GitHub 的接口查到的。</figcaption>
+  </figure>
+
+  <h3>mini-SWE-agent：能省的都省掉</h3>
+  <p>mini-SWE-agent 出自普林斯顿和斯坦福的一个团队，2025 年 7 月发布 1.0 版。这个团队之前做了 SWE-bench（一组取自 GitHub 上真实软件问题的评测题目）和 SWE-agent。它的三个特点都是「不做什么」。</p>
+  <ul>
+    <li><b>除了 bash 没有别的工具。</b>读文件、改文件、搜索，全部由模型自己写 shell 命令完成。</li>
+    <li><b>历史完全是一条线。</b>agent 每走一步，就往消息列表后面追加一条，仅此而已。发给模型的消息和事后保存的运行轨迹（trajectory，每一步的动作和结果的完整记录）是同一份东西。这和平时用聊天产品的体验一样：对话越聊越长，每次都带着全部历史。</li>
+    <li><b>每个动作互相独立。</b>它不维持一个持续的 shell 会话，每条命令都在一个新的进程里执行。后果是 <code>cd</code> 换的目录、<code>export</code> 设的环境变量，到下一条命令就没有了，需要的话得在每条命令前面重新写一遍。好处是没有一个长期存活的会话需要维护，放进 Docker 这类隔离环境里做评测时省去不少麻烦。</li>
+  </ul>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>细节。</b>仓库的说明写着 agent 的主体类只有大约 100 行 Python，在 SWE-bench Verified（SWE-bench 里经过人工筛选的 500 道题）上的成绩超过 74%。按 2026 年 11 月的代码，这个类大约是 150 行。2.0 版起默认使用模型原生的工具调用接口，声明的工具仍然只有 bash 一个。「每条命令开一个新进程」在说明里写的是用 <code>subprocess.run</code>，现在的代码换成了一个等价的写法，超时时能把子进程一并结束。出处：<a href="https://github.com/SWE-agent/mini-swe-agent/blob/main/README.md">mini-SWE-agent 的说明</a>和<a href="https://github.com/SWE-agent/mini-swe-agent/blob/main/docs/faq.md">常见问题</a>。</div></div>
+
+  <h3>OpenHands：把每一步都记成事件</h3>
+  <p>OpenHands 原名 OpenDevin，对应的论文是 <a href="https://arxiv.org/abs/2407.16741">Wang 等，2024</a>。和 mini-SWE-agent 相比，它在三件事上都选了更复杂的做法。</p>
+  <ul>
+    <li><b>每一步存成一个事件。</b>模型的每次回答、每个动作、每个结果都是一个事件，追加到一份只增不改的事件日志里。开启持久化之后，每个事件在磁盘上是一个单独的 JSON 文件。每次调用模型之前，发给模型的消息由这些事件转换出来。这样做，完整的历史和「给模型看的内容」是两样东西，磁盘上的事件还可以用来恢复一次中断的会话。</li>
+    <li><b>终端是持续存在的。</b>它用 tmux（一个让终端会话在后台持续运行的工具）开一个会话，所以切换过的目录、设过的环境变量、激活过的 Python 虚拟环境，在后面的命令里都还在。这一点正好和 mini-SWE-agent 相反。</li>
+    <li><b>卡住了会自己停。</b>它有一个检测器，发现 agent 反复做同样的动作而没有进展，就结束运行。</li>
+  </ul>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>检测器查的是什么。</b>文档列了五种情形，默认的界限如下：同一个动作得到同一个结果，重复 4 次；同一个动作反复报错，3 次；agent 连续发了 3 条消息，中间没有用户输入，也没有实质进展；两组动作和结果来回交替，6 步；反复出现上下文窗口超限的错误。最后一种在目前的代码里还没有实现。另外，tmux 只在系统里装了它的时候才用，没装就退回到普通的子进程终端。出处：<a href="https://docs.openhands.dev/sdk/guides/agent-stuck-detector">OpenHands 文档的 Stuck Detector 一节</a>、<a href="https://docs.openhands.dev/sdk/guides/convo-persistence">会话持久化一节</a>。</div></div>
+
+  <h3>Pi：四个工具，没有权限系统</h3>
+  <p>Pi 是 Mario Zechner 写的编程 agent，同样走极简的路线。</p>
+  <ul>
+    <li><b>只有四个工具。</b>read、write、edit 和 bash。作者在 2025 年 11 月的文章里说，system prompt（对话开头给模型的总说明）加上工具的定义，合起来不到 1,000 个 token（模型处理文字的最小单位）。这个数包含了工具的定义，只把它说成 system prompt 的长度就说窄了。</li>
+    <li><b>没有权限系统。</b>它用启动它的那个账号的全部权限运行，执行工具之前不询问。作者的说法是，它假定你知道自己在做什么。</li>
+    <li><b>历史是一棵树。</b>可以回到之前的某一条消息，改一改再发出去，从那里长出另一支；原来的那一支不会丢。发给模型的只有当前所在的这一支。</li>
+    <li><b>刻意保持简单。</b>没有计划模式，没有专门的子 agent 工具。需要的话可以用扩展加回来。</li>
+  </ul>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>「不到 1,000 个 token」是 2025 年 11 月的数。</b>HarnessTax 文章在 2026 年 9 月测量了三个运行框架第一次调用模型时的上下文大小，这个数包含了任务本身的文字：Pi 平均 1,972 个 token，Codex 平均 11,308 个，Claude Code 平均 27,011 个。工具的数量分别是 4 个、约 7 个、23 个。Pi 仍然是三者里最小的，Claude Code 的这个数是它的 10 倍以上。出处：<a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>；<a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sessions.md">Pi 文档的会话一节</a>；<a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax</a>。</div></div>
+
+  <h3>OpenClaw：一个一直开着的个人助手</h3>
+  <p>OpenClaw 由 Peter Steinberger 发起，最初叫 Clawdbot，2026 年 1 月两次改名后定为现在的名字。它的用户已经远远超出了做 AI 工程的圈子：人们把它装在自己的机器上，通过 WhatsApp、Telegram 这类聊天软件和它说话。它的设计选择和前三个面向编程任务的运行框架很不一样。</p>
+  <ul>
+    <li><b>每 30 分钟自己醒来一次。</b>除了等用户发消息，它还按固定的间隔自己运行一轮，看看有没有需要处理的事。没有事的时候，它回复一个约定的标记 <code>NO_REPLY</code>，用户就不会收到任何消息。</li>
+    <li><b>一个长期运行的 Gateway 进程。</b>所有聊天渠道的连接都由这一个进程持有，一台机器上只运行一个。</li>
+    <li><b>身份由 Markdown 文件拼成。</b><code>AGENTS.md</code>、<code>SOUL.md</code>、<code>IDENTITY.md</code>、<code>USER.md</code> 和 <code>MEMORY.md</code> 这几个文件的内容会被放进 system prompt（对话开头给模型的总说明）。agent 是谁、该怎么做事、用户是谁、记得些什么，都写在这些文件里，人可以直接打开来读和改。</li>
+    <li><b>每晚整理记忆。</b>凌晨 3 点有一个后台任务，把近期的笔记过一遍，把值得长期保留的内容写进 <code>MEMORY.md</code>。</li>
+  </ul>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这些机制一直在变，上面写的是 2026 年 10 月上旬的样子。</b>
+    <ul>
+      <li><b>定时醒来。</b>2026 年 6 月的文档里，表示「没事」的标记还是 <code>HEARTBEAT_OK</code>，到 10 月的文档里已经是 <code>NO_REPLY</code>。用 Anthropic 的账号登录时，默认间隔是 1 小时。2026 年 10 月 21 日之后，这个独立的机制被取消，换成一个普通的定时任务，要用户明确设置才会创建，默认仍是每 30 分钟一次。</li>
+      <li><b>记忆整理。</b>文档里把它叫作 dreaming。它从 2026 年 7 月底起默认开启，之前要用户自己打开。它分三个阶段依次运行，读的东西除了每天的笔记，还有近期的召回记录和会话记录，只有最后一个阶段会写 <code>MEMORY.md</code>。</li>
+      <li><b>MEMORY.md 只在一部分情况下被读入。</b>文件存在、并且是和用户的私聊会话时，它才放进 system prompt。子 agent 只拿到 <code>AGENTS.md</code>。</li>
+    </ul>
+    出处：OpenClaw 文档的 <a href="https://docs.openclaw.ai/gateway/heartbeat">heartbeat</a>、<a href="https://docs.openclaw.ai/concepts/architecture">架构</a>、<a href="https://docs.openclaw.ai/concepts/system-prompt">system prompt</a>、<a href="https://docs.openclaw.ai/concepts/dreaming">dreaming</a> 各节。</div></div>
+  <p>四个例子摆在一起，可以看到同一个问题有不同的答案。命令之间要不要保留状态：mini-SWE-agent 不保留，OpenHands 保留。历史怎么存：mini-SWE-agent 用一条线，OpenHands 用事件日志，Pi 用一棵树。每个答案都有它适合的场合。</p>
+</section>
+
+<section class="sec" id="tax">
+  <h2>换一个运行框架，结果差多少</h2>
+  <p>设计选择不同，结果自然会不同。Arena 团队 2026 年 9 月的文章 HarnessTax 专门量了这件事：让同一个模型分别装在三个运行框架里，在同一批任务上跑，比较成功率和花费。三个运行框架是上一节的 Pi、OpenAI 的 Codex 和 Anthropic 的 Claude Code。</p>
+  {{fig 86 | Terminal-Bench 2.0 上，四个 Claude 模型各自配三个运行框架的结果。左边一组横条是每次运行的平均花费（美元），右边一组是成功率。绿色的框标出每个模型下花费最低和成功率最高的那一个。每个横条上的细线是误差范围。图片来源：<a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax</a>。}}
+  <p>Terminal-Bench 是一个让 agent 在命令行环境里完成任务的基准测试（benchmark，一组题目加一个打分的办法），2.0 版有 89 个任务。文章一共测了 7 个模型，用了 Terminal-Bench 2.0 和 SWE-bench Lite 两个基准测试；上面的图和下面的表只包含其中 4 个 Claude 模型在 Terminal-Bench 2.0 上的结果。把图里的数连同文章给的 95% 置信区间列成表。置信区间的意思是：按同样的办法重复做很多次实验，算出来的范围大约有 95% 会包含真实的平均值。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col">运行框架</th><th scope="col" class="r">每次运行的平均花费（美元）</th><th scope="col" class="r">成功率</th><th scope="col" class="r">成功率的 95% 置信区间</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" rowspan="3">Claude Fable 5</th><td>Pi</td><td class="r">1.08</td><td class="r">71.1%</td><td class="r">54.4% 到 85.6%</td></tr>
+        <tr><td>Codex</td><td class="r">0.98</td><td class="r">72.2%</td><td class="r">56.7% 到 86.7%</td></tr>
+        <tr><td>Claude Code</td><td class="r">1.55</td><td class="r">75.6%</td><td class="r">61.1% 到 88.9%</td></tr>
+        <tr><th scope="row" rowspan="3">Claude Opus 4.8</th><td>Pi</td><td class="r">0.76</td><td class="r">72.2%</td><td class="r">58.9% 到 84.4%</td></tr>
+        <tr><td>Codex</td><td class="r">0.85</td><td class="r">72.2%</td><td class="r">56.7% 到 86.7%</td></tr>
+        <tr><td>Claude Code</td><td class="r">0.90</td><td class="r">68.9%</td><td class="r">52.2% 到 84.4%</td></tr>
+        <tr><th scope="row" rowspan="3">Claude Sonnet 4.6</th><td>Pi</td><td class="r">0.61</td><td class="r">65.6%</td><td class="r">48.9% 到 82.2%</td></tr>
+        <tr><td>Codex</td><td class="r">0.55</td><td class="r">63.3%</td><td class="r">46.7% 到 78.9%</td></tr>
+        <tr><td>Claude Code</td><td class="r">0.67</td><td class="r">62.2%</td><td class="r">46.7% 到 76.7%</td></tr>
+        <tr><th scope="row" rowspan="3">Claude Haiku 4.5</th><td>Pi</td><td class="r">0.25</td><td class="r">47.8%</td><td class="r">32.2% 到 63.3%</td></tr>
+        <tr><td>Codex</td><td class="r">0.21</td><td class="r">31.1%</td><td class="r">15.6% 到 47.8%</td></tr>
+        <tr><td>Claude Code</td><td class="r">0.25</td><td class="r">41.1%</td><td class="r">27.8% 到 55.6%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>花费和成功率与上面的图一致。置信区间取自文章页面里图表附带的数据。所有组合用的是从 Terminal-Bench 2.0 里随机抽出的同一批 30 个任务，每个任务跑 3 次，每个组合一共 90 次运行，每次运行最多 100 轮。花费按 2026 年 9 月 1 日的一份固定价格表计算。</figcaption>
+  </figure>
+  <h3>怎么读这张表</h3>
+  <ul>
+    <li><b>样本不大。</b>每个组合只跑了 30 个任务，没有跑全部 89 个。所以每个成功率的置信区间都很宽，上下大约各 15 个百分点。</li>
+    <li><b>成功率在多数模型上只差几个百分点。</b>Fable 5、Opus 4.8、Sonnet 4.6 这三个模型，三个运行框架之间最多相差不到 5 个百分点。以 Claude Fable 5 为例，Claude Code 的 75.6% 比 Pi 的 71.1% 高 4.4 个百分点。文章给出的这个差值的置信区间是负 1.1 到正 11.1 个百分点，包含了零，也就是这批数据分不出两者谁高。差距最大的一组是 Claude Haiku 4.5 在 Pi 和 Codex 上，相差 16.7 个百分点。这个差值的置信区间没有在文章里找到，图表附带的数据把每一行都标为描述性的估计、没有做检验，所以 30 个任务不足以判断这个差距是否可靠。</li>
+    <li><b>花费的差距更确定。</b>同样是 Claude Fable 5，Claude Code 每次运行的花费是 Pi 的 1.44 倍，这个比值的置信区间是 1.08 到 1.94 倍，整个区间都在 1 以上。表里花费差得最多的也在这个模型上：Claude Code 的 1.55 美元是 Codex 的 0.98 美元的约 1.6 倍。</li>
+    <li><b>模型自家的运行框架不一定最好。</b>Claude Code 是 Anthropic 为 Claude 做的。四个 Claude 模型里，它只在 Fable 5 上成功率最高。</li>
+  </ul>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「换运行框架会让成功率差很多」，要看是哪一组数据。</b>单看上面的图，很容易读成运行框架对成功率影响很大。HarnessTax 的作者自己的结论是另一个方向：在他们测的两个基准测试上，运行框架的选择对任务成功率影响很小，对花费的影响可以很大，同一个模型可以用高达 5 倍的花费拿到差不多的成功率。文章的正文没有写明这个最大的倍数出现在哪个模型上；上面的表只有四个 Claude 模型在 Terminal-Bench 2.0 上的结果，表里最大的差距约 1.6 倍。文章的名字就是这个意思：只用默认的运行框架、不和别的比一比，可能在为同样的质量多付钱。他们还报告，平均来看 Claude Code 在 Terminal-Bench 2.0 上的花费是 Pi 的 1.5 倍，而运行框架对成功率的平均影响在正负 5% 左右以内，原文没有写明这是百分点还是相对比例。作者也说明，这些结论限于他们测的两个公开的基准测试，换别的任务可能不同。另一方面，如果把范围放宽到排行榜上各式各样的运行框架，成功率的差距就大得多，见下一节的数字。出处：<a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax</a>。</div></div>
+</section>
+
+<section class="sec" id="meta">
+  <h2>Meta-Harness：让模型自己改运行框架</h2>
+  <p>既然运行框架是一段代码，而模型会写代码，那么可以让模型来写运行框架。Lee 等人 2026 年的论文 Meta-Harness 做的就是这件事：在外面套一层搜索，不断提出新的运行框架代码，在任务上评估，保留好的。</p>
+  {{fig 87 | Meta-Harness 的搜索循环。第一步，一个 agent 读一个文件系统，里面存着之前所有候选运行框架的源代码、运行记录和分数，然后提出一个新的运行框架。第二步，在评估任务上运行这个新的运行框架。第三步，把这一轮的代码、推理过程和分数全部存回文件系统，再开始下一轮。图片来源：<a href="https://arxiv.org/abs/2603.28052">Lee 等，2026</a>。}}
+  <p>负责提出新代码的那个 agent，在论文的实验里是装着 Opus 4.6 的 Claude Code。历史都存在文件里，它用 <code>grep</code>、<code>cat</code> 这样的命令按需查看，需要看哪次失败的运行记录就打开哪个。每个候选的运行框架是一个单文件的 Python 程序。</p>
+  {{fig 88 | 论文的两组结果。左：在文本分类任务上，横轴是评估过的运行框架个数，纵轴是到那时为止最好的准确率。Meta-Harness 的红线上升得最快，也停在最高处。右：在 Terminal-Bench 2.0 上（论文里写作 TerminalBench-2），模型固定为 Claude Haiku 4.5，各个运行框架的通过率。红色是 Meta-Harness 搜出来的，深蓝色是人写的。图片来源：<a href="https://arxiv.org/abs/2603.28052">Lee 等，2026</a>。}}
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">运行框架，模型都是 Claude Haiku 4.5</th><th scope="col" class="r">Terminal-Bench 2.0 的通过率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Meta-Harness 搜出来的</th><td class="r">37.6%</td></tr>
+        <tr><th scope="row">Goose</th><td class="r">35.5%</td></tr>
+        <tr><th scope="row">Terminus-KIRA</th><td class="r">33.7%</td></tr>
+        <tr><th scope="row">mini-SWE-agent</th><td class="r">29.8%</td></tr>
+        <tr><th scope="row">Terminus 2</th><td class="r">28.3%</td></tr>
+        <tr><th scope="row">Claude Code</th><td class="r">27.5%</td></tr>
+        <tr><th scope="row">OpenHands</th><td class="r">13.9%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>前六行是上面右图里的数，最后一行来自论文的表 7。除了第一行，分数都取自 Terminal-Bench 2.0 的官方排行榜，论文作者没有重跑。</figcaption>
+  </figure>
+  <p>同一个模型，排行榜上人写的运行框架从 13.9% 到 35.5% 都有，Meta-Harness 搜出来的是 37.6%。上一节的三个运行框架在多数模型上只差几个百分点，这里的差距大得多。换成 Opus 4.6，Meta-Harness 搜出来的运行框架通过率是 76.4%，在使用 Opus 4.6 的 agent 里排第二。排第一的是另一个编程 agent ForgeCode，成绩是 81.8%，论文作者说明他们没能用公开的代码复现这个成绩。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读这些数字要带着三个保留。</b>
+    <ul>
+      <li><b>搜索和报告成绩用的是同一批题。</b>论文写明，在 Terminal-Bench 2.0 这个实验里，搜索和最终评估用的是同样的 89 个任务。作者的理由是这个基准测试题少、跑一遍很贵，再分出一份留作测试会削弱搜索的信号，并且公开的运行框架本来也在这批题上反复调整过。他们另外用人工检查和正则匹配排查了运行框架里有没有混入针对具体题目的字符串。即便如此，这个 37.6% 是一个针对 Terminal-Bench 2.0 调出来的运行框架在 Terminal-Bench 2.0 上的成绩。拿它和 Claude Code 直接比，条件并不对等：Claude Code 是面向各种任务的通用产品。</li>
+      <li><b>它是从两个现成的强运行框架出发的。</b>搜索的起点是 Terminus 2 和 Terminus-KIRA。</li>
+      <li><b>同一个组合，两处的数不一样。</b>Claude Code 配 Claude Haiku 4.5，这里是 27.5%，上一节 HarnessTax 的表里是 41.1%。两个数的来历不同：一个取自排行榜，针对全部 89 个任务；一个是抽 30 个任务自己跑的，Claude Code 的版本和设置也不一定相同。第 13 讲会讲到这一点：分数要连同它是怎么跑出来的一起看。</li>
+    </ul>
+    论文的另外两组实验有独立的测试数据。文本分类上，它比此前最好的人工设计的上下文管理方法 ACE 高 7.7 个百分点，用的上下文 token 只有四分之一左右。数学题上，搜出来的一个运行框架让五个没参与搜索的模型在 200 道国际数学奥林匹克难度的题上平均提高 4.7 个百分点。出处：<a href="https://arxiv.org/abs/2603.28052">Lee 等，2026</a>。</div></div>
+</section>
+
+<section class="sec" id="summary">
+  <h2>这一部分的小结</h2>
+  <ul>
+    <li>搭 agent 没有唯一的办法。工具、记忆、上下文管理、执行，每一项都有不止一种合理的选择。</li>
+    <li>mini-SWE-agent 和 Pi 走极简的路线，OpenHands 把状态和历史管得更细，OpenClaw 面向的是长期在线的个人助手。它们的差别来自各自要做的事不同。</li>
+    <li>运行框架是 agent 表现的一部分。报告一个 agent 的成绩时，模型和运行框架要一起说明。</li>
+    <li>运行框架本身也可以被优化，前提和<a href="optimizer.html">优化 prompt</a> 一样：要有任务和评估。</li>
+  </ul>
+  <p>agent 跑起来之后，下一个问题是它能不能稳定地跑很久，以及出了问题时看不看得到。下一部分讲<a href="orchestration.html">编排和可观测性</a>。</p>
+</section>

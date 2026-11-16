@@ -60,7 +60,8 @@
           "title": "框架与编排",
           "summary": "agent 工程的数据、系统、评估三根支柱；DSPy 和 LangGraph 的现场演示；开源的 agent 运行框架；Temporal 和可观测性工具。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture05.pdf",
-          "video": "https://youtu.be/q0Q-Hy8TTps"
+          "video": "https://youtu.be/q0Q-Hy8TTps",
+          "dir": "lecture05"
         },
         {
           "n": 6,
