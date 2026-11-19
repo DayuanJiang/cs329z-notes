@@ -47,7 +47,7 @@
   </figure>
   <ul>
     <li><b>两者可以分开变。</b>后两行的编排相同，协调的做法不同。两个例子的结果没法直接比较：任务、模型和 agent 的数量都不一样，C 编译器案例没有和单 agent 对照过，CooperBench 也没有测过认领机制。</li>
-    <li><b>有 orchestrator 时两者最容易混。</b>分工和排顺序都由它来做。Kim 等人 2026 年的论文也说，在集中方式里，协调就是通过 orchestrator 拆任务、盯进度来完成的。即使这样，它也需要一本台账来记，第一行就是例子。</li>
+    <li><b>有 orchestrator 时两者最容易混。</b>分工和排顺序都由它来做。Kim 等人 2026 年的论文也说，在集中方式里，协调就是通过 orchestrator 拆任务、跟踪进度来完成的。即使这样，它也需要一本台账来记，第一行就是例子。</li>
   </ul>
   <p>下面按三个问题来读这两层。前三节是系统提供的东西，最后一节是 agent 自己商量出来的做法，以及它为什么不能当作依靠。</p>
 </section>
@@ -63,6 +63,8 @@
       <div class="card"><h4>支持恢复</h4><p>执行停滞时，更新计划或者重试。</p></div>
     </div>
   </figure>
+  <p>最简单的任务台账就是一份待办清单。「支持恢复」的一个例子：某个 agent 认领了任务却一直没有做完，台账上看得出来，别的 agent 可以把这个任务接过去。</p>
+  <p>任务台账和收发消息一样，现在主要靠运行框架（包在模型外面、负责提示词和工具的那层程序）来实现：提示词里要求 agent 先查看台账、认领任务、做完后更新。模型在这方面有没有受过专门的训练，这一讲用到的资料里没有说明。通信能力从哪里来，见<a href="communication.html#practice">第三部分</a>。</p>
   <h3>由 orchestrator 维护：Magentic-One</h3>
   {{fig 55 | 图片来源：<a href="https://arxiv.org/pdf/2411.04468">arXiv 2411.04468</a>。}}
   <p>Magentic-One（Fourney 等，2024）里，orchestrator 手里有两本账。</p>
@@ -104,6 +106,7 @@
   {{fig 56 | 截图是一个 issue tracker 的看板，有 Backlog、Todo、In Progress 三列。}}
   <p>Symphony 来自 OpenAI，介绍它的文章里有一节的标题是「把我们的 issue tracker 变成 agent 的调度器」。它监视 issue tracker，把符合条件的任务派给各自在独立工作区里的编程 agent。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Symphony 怎么运作。</b>OpenAI 的介绍文章说，Symphony 把 Linear 这样的项目管理看板变成编程 agent 的控制面板：每个打开的任务都有一个 agent 去做，agent 持续运行，人负责审查结果。它的规格说明里写着，系统持续从 issue tracker 读取工作，给每个 issue 建一个隔离的工作区，在里面运行一次编程 agent 的会话。也就是说，它同时用了任务台账和下一节的工作区隔离。出处：<a href="https://openai.com/index/open-source-codex-orchestration-symphony/">OpenAI 的介绍文章</a>、<a href="https://github.com/openai/symphony/blob/main/SPEC.md">规格说明</a>。</div></div>
+  <p>规格说明把分工写得很清楚。Symphony 负责读取 issue 和调度，它自己记着哪些 issue 已经派出去、哪些在重试。改状态、写评论、关联 PR 这些写操作，一般由 agent 通过工具来做，例如把自己接到的 issue 移到「进行中」。这样一来，别的 agent 和人应该都能从看板上看到这件事已经有人在做。</p>
 </section>
 
 <section class="sec" id="worktree">
@@ -138,8 +141,9 @@
     </table>
   </figure>
   <p>新任务来了，系统先在查询图里找相近的旧任务，再从旧任务往上取出提炼过的见解，往下取出当时的交互记录并压缩成经验，一起交给多 agent 系统。任务做完后，根据执行是否成功等反馈更新三张图。</p>
+  <p>取和存各有一个细节。取的时候，第一步是把新任务和旧任务都转成向量，按相似度挑出最接近的几个旧任务，再沿着查询图上的边把相关的任务也带进来。论文的理由是，只按相似度挑出的任务可能只是表面上相近，或者带着噪声。存的时候，三张图都要更新：这次的交互记录存进交互图；这个任务作为新节点加进查询图；新提炼出的见解加进见解图，并和这次用到的旧见解连起来。</p>
   {{figs 60 61 | 左：取和存的过程。右：效果对比。图片来源：<a href="https://arxiv.org/pdf/2506.07398">arXiv 2506.07398</a>。}}
-  <p>效果那张表里，多 agent 系统是 AutoGen，底层模型是 GPT-4o-mini。不带记忆时五个评测的平均分是 48.27，用 G-Memory 时是 57.18。对照的六种记忆方案里，三种是为单 agent 设计的（Voyager、MemoryBank、Generative Agents），三种是其他多 agent 框架自带的（MetaGPT、ChatDev、MacNet），平均分最高的是 Voyager 的 53.52。也就是说，G-Memory 的平均分高于全部六种对照方案。多 agent 框架自带的记忆不一定有帮助：ChatDev 的记忆平均分是 46.23，比不带记忆还低。</p>
+  <p>效果那张表里，多 agent 系统是 AutoGen，底层模型是 GPT-4o-mini。五个评测分三类：知识问答（HotpotQA、FEVER）、在模拟环境里行动（ALFWorld、SciWorld）和游戏（PDDL）。不带记忆时五个评测的平均分是 48.27，用 G-Memory 时是 57.18。对照的六种记忆方案里，三种是为单 agent 设计的（Voyager、MemoryBank、Generative Agents），三种是其他多 agent 框架自带的（MetaGPT、ChatDev、MacNet），平均分最高的是 Voyager 的 53.52。也就是说，G-Memory 的平均分高于全部六种对照方案。多 agent 框架自带的记忆不一定有帮助：ChatDev 的记忆平均分是 46.23，比不带记忆还低。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「共享记忆」有两个意思。</b>这里的 G-Memory 记的是跨任务的经验，帮助系统在下一个任务上做得更好。<a href="case_study.html#progress">案例</a>里也有「共享记忆」，指的是同一个项目里的进度文件，帮助新启动的 agent 接着做。后一种和协调的关系更直接。</div></div>
 </section>
 
@@ -156,7 +160,7 @@
   <h3>协商：做法冲突时，收敛到同一个计划</h3>
   {{fig 67 | 图片来源：<a href="https://arxiv.org/abs/2601.13295">CooperBench</a>。}}
   <p>Agent 2 发现两个人的计划可能重叠。Agent 1 检查文件后给出两个方案：「（1）我来加 IsHash，你加 import re 和 IsRegex，__init__.py 的导出全部由我来处理。（2）你加 IsRegex，我来加 IsHash，导出由你来处理。你想选哪个？」Agent 2 选了方案（1）。</p>
-  <p>三个例子有一个共同点：<mark>说出来的话具体到了文件、行号和先后顺序，对方不需要再猜</mark>。论文对协商那个例子的评价是，一方把一个复杂的协调问题变成了一道选择题，而且每个选项都写清了双方各自要做什么。这和任务台账、认领文件做的是同一件事，只是这里靠 agent 临场发挥。</p>
+  <p>三个例子有一个共同点：<mark>说出来的话具体到了文件、行号和先后顺序，对方不需要再猜</mark>。论文对协商那个例子的评价是，一方把一个复杂的协调问题变成了一次简单的选择，而且每个选项都写清了双方各自要做什么。这和任务台账、认领文件做的是同一件事，只是这里靠 agent 临场发挥。</p>
   <p>也可以反过来看<a href="case_study.html#claims">案例里的认领</a>为什么靠得住：两个 agent 认领同一个任务时，Git 会让后到的那次推送失败。它由机制强制执行，不依赖 agent 记住对方说过什么。</p>
   <p class="next">这些设计做了以后，多 agent 系统还会在哪里出问题？下一部分：<a href="failures.html">失败</a>。</p>
 </section>

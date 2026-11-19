@@ -2,8 +2,8 @@
   <h2>先看结论</h2>
   <ul class="takeaways">
     <li>编排要做两个选择：要不要一个 agent 统管全局，worker 之间能不能直接交流。两个选择组合出四种方式：独立、集中、去中心、混合。</li>
-    <li>交流越多，开销越大。达到同样的成绩，四种方式的 token 用量是单 agent 的 1.6 到 6.2 倍。</li>
-    <li>论文的实验里，只把各个 agent 的输出拼在一起、没人核对的独立方式，在四个评测上都是四种里最差的。</li>
+    <li>交流越多，开销越大。论文按通信开销换算：达到同样的成绩，四种方式的 token 用量是单 agent 的 1.6 到 6.2 倍。按实测的美元成本看有例外，独立方式在两家的模型上比单 agent 便宜。</li>
+    <li>论文的实验里，只把各个 agent 的输出拼在一起、没人核对的独立方式，在论文六个评测里的五个上都是四种里最差的。</li>
     <li>哪种方式好取决于任务：能拆成并行分析的任务用集中方式最好，要边找边调整的任务用去中心方式稍好，一步接一步的任务四种都比单 agent 差。</li>
     <li>「去中心」这个词有两种意思。本页的数字测的是 agent 一轮一轮辩论，和案例里那种各自在共享仓库里挑任务的做法不是一回事。</li>
   </ul>
@@ -34,6 +34,13 @@
       </tbody>
     </table>
   </figure>
+  <h3>四种方式各是什么样子</h3>
+  <ul>
+    <li><b>独立。</b>一个典型的用法是给每个 agent 指定一个角色，让它们各自看同一份材料。例如把一份产品方案同时交给「产品经理」和「工程师」两个 agent 审阅，各自从自己的角度提意见，最后一步从中挑选或合并。2023 年前后有不少多 agent 系统给 agent 指定角色，本页最后一节的 DyLAN 就是一个例子。它的局限是几个角度之间没有交流，一个 agent 的发现帮不到另一个。</li>
+    <li><b>集中。</b>它和单 agent 派出并行的子任务很像，界线是模糊的。一个可用的区分是看 worker 拿到的任务有多大。单 agent 派出去的通常是很具体的小任务，主要的工作仍由它自己推进。多 agent 系统里，worker 拿到的可以是「让编译器跑得更快」这样的高层目标，怎么做由 worker 自己决定。</li>
+    <li><b>去中心。</b>共享的状态记录通常只是一份数据，不需要由某个 agent 来担任。它可以是一份待办清单，一个列着许多 bug 的仓库，或者一批没通过的测试，各个 agent 从里面领任务。agent 再派出子 agent 之后，谁在做什么很快就难以追踪。</li>
+    <li><b>混合。</b>实际的系统常常是前几种的混合：有一个统管的 orchestrator，worker 之间也互相发消息。</li>
+  </ul>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>下一步由谁决定。</b>四种方式讲的是 agent 之间的关系。OpenAI Agents SDK 的文档还区分了另一件事：流程可以交给模型自己决定，也可以写在代码里。交给模型更灵活，适合开放的任务；写在代码里，速度、成本和结果都更可预测。两者可以混着用。出处：<a href="https://openai.github.io/openai-agents-python/multi_agent/">Agent orchestration</a>。</div></div>
 </section>
 
@@ -47,11 +54,11 @@
         <tr><th scope="row">单 agent</th><td>只有一个 agent，不需要合成</td><td class="r">0%</td><td class="r">67.7</td><td class="r">1.0</td></tr>
         <tr><th scope="row">独立</th><td>把各个 agent 的输出拼在一起，不做交叉核对，也不投票</td><td class="r">58%</td><td class="r">42.4</td><td class="r">17.2</td></tr>
         <tr><th scope="row">集中</th><td>orchestrator 核对并综合 worker 的结果</td><td class="r">285%</td><td class="r">21.5</td><td class="r">4.4</td></tr>
-        <tr><th scope="row">去中心</th><td>一轮一轮辩论，直到达成一致</td><td class="r">263%</td><td class="r">23.9</td><td class="r">7.8</td></tr>
+        <tr><th scope="row">去中心</th><td>辩论固定的几轮，最后按多数票定出答案</td><td class="r">263%</td><td class="r">23.9</td><td class="r">7.8</td></tr>
         <tr><th scope="row">混合</th><td>orchestrator 综合，worker 之间也交换意见</td><td class="r">515%</td><td class="r">13.6</td><td class="r">5.1</td></tr>
       </tbody>
     </table>
-    <figcaption>数字来自 <a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a> 正文的 Table 5。</figcaption>
+    <figcaption>数字来自 <a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a> 正文的 Table 5。去中心方式的合成办法取自同一篇论文的 Table 2：辩论的轮数是事先定的，示意图上标的是多数票（Majority Voting）。辩论之后要有这一步，很可能是因为评测每次只收一个答案，论文没有说明原因。</figcaption>
   </figure>
   <p>三列数字各是什么意思：</p>
   <ul>
@@ -77,7 +84,7 @@
         <tr><th scope="row">怎么协调</th><td>顺序执行</td><td>并行，然后综合</td><td>分层</td><td>一轮一轮地辩论</td><td>分层，加同级之间的交流</td></tr>
       </tbody>
     </table>
-    <figcaption>译自论文的 Table 2。为了和本页其他表一致，集中和去中心两列对调了位置。大 O 记号写的是数量随括号里的量增长的趋势，例如 O(nk) 表示和 n 乘 k 成正比。字母的含义取自原表的脚注：k 是每个 agent 最多迭代的次数，n 是 agent 的数量，r 是 orchestrator 的轮数，d 是辩论的轮数，p 是同级之间通信的轮数，m 是每一轮里同级之间请求的平均次数。原表没有另外解释「串行的深度」和「记忆的复杂度」两行；按字面，前者是必须依次完成的轮数，后者是系统要保存的上下文的量级。</figcaption>
+    <figcaption>译自论文的 Table 2。为了和本页其他表一致，集中和去中心两列对调了位置。大 O 记号写的是数量随括号里的量增长的趋势，例如 O(nk) 表示增长得不比 n 乘 k 的某个固定倍数更快。字母的含义取自原表的脚注：k 是每个 agent 最多迭代的次数，n 是 agent 的数量，r 是 orchestrator 的轮数，d 是辩论的轮数，p 是同级之间通信的轮数，m 是每一轮里同级之间请求的平均次数。原表没有另外解释「串行的深度」和「记忆的复杂度」两行；按字面，前者是必须依次完成的轮数，后者是系统要保存的上下文的量级。</figcaption>
   </figure>
   <p>这张表里，四种方式的并行倍数都是 n，但模型调用次数、串行的深度、通信开销和记忆的复杂度各不相同。和上面的实测数字对应得最直接的，是通信开销那一行。</p>
 </section>
@@ -91,7 +98,7 @@
       <tbody>
         <tr><th scope="row">Finance Agent</th><td class="r good">+57%</td><td class="r good"><b>+81%</b></td><td class="r good">+75%</td><td class="r good">+73%</td><td>能拆成并行的分析。有 orchestrator 综合的集中方式最好</td></tr>
         <tr><th scope="row">BrowseComp-Plus</th><td class="r bad">−35%</td><td class="r">+0%</td><td class="r good"><b>+9%</b></td><td class="r good">+6%</td><td>网页浏览要边找边调整。agent 之间能互通消息的去中心方式稍好</td></tr>
-        <tr><th scope="row">Workbench</th><td class="r bad">−11%</td><td class="r bad">−1%</td><td class="r good"><b>+6%</b></td><td class="r bad">−1%</td><td>工具很多，差别都不大</td></tr>
+        <tr><th scope="row">Workbench</th><td class="r bad">−11%</td><td class="r bad">−1%</td><td class="r good"><b>+6%</b></td><td class="r bad">−1%</td><td>工具很多。集中和混合方式接近单 agent，去中心方式略高，独立方式明显更低</td></tr>
         <tr><th scope="row">PlanCraft</th><td class="r bad">−70%</td><td class="r bad">−50%</td><td class="r bad">−41%</td><td class="r bad"><b>−39%</b></td><td>一步接一步的规划。四种都比单 agent 差，只能挑最不差的</td></tr>
       </tbody>
     </table>
@@ -103,14 +110,14 @@
 <section class="sec" id="cost">
   <h2>成本</h2>
   {{fig 24 | 横轴是每次实验花的钱（美元），纵轴是成绩，三格是三家的模型。图片来源：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。}}
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>简化的说法和图对不上。</b>一种简化的说法是，成本从低到高依次是单 agent、有 orchestrator 的系统、swarm（去中心方式的另一个叫法）。图上实际是这样的：
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>简化的说法和图对不上。</b>一种简化的说法是，成本从低到高依次是单 agent、有 orchestrator 的系统、swarm（严格的用法指去中心方式）。图上实际是这样的：
     <ul>
-      <li>三格里最贵的都是混合方式，它有 orchestrator。</li>
+      <li>三格里最贵的都是混合方式，它有 orchestrator。swarm 这个词按宽的用法也包括混合方式（见<a href="#swarm">下一节</a>），只有按宽的用法，「swarm 最贵」才和图对得上。</li>
       <li>去中心方式和集中方式的成本接近，谁更贵三格并不一致：OpenAI 那一格去中心便宜一点，Google 那一格集中便宜一点，Anthropic 那一格几乎一样。</li>
       <li>在 Google 和 Anthropic 两格里，独立方式比单 agent 还便宜。</li>
     </ul>
     四种多 agent 方式之间的成本顺序，和前面通信开销的顺序一致：独立最低，集中和去中心在中间，混合最高。独立方式在两格里比单 agent 还便宜，通信开销解释不了这一点，图上也看不出原因。</div></div>
-  <p>图上还能看到，花得多不一定成绩高。在 OpenAI 和 Anthropic 两格里，最贵的混合方式和便宜得多的单 agent 成绩差不多。</p>
+  <p>图上还能看到，花得多不一定成绩高。在 OpenAI 和 Anthropic 两格里，最贵的混合方式和便宜得多的单 agent 成绩差不多。成本居中的方式有时成绩最高：OpenAI 那一格里是去中心方式。所以选哪种方式是成本和成绩之间的取舍，要在自己的任务上量过才知道。</p>
 </section>
 
 <section class="sec" id="swarm">
@@ -122,12 +129,25 @@
       <tbody>
         <tr><th scope="row">通常的定义</th><td>通过一块共享的留言板或通信通道</td><td>agent 自己领任务</td></tr>
         <tr><th scope="row">C 编译器案例</th><td>通过共享仓库里的进度文件</td><td>agent 自己领任务，在仓库里登记认领</td></tr>
-        <tr><th scope="row">论文的实验</th><td>几个 agent 就同一个问题一轮一轮辩论，直到达成一致</td><td>大家做的是同一个任务</td></tr>
+        <tr><th scope="row">论文的实验</th><td>几个 agent 就同一个问题一轮一轮辩论，最后按多数票定出答案</td><td>大家做的是同一个任务</td></tr>
       </tbody>
     </table>
     <figcaption>前两行是一种做法，第三行是另一种。</figcaption>
   </figure>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>所以本页「去中心」一列的数字，测的都是辩论。</b>它们不能直接用来判断<a href="case_study.html">案例</a>里那种做法的好坏。案例也不能套用「独立」一列的数字：案例里的 agent 能读到别人的进度文件，结果由一套测试来核对，这两样论文实现的独立方式都没有。</div></div>
+  <h3>swarm 这个词的宽窄两种用法</h3>
+  <p>严格的用法里，swarm 指没有 orchestrator、所有 agent 都能互相通信的去中心方式。平时说的 agent swarm 要宽得多，泛指一大群一起工作的 agent，里面可以有 orchestrator，按本页的分法常常属于混合方式。用这一讲提到的三个系统对照：</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">系统</th><th scope="col">谁来安排工作</th><th scope="col">按本页的分法</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">HuggingFace 事件<br><span class="muted small"><a href="communication.html#unsanctioned">第三部分</a></span></th><td>没有人事先安排。这些 agent 本来各做各的评测任务，留言板是它们自己搭的，谁也没有被指定为上级。运行中出现了带头的 agent，它组织了多条工作线</td><td>结构不在设计之内。开始时符合严格意义上的 swarm；带头的 agent 出现以后，可以看作更接近混合方式</td></tr>
+        <tr><th scope="row">C 编译器案例<br><span class="muted small"><a href="case_study.html">案例页</a></span></th><td>没有 orchestrator，agent 自己领任务。各个 agent 的长期职责由人事先指定</td><td>去中心方式</td></tr>
+        <tr><th scope="row">OpenAI 解 Navier-Stokes 问题的系统</th><td>研究者把 agent 分成小组，组内可以通信，不同的小组拿到问题的不同版本。过一段时间，研究者用 Codex 把各组最有用的发现汇总起来，再发给各组</td><td>只有同组的 agent 能互相通信，组和组之间靠 Codex 汇总后再分发，所以它很可能不属于严格意义上的 swarm。有没有担任 orchestrator 的 agent，原文没有写明</td></tr>
+      </tbody>
+    </table>
+    <figcaption>Navier-Stokes 问题是关于流体运动方程的一道数学难题，七道千禧年大奖难题之一。第三行取自 OpenAI 的介绍文章 <a href="https://openai.com/index/navier-stokes-solution/">On the Navier-Stokes Millennium Prize Problem</a>。文章说得出解答的那一组约有 1 万个同时运行的 agent。</figcaption>
+  </figure>
 </section>
 
 <section class="sec" id="dylan">
@@ -139,6 +159,7 @@
     <li><b>解决新任务时还能中途精简。</b>用一个大语言模型给每个回答的用处打分，去掉用处小的 agent。三分之二的 agent 答案一致时提前停止。</li>
   </ul>
   {{figs 26 27 | 左：算重要性分数的三步（传播、汇总、选择）。右：解决新任务时中途去掉 agent。图片来源：<a href="https://arxiv.org/pdf/2310.02170">arXiv 2310.02170</a>。}}
+  <p>DyLAN 建立在「给每个 agent 一个角色」的思路上，论文里候选的 agent 是医生、律师、程序员、数学家这样的角色。放在这里，是用它说明团队的组成可以由系统按任务来定。负责统筹的模型变强以后，这样专门的选人算法是否还有必要，目前没有定论。</p>
   <p>论文报告的结果是：在决策类任务（WebShop 的 50 个测试环境）上，DyLAN 的成功率是 42.0%，平均调用 API 24.85 次。对照的方法里成功率最高的是 40.0%，平均调用次数分别是 25.40 次（Reflexion）和 32.40 次（BOLAA）。也就是成功率略高，调用次数相当或更少。论文说明，调用次数主要统计的是解决任务的阶段，前面挑选团队那一步的开销没有算在里面。</p>
   <p class="next">指挥关系定了以后，下一个问题是<b>通信</b>：<a href="communication.html">谁看到什么</a>。</p>
 </section>

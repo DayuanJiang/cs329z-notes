@@ -21,6 +21,13 @@
     </div>
     <figcaption>这条线排的是系统的复杂程度，越往右要管的东西越多。</figcaption>
   </figure>
+  <h3>单 agent 加并行，和多 agent 的分界在哪里</h3>
+  <p>单 agent 也可以同时发出几个工具调用，或者同时发出几次模型调用，所以只看有没有并行，分不出两者。一个实用的分法是看有几处在各自做决定：</p>
+  <ul>
+    <li><b>单 agent。</b>只有一条主线，也只有一个上下文窗口。并行的调用都从这条主线发出，结果都回到这条主线，由它决定下一步。</li>
+    <li><b>多 agent。</b>有几个 agent 各自决定自己的下一步，每个 agent 有自己的指令，通常也有自己的上下文。它们可以同时运行，也可以轮流发言或依次交接，<a href="communication.html#ladder">第三部分</a>有这样的例子。</li>
+  </ul>
+  <p>这条界线是模糊的，两种写法之间有不少中间情况。Kim 等人 2026 年的论文用的是同样的标准：单 agent 系统的感知、规划和行动都在同一个模型实例控制的一个循环里完成，带工具调用和自我反思的 agent 仍然算单 agent。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>，第 2、3 节。</p>
   <p>设计一个多 agent 系统，必须考虑三件事，它们是后面三个部分的主题。</p>
   <figure class="plate">
     <div class="cards cols-3">
@@ -57,6 +64,13 @@
     </div>
     <figcaption>一句话的总结：协作带来的好处大于协调的成本时，协作才有帮助。</figcaption>
   </figure>
+  <p>下面举四个例子，前两个说的是好处，后两个说的是坏处：</p>
+  <ul>
+    <li><b>并行和探索。</b>一道数学难题有很多条可能的证明路线，可以让不同的 agent 各攻一条，同时推进。Navier-Stokes 问题是关于流体运动方程的一道数学难题，七道千禧年大奖难题之一。OpenAI 在 2026 年 9 月公布了一份由 agent 生成的解答，按它的介绍，不同的 agent 小组拿到的是问题的不同版本，并且被鼓励尝试不同的思路。出处：<a href="https://openai.com/index/navier-stokes-solution/">On the Navier-Stokes Millennium Prize Problem</a>。</li>
+    <li><b>上下文更集中。</b>一个常见的做法是把写代码和审查代码交给两个 agent。负责审查的 agent 从一份干净的上下文开始，不带着写这段代码时的思路，这样很可能更容易看出问题。Cursor 介绍自己的 agent swarm 时写道，它试过几种审查方式：让负责审查的 agent 看 worker 的完整运行记录，只看产出，或者只看代码库，也试过换别的模型来审查。文章的说法是，没有哪一种审查能发现所有问题，几种互不相关的审查可以叠加；文章推测，这套叠加的审查是产出质量能保持住的主要原因之一，没有给出对照数据。出处：<a href="https://cursor.com/blog/agent-swarm-model-economics">Agent swarms and the new model economics</a>。</li>
+    <li><b>违背说好的事。</b>一个 agent 说「我只改这几个文件」，后来又改了别的文件，合并时就多出冲突要解决。</li>
+    <li><b>错误传播。</b>一个 agent 上网查资料，写成报告交给下一个 agent。下一个 agent 通常会直接采信这份报告，报告里的错误就进了后面的工作，查起来也更难。</li>
+  </ul>
   <p>下面的表把两种系统放在一起对比。有一行值得注意：单 agent 也能并行，它可以同时发出几个互不依赖的工具调用。所以「需要并行」本身还不足以说明要用多个 agent。</p>
   <figure class="plate">
     <table class="tbl">
@@ -70,6 +84,7 @@
       </tbody>
     </table>
   </figure>
+  <p>最后一行的开销有一个直接的来源：每启动一个新的 agent，系统提示词都要重新读进它的上下文，它还要自己重新查看文件、弄清状况，这些 token 都要再付一遍。所以多 agent 系统通常比单 agent 贵，<a href="orchestration.html#cost">第二部分</a>的成本图上有实测的数字和一种例外：独立方式在两家的模型上比单 agent 便宜。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>开销有多大。</b>Anthropic 在介绍自己的多 agent 研究系统时给过数字：agent 用的 token 大约是普通对话的 4 倍，多 agent 系统大约是 15 倍。文章还说，多 agent 系统有效，主要是因为它帮你花掉了足够多的 token 去解决问题。所以任务的价值要够高，才付得起这笔开销。出处：<a href="https://www.anthropic.com/research/multi-agent-research-system">How we built our multi-agent research system</a>。</div></div>
 </section>
 
@@ -82,8 +97,10 @@
     <li>每格有五条线：单 agent（虚线）和四种多 agent 架构。四种架构在<a href="orchestration.html">第二部分</a>讲。</li>
     <li>模型越强，五条线都往上走。换更强的模型，对每种做法都有帮助。</li>
     <li>每格标了一个百分比。论文的图注说，它是同一个模型上成绩最好的多 agent 架构相对单 agent 的变化：GPT-5 是 +12.3%，Gemini 2.5 Pro 是 −4.6%，Claude Sonnet 4.5 是 −7.2%。</li>
+    <li>GPT-5 那一格里成绩最高的是去中心方式（菱形）。</li>
   </ul>
   <p>也就是说，在图上三家各自最强的那个模型上，有两家是单 agent 的平均成绩高于所有多 agent 架构。</p>
+  <p>读这张图要留意模型的年代。图上都是 2025 年的模型，Anthropic 一格用的是 Sonnet 3.7、Sonnet 4.0 和 Sonnet 4.5，没有同期的 Opus 系列。更新的模型上这个对比会怎样，这张图回答不了；论文只在一个评测上对更新的模型做了初步的检验。</p>
 </section>
 
 <section class="sec" id="task">
@@ -149,12 +166,12 @@
         <tr><th scope="row">金融分析<br><span class="muted small">Finance Agent</span></th><td class="c good">满足</td><td class="c good">满足</td><td>多 agent 高 57% 到 81%</td></tr>
         <tr><th scope="row">一步接一步的规划<br><span class="muted small">PlanCraft</span></th><td class="c bad">不满足</td><td class="c bad">不满足</td><td>多 agent 低 39% 到 70%</td></tr>
         <tr><th scope="row">两个功能改同一个代码库<br><span class="muted small">CooperBench</span></th><td class="c bad">不满足</td><td class="c good">满足</td><td>分给两个 agent 之后，GPT-5 的成功率从 48% 降到 28%</td></tr>
-        <tr><th scope="row">编译 Linux 内核<br><span class="muted small"><a href="case_study.html#kernel">C 编译器案例</a></span></th><td class="c bad">起初不满足</td><td class="c good">满足</td><td>16 个 agent 卡在同一个 bug 上。作者把内核按文件拆开后，并行才恢复</td></tr>
+        <tr><th scope="row">编译 Linux 内核<br><span class="muted small"><a href="case_study.html#kernel">C 编译器案例</a></span></th><td class="c bad">起初不满足</td><td class="c good">满足</td><td>16 个 agent 卡在同一个 bug 上，互相覆盖修改。作者换了一种检验方式，让不同的 agent 面对不同内核文件暴露出的不同 bug，并行才恢复</td></tr>
       </tbody>
     </table>
-    <figcaption>每个例子满足哪个条件，是按论文和文章对任务的描述判断的。最后一行不在前面三处证据里，它的经过在案例页。</figcaption>
+    <figcaption>每个例子满足哪个条件，是这一讲按论文和文章对任务的描述作出的判断，原文没有这样分类。最后一行不在前面三处证据里，它的经过在案例页。</figcaption>
   </figure>
-  <p>最后一行说明，第一个条件不满足时，可以把工作重新切一遍，让各块不再碰同一份东西。另一条路是用明确的办法管住共享的部分，例如认领和分开的工作区，它在<a href="coordination.html">第四部分</a>讲，效果目前没有对照数据。</p>
+  <p>最后一行说明，第一个条件不满足时，可以把工作重新切一遍。案例里重新切的是失败的定位：每个 agent 去修一个不同的 bug，同时改到同一处代码的机会就少了，各自的修改仍然要合并。另一条路是用明确的办法管住共享的部分，例如认领和分开的工作区，它在<a href="coordination.html">第四部分</a>讲，效果目前没有对照数据。</p>
 </section>
 
 <section class="sec" id="when">
@@ -163,7 +180,6 @@
   <figure class="plate">
     <div class="cards cols-2">
       <div class="card">
-        <div class="label">Prefer a Single Agent System when…</div>
         <h4>下面的情况优先用单 agent</h4>
         <ul>
           <li>各个步骤高度依赖彼此。</li>
@@ -172,7 +188,6 @@
         </ul>
       </div>
       <div class="card">
-        <div class="label">Try a Multi Agent System when…</div>
         <h4>下面的情况可以试试多 agent</h4>
         <ul>
           <li>子任务之间只需要很少的同步，就能各自推进。</li>
@@ -184,6 +199,8 @@
     </div>
   </figure>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>建议：</b>从一个强的单 agent 基线开始。加 agent 要有明确的目的，并且测量它带来的贡献是否大于协调的成本。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>左栏第三条里的「成本」怎么读。</b>这一条说的是：单 agent 已经达到目标时，不必再加 agent。反过来的情况要小心：单 agent 的成本超标时，换成多 agent 通常帮不上忙，因为多 agent 一般更贵。多 agent 有可能改善的是质量和完成任务的时间。</div></div>
+  <p>用不用多个 agent，现在主要由设计系统的人来判断。编程 agent 已经能在一次任务里自己派出子 agent。以 Claude Code 为例，它的文档写明，Claude 会根据请求里对任务的描述、各个子 agent 的说明和当前的上下文，自动把任务派给子 agent；自动派得不够时，用户也可以点名要求用某个子 agent。出处：<a href="https://code.claude.com/docs/en/sub-agents">Claude Code 文档的子 agent 一页</a>。可以这样理解：让模型自己判断什么时候派、派几个，是一个正在推进的方向。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Anthropic 的说法。</b>Building effective agents 说的是同一个意思，范围更广：先找最简单的办法，只在需要时才增加复杂度；只有当复杂度确实改善了结果时，才值得加。出处：<a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。</div></div>
   <p class="next">决定用多个 agent 之后，第一个设计问题是<b>编排</b>：<a href="orchestration.html">谁分派任务，谁做决定</a>。</p>
 </section>
