@@ -16,6 +16,9 @@
   <p>图里比的是启动一台云服务器。在网页上做，agent 得看懂界面、找到按钮、一步步点。用命令行做，是一段文字。语言模型最擅长的就是读写文字，而几乎所有的技术工作都有命令行的做法：编译代码、训练模型、配置服务器、处理数据、转换文件。所以给 agent 一个终端，它能做的事的范围就非常大。</p>
   <p>Terminal-Bench 的论文在引言里也是这样说的：终端无处不在、用途广、能力强，被用在软件工程、科学计算、网络安全、机器学习这些高技能的工作里；加上它是纯文字的，所以成了 Cursor、Codex CLI、Claude Code、Gemini CLI 这些 agent 的标准工具。出处：<a href="https://arxiv.org/abs/2601.11868">Merrill 等，2026</a>。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>名字里有终端，但不要求只用终端。</b>论文明确写着：虽然名字叫 Terminal-Bench，并不要求 agent 只用终端这一种工具，它可以用任何方式操作容器。很多 agent 是直接装进容器里的程序，自带读写文件、搜索网页的工具。为了有一个中立的参照，作者自己写了一个最简单的运行框架（包在模型外面、给它工具并管理多轮对话的程序）Terminus 2，它只有一个工具，就是一个没有图形界面的终端，只靠 bash 命令完成任务。</div></div>
+  <h3>这个想法是怎么来的</h3>
+  <p>Terminal-Bench 出自两条线索。第一条是一场比赛。2024 年 12 月，Databricks 和 Perplexity 的联合创始人 Andy Konwinski 宣布了 K Prize：拿出 100 万美元，奖给第一个在新版 SWE-bench 上解决率（这里指做对的题目所占的比例）超过 90% 的开源系统。SWE-bench 是一个让 agent 修复真实 GitHub 代码仓库里的问题的基准测试。K Prize 的版本在参赛者提交之后才收集新的题目，所以这些题目不可能出现在模型的训练数据里。后来成为 Terminal-Bench 负责人之一的 Alex Shaw 是这场比赛的核心成员。出处：<a href="https://andykonwinski.com/2024/12/12/konwinski-prize.html">Konwinski 对这场比赛的说明</a>。按 Terminal-Bench 作者的说法，团队在 2024 年底花了大约三个月，在 SWE-bench 的代码基础上搭出自动生成新题目的流程；这个时间没有在别处核对到。</p>
+  <p>读过大量 SWE-bench 的任务之后，K Prize 的团队开始问几个问题：一个任务为什么一定要是一个 GitHub 仓库、一条问题报告、一次代码合并请求加一组单元测试？为什么不能是人想在计算机上做的任何一件事？agent 在计算机上的任务，最一般的形式是什么？第二条线索是对终端的看重。Andy Konwinski 和当时在 Stanford 任教的 Ludwig Schmidt 都认定，终端这一件工具能顶替计算机上几乎所有别的工具。想做一个新的基准测试，想把「计算机上的任务」推广到最一般的形式，想测 agent 用终端的能力，这几个想法合在一起，就成了 Terminal-Bench。</p>
 </section>
 
 <section class="sec" id="task">
@@ -36,9 +39,26 @@
   <p>这个任务有两点很能说明 Terminal-Bench 的思路。</p>
   <ul>
     <li><b>它考的是一件真实的专业工作。</b>任务的作者在说明里写道，现实中这件事是机械工程师做的，难点是三维空间的推理，以及照着一份画在图片里的规格说明精确地做。它考的是机械设计的能力，写代码只是完成它的手段，整件事可以在命令行里完成。</li>
-    <li><b>测试列了很多条，是为了让「通过」和「做对」对得上。</b>只查体积，一个形状不同但体积凑巧相近的零件也能过。把体积、表面积、惯性矩、凸包、欧拉示性数、曲率的积分全都对上，做错了还能通过的可能性就非常小。任务的作者还写了一点：这张工程图改编自一份公开的教程，图和参考解法都改动过，所以照抄教程里的答案通不过测试。</li>
+    <li><b>测试列了很多条，是为了让「通过」和「做对」对得上。</b>只查体积，一个形状不同但体积凑巧相近的零件也能过。体积、表面积、惯性矩、凸包、欧拉示性数、曲率的积分要全都对上，形状不对的零件凑巧通过的机会就小得多。任务的作者还写了一点：这张工程图改编自一份公开的教程，图和参考解法都改动过，所以照抄教程里的答案通不过测试。</li>
   </ul>
+  <p>按 Terminal-Bench 作者的说法，这个任务的说明、环境和测试在整个任务集里都算简单的。其他任务的形式相同，内容分属编程、网络、安全、生物、化学、音乐、平面设计等领域。环境通常用一个 Docker 镜像来定义，也可以用别的能把环境启动起来的配置；测试可以像这里一样用程序检查，也可以让语言模型或 agent 来评审。</p>
   <p>任务的完整格式，以及每一部分怎么写，在<a href="task.html">第三部分</a>展开。</p>
+</section>
+
+<section class="sec" id="swebench">
+  <h2>和 SWE-bench 比，差别在哪里</h2>
+  <p>前面提到的 SWE-bench 是测 agent 编程能力时最常用的基准测试之一。Terminal-Bench 的作者认为，从方法上看 SWE-bench 是 Terminal-Bench 的一个子集：SWE-bench 的任何一个任务都能写成 Terminal-Bench 的任务，反过来做不到。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col"></th><th scope="col">SWE-bench</th><th scope="col">Terminal-Bench</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">任务的形式</th><td>固定的一种：一个代码仓库、一条问题报告、一次代码合并请求、一组单元测试</td><td>任何能用一段任务说明、一个环境、一组测试表达的工作</td></tr>
+        <tr><th scope="row">测的是哪类工作</th><td>集中在软件工程</td><td>种类多：数据科学、软件工程、调试、系统和基础设施的运维等</td></tr>
+        <tr><th scope="row">任务从哪里来</th><td>直接取自真实的代码仓库和问题报告</td><td>多数由贡献者专门编写，直接取自真实数据的成分少一些</td></tr>      </tbody>
+    </table>
+    <figcaption>按 Terminal-Bench 作者的比较整理。2.0 版的<a href="https://arxiv.org/abs/2601.11868">论文</a>附录列出了已经改写成这种任务格式的基准测试，其中有 SWE-bench Verified，见后面的 <a href="#harbor">Harbor 一节</a>。</figcaption>
+  </figure>
+  <p>作者还有一个印象：在 SWE-bench 上，agent 读进上下文（模型一次能看到的全部文字）的 token 明显更多，因为它面对的是真实的大型代码库和很大的文件。这是定性的观察，没有给出数字。</p>
 </section>
 
 <section class="sec" id="versions">
@@ -46,13 +66,13 @@
   <p>Terminal-Bench 代码仓库的第一次提交是在 2025 年 1 月 17 日。Anthropic 在同年 2 月 24 日发布了 Claude Code 的研究预览版，这是后来最常用的命令行编程 agent 之一。也就是说，这个基准测试开始做的时候，在终端里工作的 agent 还没有流行起来。2.0 版论文的作者单位里，排在最前面的两个是 Stanford University 和 Laude Institute。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col" class="nw">版本</th><th scope="col" class="nw">时间</th><th scope="col">任务</th><th scope="col">这一版做了什么</th><th scope="col">发布时最好的成绩</th></tr></thead>
+      <thead><tr><th scope="col" class="nw">版本</th><th scope="col" class="nw">时间</th><th scope="col">任务</th><th scope="col">这一版做了什么</th><th scope="col">公告或论文里给出的成绩</th></tr></thead>
       <tbody>
         <tr><th scope="row">1.0</th><td class="nw">2025 年 5 月<br><span class="muted small">按第三方的介绍</span></td><td>约 80 个<br><span class="muted small">按第三方的介绍</span></td><td>第一版</td><td>没有查到</td></tr>
-        <tr><th scope="row">2.0</th><td class="nw">论文 2026 年 1 月</td><td>89 个</td><td>93 位贡献者提交了 229 个任务，从中选出 89 个更难的。每个任务平均经过大约三小时的人工审查</td><td>Codex CLI 加 GPT-5.2，解决率 63%</td></tr>
+        <tr><th scope="row">2.0</th><td class="nw">论文 2026 年 1 月</td><td>89 个</td><td>93 位贡献者提交了 229 个任务，从中选出 89 个更难的。每个任务平均经过大约三小时的人工审查</td><td>最好的是 Codex CLI 加 GPT-5.2，解决率 63%</td></tr>
         <tr><th scope="row">2.1</th><td class="nw">2026 年 5 月<br><span class="muted small">按第三方的介绍</span></td><td>同样的 89 个</td><td>修任务。一次系统的检查在 28 个任务里发现了问题，逐个修复。论文拿 19 个模型和运行框架的组合在 2.0 和 2.1 上各测了一遍：单个组合的解决率最多变动 12 个百分点，排行榜上的名次最多变动三位</td><td>没有查到</td></tr>
-        <tr><th scope="row">3.0</th><td class="nw">2026 年 7 月 30 日</td><td>74 个新任务，分属 7 个领域</td><td>换了一批更难、种类更多的任务，其中有需要 GPU 和多个容器的。从这一版起改成持续更新的做法</td><td>约 34%</td></tr>
-        <tr><th scope="row">4.0</th><td class="nw">2026 年 8 月 28 日</td><td>66 个</td><td>还是 3.0 的任务：删掉 8 个，修了 19 个，重新校准每个任务的 CPU 和内存，时间上限统一成 8 小时</td><td>见下面的<a href="#leaderboard">排行榜一节</a></td></tr>
+        <tr><th scope="row">3.0</th><td class="nw">2026 年 7 月 30 日</td><td>74 个新任务，分属 7 个领域</td><td>换了一批更难、种类更多的任务，其中有需要 GPU 和多个容器的。从这一版起改成持续更新的做法</td><td>最好的约 34%</td></tr>
+        <tr><th scope="row">4.0</th><td class="nw">2026 年 8 月 28 日</td><td>66 个</td><td>还是 3.0 的任务：删掉 8 个，修了 19 个，重新校准每个任务的 CPU 和内存，时间上限统一成 8 小时</td><td>公告里没有给出。发布之后的一个榜单片段见下面的<a href="#leaderboard">排行榜一节</a></td></tr>
         <tr><th scope="row">4.1</th><td class="nw">2026 年 11 月 9 日</td><td>同样的 66 个</td><td>只改验证器（给结果打分的程序），让它更难被钻空子（靠利用评分办法的漏洞拿到分数），也更少把正确的结果判错。agent 看到的任务没有变</td><td>用新的验证器给 4.0 的结果重新评分，所有系统的分数都落在原来的 95% 置信区间以内</td></tr>
       </tbody>
     </table>
@@ -65,27 +85,29 @@
   </ul>
   <p>4.0 删掉的 8 个任务，官方给了理由：2 个被做满，2 个会让模型拒绝执行，2 个的答案已经能在网上找到，2 个有没解决的质量或平台兼容问题。这里「做满」的判断标准是：最新一代的各家各档模型，5 次运行全部通过。</p>
   <p>从 3.0 到 4.0 没有换题，版本号的第一位却加了 1，原因在<a href="maintain.html#versioning">第四部分的版本号一节</a>：现在版本号的每一位表示旧的结果还能不能用，第一位变了，表示所有系统都要重新跑。</p>
+  <p>接下来的版本往哪里走，Terminal-Bench 的作者说了三个方向：覆盖更多种类的工作，因为现在的任务只是人在计算机上做的事情里很小的一部分；让环境更复杂；让任务要走的步骤更多、耗时更长。他们也说明，现在这种任务形式是有意做得小而规整的：一个任务只测一件事，是测一种能力时最小、最便宜的单元。它装不下所有的工作，十年后回头看，很可能会显得过于简单。</p>
 </section>
 
 <section class="sec" id="scale">
   <h2>被使用的规模</h2>
-  <p>下面五个数是 Terminal-Bench 团队在 2026 年 10 月介绍这个项目时用的。它们各自量的东西不一样，有两个需要多说几句。</p>
+  <p>下面五个数是 Terminal-Bench 团队在 2026 年 10 月公开给出的。它们各自量的东西不一样，有两个需要多说几句。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">数字</th><th scope="col">量的是什么</th><th scope="col">核对的情况</th></tr></thead>
       <tbody>
-        <tr><th scope="row">64</th><td>一项对模型发布文档（model card，模型厂商在发布新模型时公布的说明和测评成绩）的统计，共 64 份。在这些文档报告的基准测试里，Terminal-Bench 排在第一行</td><td>只见于下面的第一张图，没有在别处核对到</td></tr>
-        <tr><th scope="row">171</th><td>一份贡献者名单上的名字数。名单里大多数是个人，也有 Scale AI、Snorkel AI 这样的机构</td><td>没有在别处核对到。3.0 的公告写的是 100 多位任务贡献者和审查者</td></tr>
-        <tr><th scope="row">1,000 以上</th><td>GitHub 上的参与者人数。怎样算参与，没有说明</td><td>没有在别处核对到</td></tr>
-        <tr><th scope="row">5,000 以上</th><td>Discord 社区的成员数</td><td>没有在别处核对到</td></tr>
+        <tr><th scope="row">64</th><td>一项对模型发布文档（model card，模型厂商在发布新模型时公布的说明和测评成绩）的统计，共 64 份。统计的是每份文档有没有报告某个基准测试，以及把它放在多显眼的位置</td><td>数字只见于下面的第一张图，没有在别处核对到。图的读法按 Terminal-Bench 作者的说明</td></tr>
+        <tr><th scope="row">171</th><td>一份贡献者名单上的名字数。名单里大多数是个人，也有 Scale AI、Snorkel AI 这样的机构。任务是有意向很多不同背景的人征集的，这样才能覆盖尽量多种类的工作</td><td>没有在别处核对到。3.0 的公告写的是 100 多位任务贡献者和审查者</td></tr>
+        <tr><th scope="row">1,000 以上</th><td>GitHub 上的参与者人数。按作者的说法，参与审查任务和报告问题的人比写任务的人更多。这个数具体怎样统计，没有说明</td><td>没有在别处核对到</td></tr>
+        <tr><th scope="row">5,000 以上</th><td>Discord 社区的成员数</td><td>对得上。Discord 的公开接口在 2026 年 11 月 19 日显示这个社区大约有 6,540 名成员</td></tr>
         <tr><th scope="row">700 万以上</th><td>累计下载次数，到 2026 年 9 月下旬是 7,798,899 次</td><td>只见于下面的第二张图，没有在别处核对到。见下面的橙色框</td></tr>
       </tbody>
     </table>
   </figure>
-  {{fig 32 | 一张填色的表。每一列是一个模型，共 60 多列。每一行是一个基准测试，图里能看到 38 行，名字后面标着 agentic 或 chat，表示它是 agent 类还是对话类。第一行是 Terminal-Bench，后面依次是 Humanity's Last Exam、GPQA Diamond、SWE-bench Verified 等。格子填了颜色，表示这个模型的发布文档报告了这个基准测试的成绩。图上没有说明行的排序规则，也没有说明黑色和灰色的区别。}}
-  <p>在这张统计里，Terminal-Bench 排在第一行，这一行填了颜色的格子也占大多数。图上没有说明行的排序规则，很可能是按被报告的次数从多到少排的。如果是这样，Terminal-Bench 就是这些发布文档里最常被报告的基准测试。</p>
+  {{fig 32 | 一张填色的表。每一列是一个模型，共 60 多列。每一行是一个基准测试，图里能看到 38 行，名字后面标着 agentic 或 chat，表示它是 agent 类还是对话类。第一行是 Terminal-Bench，后面依次是 Humanity's Last Exam、GPQA Diamond、SWE-bench Verified 等。格子的颜色表示这个基准测试在这份发布文档里放在多显眼的位置：黑色是当作主打成绩来报，灰色是出现在发布文档的主要成绩图里，浅灰色是只出现在系统卡（system card，随模型发布的详细技术报告）里，空白是没有报告。图上没有说明行的排序规则。}}
+  <p>在这张统计里，Terminal-Bench 这一行填了颜色的格子占大多数，其中不少是黑色，也就是被当作主打成绩来报。行很可能是按被报告的次数从多到少排的。如果是这样，Terminal-Bench 就是这些发布文档里最常被报告的基准测试。</p>
   {{fig 36 | 一条从 2025 年 9 月到 2026 年 9 月下旬的曲线，纵轴是累计下载次数，最后一个点标着 7,798,899。2025 年 11 月以前几乎贴着横轴，2026 年 5 月以后增长明显加快。右下角的小图是一个数据集托管网站上按下载量排序的列表，用来做对比。}}
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>700 多万这个数量的是下载次数。</b>Terminal-Bench 团队介绍项目时，把这个数叫作「7M+ benchmark runs」，也就是运行了 700 多万次。同一张图的纵轴写的是「Reported all-time downloads」，也就是累计下载次数。很可能是因为运行之前要先把任务数据下载下来，所以拿下载次数来近似运行次数。两者并不相等：下载了不一定跑，一次下载也可能跑很多遍。图上没有写明统计的是哪个下载渠道。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>700 多万这个数量的是下载次数。</b>Terminal-Bench 团队把这个数叫作「7M+ benchmark runs」，也就是运行了 700 多万次。同一张图的纵轴写的是「Reported all-time downloads」，也就是累计下载次数。很可能是因为运行之前要先把任务数据下载下来，所以拿下载次数来近似运行次数。两者并不相等：下载了不一定跑，一次下载也可能跑很多遍。图上没有写明统计的是哪个下载渠道。</div></div>
+  <p>不论确切的次数是多少，运行得多和它的用法有关。按 Terminal-Bench 作者的介绍，它被用在三个时候：模型发布时用来报告成绩；训练模型的过程中，每存下一个中间版本（checkpoint）就跑一遍，看能力有没有提高；开发运行框架的人也用它来评估自己的框架。作者还提到，从它衍生出来的项目有好几个，例如面向科研工作的 Terminal-Bench-Science 和 <a href="https://github.com/open-thoughts/OpenThoughts-Agent">OpenThoughts-Agent</a>。后者是一个为训练小型 agent 模型准备数据和工具的开源项目，它的说明文件写明用 Harbor 来生成数据和运行评估，评估用的基准测试里有 Terminal-Bench 2.0。</p>
 </section>
 
 <section class="sec" id="leaderboard">
@@ -137,13 +159,14 @@
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">Terminal-Bench</th><th scope="col">Harbor</th></tr></thead>
       <tbody>
-        <tr><th scope="row">是什么</th><td>基本上是一个基准测试，加上 Terminal-Bench-Science 这样少数几个同一系列的基准测试</td><td>做评估和跑评估的工具，目标是让成千上万个评估都能用它来做</td></tr>
+        <tr><th scope="row">是什么</th><td>基本上是一个基准测试，加上 Terminal-Bench-Science 这样少数几个同一系列的基准测试</td><td>做评估和跑评估的工具，目标是让数以百万计的评估都能用它来做</td></tr>
         <tr><th scope="row">评估由谁来做</th><td>Terminal-Bench 的团队和社区</td><td>使用者自己，针对自己关心的工作</td></tr>
         <tr><th scope="row">留下的是什么</th><td>经验和教训</td><td>把这些经验做成的工具</td></tr>
       </tbody>
     </table>
   </figure>
   <p>两者的关系在论文里写得很清楚：Terminal-Bench 的任务用 Harbor 的任务格式来写，用 Harbor 来运行。这个格式并不限于 Terminal-Bench，论文说作者已经把另外 26 个已有的基准测试改写成了同一种格式。</p>
-  <p>为什么要让每个人都能做评估？<a href="shift.html#spec-to-eval">第一部分</a>的结论是，评估成了对不对的最终依据。公开的基准测试回答的是「哪个模型在这批通用的任务上更强」。一个团队真正要回答的问题通常更具体：哪个模型加哪个运行框架，在自己的代码库、自己的业务流程上做得最好，花多少钱。这个问题只有用自己的任务做的评估能回答。</p>
+  <p>为什么要让每个人都能做评估？<a href="shift.html#spec-to-eval">第一部分</a>的结论是，软件实际会做什么，最后以评估为准。公开的基准测试回答的是「哪个模型在这批通用的任务上更强」。一个团队真正要回答的问题通常更具体：哪个模型加哪个运行框架，在自己的代码库、自己的业务流程上做得最好，花多少钱。这个问题只有用自己的任务做的评估能回答。</p>
+  <p>Terminal-Bench 的作者还给了一个更直接的理由：做 Terminal-Bench 这样的基准测试很难扩大规模，每个任务都要靠真正懂那件工作的人来写和审。他们认为，今后十年里用来衡量最强模型的那些基准测试不会都出自自己这一个团队，所以把时间花在 Harbor 上，让懂某一小块工作的人自己做评估。这些人只关心很窄的一类任务，也希望它被做满，因为他们要的就是这类工作能交给 agent 自动完成。每个行业、每个产品的每项功能都有这样一个评估的话，它们合起来就相当于对模型的全面评估。</p>
   <p><a href="task.html">下一部分</a>讲用 Harbor 的格式怎么写一个任务。</p>
 </section>

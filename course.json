@@ -93,7 +93,8 @@
           "title": "多 agent 系统",
           "summary": "什么时候用多个 agent；编排、通信、协调怎么设计；多 agent 系统为什么失败；16 个 agent 写 C 编译器的案例。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture08.pdf",
-          "dir": "lecture08"
+          "dir": "lecture08",
+          "video": "https://youtu.be/TlX_ft_PQIM"
         }
       ]
     },
@@ -106,7 +107,8 @@
           "title": "优化",
           "summary": "优化 prompt 和上下文的方法、优化模型权重的方法、让 agent 自己做优化，以及该优化 prompt 还是权重。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture09.pdf",
-          "dir": "lecture09"
+          "dir": "lecture09",
+          "video": "https://youtu.be/e_m99aR7_3Q"
         },
         {
           "n": 10,
@@ -114,7 +116,8 @@
           "title": "嘉宾讲座：Terminal-Bench",
           "summary": "Terminal-Bench 的两位作者 Ryan Marten 和 Alex Shaw 讲怎样评测 agent 在终端里完成真实任务的能力。",
           "slides": "https://web.stanford.edu/class/cs329z/slides/lecture10.pdf",
-          "dir": "lecture10"
+          "dir": "lecture10",
+          "video": "https://youtu.be/7GW-9ug2nvw"
         }
       ]
     },

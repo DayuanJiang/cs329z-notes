@@ -12,7 +12,7 @@
 <section class="sec" id="idea">
   <h2>从固定的算法到会写代码的 agent</h2>
   <p>先回顾前面的优化器是怎么工作的。<a href="instructions.html">第三部分</a>里的 OPRO、MIPROv2、GEPA，每一步做什么都是事先固定的：取哪些历史记录，怎样拼成一段输入交给语言模型，拿回来的新指令怎样评估。语言模型只负责其中「写一条新指令」这一步。</p>
-  <p>这一部分的三个系统换了一种做法。优化的对象是一份代码，执行优化的是一个编程 agent。它可以自己决定读哪些文件、查哪些记录、改哪一处、跑什么命令。固定下来的只有最外面的一圈：提出一个改动，评估，把结果记下来，再来一遍。</p>
+  <p>这一部分的三个系统换了一种做法。优化的对象是一份代码，执行优化的是一个编程 agent。它可以自己决定读哪些文件、查哪些记录、改哪一处、跑什么命令。固定下来的只有最外面的一圈：提出一个改动，评估，把结果记下来，再来一遍。OPRO 已经有类似的想法：把以往的指令和分数直接交给语言模型，看它提出什么。区别在于，OPRO 每次只给它看分数最高的 20 条指令，这里接手的是一个能自己读全部文件、跑命令的 agent。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">第三部分的 prompt 优化器</th><th scope="col">这一部分：agent 当优化器</th></tr></thead>
@@ -81,7 +81,7 @@
       <tbody>
         <tr><th scope="row">完整的 DGM</th><td>作为参照</td><td class="r">50.0%</td><td class="r">38.0%</td></tr>
         <tr><th scope="row">去掉自我改进</th><td>被改的 agent 在变，负责修改的始终是最初的 agent</td><td class="r">39.0%</td><td class="r">28.0%</td></tr>
-        <tr><th scope="row">去掉开放式探索</th><td>没有档案，每次都在最新的版本上接着改</td><td class="r">23.0%</td><td class="r">14.0%<br><span class="muted small">图上约 18%</span></td></tr>
+        <tr><th scope="row">去掉开放式探索</th><td>没有档案，每次都在最新的版本上接着改</td><td class="r">23.0%</td><td class="r">论文的表：14.0%<br><span class="muted small">论文的图：约 18%</span></td></tr>
         <tr><th scope="row">每次都选分数<br>最高的当父代</th><td>有档案，但选父代时只看分数</td><td class="r">39.7%</td><td class="r">30.0%</td></tr>
       </tbody>
     </table>
@@ -108,13 +108,13 @@
     <table class="tbl">
       <thead><tr><th scope="col">方法</th><th scope="col">能看到多少历史</th><th scope="col">看到的内容</th><th scope="col" class="r">每轮可用的信息量（百万 token）</th></tr></thead>
       <tbody>
-        <tr><th scope="row">OPRO</th><td>最近的一段</td><td>以往的方案和分数</td><td class="r">0.002</td></tr>
+        <tr><th scope="row">OPRO</th><td>一个有限的窗口</td><td>以往的方案和分数</td><td class="r">0.002</td></tr>
         <tr><th scope="row">TextGrad</th><td>只有上一个版本</td><td>对当前版本的文字反馈</td><td class="r">0.015</td></tr>
         <tr><th scope="row">GEPA</th><td>摘要</td><td>根据运行记录写的反思</td><td class="r">0.008</td></tr>
         <tr><th scope="row">Meta-Harness</th><td>全部</td><td>所有的记录和分数</td><td class="r">10.0</td></tr>
       </tbody>
     </table>
-    <figcaption>token 是模型处理文字的最小单位，大致是一个词或半个词。最后一列是 Meta-Harness 的作者对各篇论文里规模最大的实验做的估计，表示有多少信息可以用，不表示 agent 实际读了这么多。原表还有另外三种方法，这里只列了第三部分讲过的三种。出处：<a href="https://arxiv.org/abs/2603.28052">Lee 等</a>的表 1。</figcaption>
+    <figcaption>token 是模型处理文字的最小单位，大致是一个词或半个词。最后一列是 Meta-Harness 的作者对各篇论文里规模最大的实验做的估计，表示有多少信息可以用，不表示 agent 实际读了这么多。原表还有另外三种方法，这里只列了第三部分讲过的三种。「能看到多少历史」一列说的是以往各轮的历史以什么形式留下来。按<a href="instructions.html#opro">第三部分</a>的内容，OPRO 的窗口里是分数最高的 20 条指令。GEPA 每一轮反思时读的是当前一小批题的原始运行记录、分数和文字反馈；以往各轮的运行记录不再给它看，留下来的是已经写进指令里的结论，表里的「摘要」可以这样理解。出处：<a href="https://arxiv.org/abs/2603.28052">Lee 等</a>的表 1。</figcaption>
   </figure>
   <h3>结果</h3>
   <p>论文在三类任务上报告了结果。下面的图是其中两类。</p>
@@ -148,7 +148,7 @@
 
 <section class="sec" id="autoresearch">
   <h2>autoresearch：让 agent 整夜做实验</h2>
-  <p>autoresearch 是 Andrej Karpathy 在 2026 年 3 月公开的一个小项目。它把上面的思路用到了模型训练上：给 agent 一个小而完整的语言模型训练程序，让它自己不停地做实验。</p>
+  <p>autoresearch 是 Andrej Karpathy 在 2026 年 3 月公开的一个小项目。它把上面的思路用到了模型训练上：给 agent 一个小而完整的语言模型训练程序，让它自己不停地做实验。这个训练程序是他的 nanochat 项目的单 GPU 简化版。</p>
   {{fig 113 | 循环的各步：读上下文，提出一个改动，提交并训练，看指标有没有变好。变好了就接受这个改动，没变好就用 git 撤销。两种情况都把结果记到一个表格文件里，然后重复。图片来源：<a href="https://www.cerebras.ai/blog/how-to-stop-your-autoresearch-loop-from-cheating">Cerebras 的文章</a>。}}
   <p>整个项目只有三个要紧的文件，分工很清楚。</p>
   <figure class="plate">

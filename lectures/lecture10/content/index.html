@@ -7,7 +7,7 @@
       <thead><tr><th scope="col" class="nw">环节</th><th scope="col">对一个评估任务来说是什么</th><th scope="col">软件工程里对应的做法</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
         <tr><th scope="row">写</th><td>一个文件夹：任务说明、环境、验证器（给结果打分的程序）、参考解法</td><td>写代码和它的测试</td><td><a href="task.html">第三部分</a></td></tr>
-        <tr><th scope="row">查</th><td>静态检查；让 agent 审查任务的文件；跑参考解法应该满分；什么都不做应该零分；让前沿的 agent 正常做一遍；让一个 agent 故意作弊一遍；再让 agent 读后两类运行的轨迹</td><td>代码检查工具、单元测试、集成测试、安全测试</td><td><a href="maintain.html#qa">第四部分</a></td></tr>
+        <tr><th scope="row">查</th><td>静态检查；让 agent 审查任务的文件；跑参考解法应该满分；什么都不做应该零分；让前沿的 agent（当下能力最强的那一批）正常做一遍；让一个 agent 故意作弊一遍；再让 agent 读后两类运行的轨迹</td><td>代码检查工具、单元测试、集成测试、安全测试</td><td><a href="maintain.html#qa">第四部分</a></td></tr>
         <tr><th scope="row">跑</th><td>在隔离的容器里并行地跑成千上万次，保存每一次的运行轨迹（每一步动作和结果的完整记录）、日志、产物（agent 交出的文件）和得分</td><td>构建和部署的基础设施</td><td><a href="maintain.html#infra">第四部分</a></td></tr>
         <tr><th scope="row">修</th><td>使用中暴露的问题变成修改，按三位的版本号发布。版本号的哪一位变了，决定旧的结果是重新运行、重新评分还是直接沿用</td><td>问题跟踪、持续集成、语义化的版本号</td><td><a href="maintain.html#versioning">第四部分</a></td></tr>
       </tbody>
@@ -22,9 +22,9 @@
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
         <tr><th scope="row"><a href="shift.html">一 为什么评估<br>变成了开发的中心？</a></th><td>传统软件是人写规则，对不对可以读代码来判断。模型是学出来的，agent 是靠评估调出来的，这两样对不对只能靠测量。软件越来越多是 agent 生成的，代码仍然可以读，但量大到人读不过来，也越来越靠运行和测试来判断。所以开发流程的起点从规格说明换成了评估</td><td>同一个取电话号码的函数：用正则表达式（用一串符号描述文字格式的写法）写，读代码就知道它认哪种格式；改成调用语言模型，只有拿一批例子去测才知道</td></tr>
-        <tr><th scope="row"><a href="tbench.html">二 一个评估<br>长什么样？</a></th><td>Terminal-Bench 的每个任务是一段任务说明、一个容器、一组检查容器最终状态的测试。排行榜的每一行有解决率（测试通过的运行所占的比例）、95% 置信区间（一种误差范围）、token 总量（token 是模型处理文字的基本单位）和花费，并且能点进去看每一次运行的记录</td><td>一个任务的核心要求只有一句话：按一张二维工程图输出三维模型文件。测试有九条检查：一条查文件是否合法，另外八条各查一项几何性质，例如体积和表面积。现在的 4.1 版有 66 个任务，2026 年 11 月 16 日最好的成绩是 65.8%</td></tr>
-        <tr><th scope="row"><a href="task.html">三 一个评估任务<br>怎么写？</a></th><td>任务说明要写全、写短、写得像人话。环境尽量接近真实。验证器按结果评分，和任务说明一一对应。验证器和 agent 分在两个环境里，防止钻空子（靠利用评分办法的漏洞拿到分数）。参考解法用来证明任务做得成</td><td>4.1 版用改进后的验证器重新评分，纠正了 89 次把正确结果判成不通过的运行，和 45 次把不正确的结果判成通过的运行</td></tr>
-        <tr><th scope="row"><a href="maintain.html">四 怎么运行，<br>怎么持续修？</a></th><td>基础设施要可靠、可复现、快、可移植。任务发布前过一组自动检查，发布后靠使用中发现的问题不断修。三位的版本号让修任务的成本降下来</td><td>2.0 版每个任务平均审查了大约三小时，后来仍然在 89 个任务里的 28 个里查出问题。4.0 排行榜的运行共花了 11.6 万美元，升级到 4.1 时重新评分的新增模型费用是 0</td></tr>
+        <tr><th scope="row"><a href="tbench.html">二 一个评估<br>长什么样？</a></th><td>Terminal-Bench 的每个任务是一段任务说明、一个容器、一组检查容器最终状态的测试。这种形式比 SWE-bench（让 agent 修复真实代码仓库里的问题的基准测试）的「一个代码仓库加一条问题报告」更一般，任何能这样表达的工作都可以做成任务。排行榜的每一行有解决率（测试通过的运行所占的比例）、95% 置信区间（一种误差范围）、token 总量（token 是模型处理文字的基本单位）和花费，并且能点进去看每一次运行的记录</td><td>一个任务的核心要求只有一句话：按一张二维工程图输出三维模型文件。测试有九条检查：一条查文件是否合法，另外八条各查一项几何性质，例如体积和表面积。现在的 4.1 版有 66 个任务，2026 年 11 月 16 日最好的成绩是 65.8%</td></tr>
+        <tr><th scope="row"><a href="task.html">三 一个评估任务<br>怎么写？</a></th><td>任务说明要写全、写短、写得像人话。环境尽量接近真实。验证器按结果评分，和任务说明一一对应；Terminal-Bench 的作者认为它是最难、也最有价值的部分。验证器和 agent 分在两个环境里，agent 碰不到评分的程序，这是对付钻空子（靠利用评分办法的漏洞拿到分数）的主要办法。参考解法用来证明任务做得成</td><td>4.1 版用改进后的验证器重新评分，纠正了 89 次把正确结果判成不通过的运行，和 45 次把不正确的结果判成通过的运行</td></tr>
+        <tr><th scope="row"><a href="maintain.html">四 怎么运行，<br>怎么持续修？</a></th><td>基础设施要可靠、可复现、快、可移植。任务发布前过一组自动检查，发布后靠使用中发现的问题不断修。三位的版本号让修任务的成本降下来。任务经常改，分数仍然要可比：新版本隔一段时间才发，排行榜尽快更新到新版本并保留全部历史结果</td><td>2.0 版每个任务平均审查了大约三小时，后来仍然在 89 个任务里的 28 个里查出问题。4.0 排行榜的运行共花了 11.6 万美元，升级到 4.1 时重新评分的新增模型费用是 0</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
@@ -59,9 +59,9 @@
   <h2>按部分阅读</h2>
   <div class="modlist">
     <a href="shift.html"><span class="m">第一部分</span><span><b>为什么评估变成了开发的中心</b><p>写程序的三个阶段；演绎式和归纳式；一个取电话号码的例子；规格说明让位给评估；agent 的训练数据是什么。</p></span></a>
-    <a href="tbench.html"><span class="m">第二部分</span><span><b>Terminal-Bench：一个评估长什么样</b><p>出发点；一个真实的任务；六个版本；被使用的规模；排行榜上每个数的含义；Harbor。</p></span></a>
-    <a href="task.html"><span class="m">第三部分</span><span><b>怎么写一个评估任务</b><p>几个词的定义；任务的文件夹格式；任务说明、环境、验证器；钻空子和隔离；参考解法。</p></span></a>
-    <a href="maintain.html"><span class="m">第四部分</span><span><b>怎么运行，怎么持续修</b><p>九个步骤；基础设施的四条要求；任务质量检查；持续更新；版本号；公开的运行记录；自动评估之外的办法；整讲的小结。</p></span></a>
+    <a href="tbench.html"><span class="m">第二部分</span><span><b>Terminal-Bench：一个评估长什么样</b><p>出发点和来历；一个真实的任务；和 SWE-bench 的差别；六个版本；被使用的规模；排行榜上每个数的含义；Harbor。</p></span></a>
+    <a href="task.html"><span class="m">第三部分</span><span><b>怎么写一个评估任务</b><p>几个词的定义；任务的文件夹格式；任务说明、环境、验证器；需要和用户对话的任务；钻空子和隔离；参考解法。</p></span></a>
+    <a href="maintain.html"><span class="m">第四部分</span><span><b>怎么运行，怎么持续修</b><p>九个步骤；基础设施的四条要求；任务质量检查；持续更新；版本号和分数的可比性；公开的运行记录；自动评估之外的办法；从使用记录生成任务；整讲的小结。</p></span></a>
   </div>
 </section>
 
@@ -86,6 +86,7 @@
       <thead><tr><th scope="col">资料</th><th scope="col">用在哪里</th></tr></thead>
       <tbody>
         <tr><td>Terminal-Bench 的<a href="https://github.com/harbor-framework/terminal-bench">代码仓库</a></td><td>第二、三部分里几个真实任务的任务说明、验证办法和修改记录</td></tr>
+        <tr><td>Andy Konwinski，<a href="https://andykonwinski.com/2024/12/12/konwinski-prize.html">Why I built the Konwinski Prize</a>（2024）</td><td>第二部分：Terminal-Bench 的来历</td></tr>
         <tr><td>Anthropic，<a href="https://www.anthropic.com/engineering/infrastructure-noise">Quantifying infrastructure noise in agentic coding evals</a>（2026）</td><td>第四部分：容器的资源配置对分数的影响</td></tr>
         <tr><td>Alex Shaw 的演讲《<a href="https://www.ai.engineer/talks/jRCpXUjz4CI-everything-is-rollout">Everything Is a Rollout</a>》的第三方文字整理稿</td><td>第一部分的对应表，第四部分一次运行的三种用途</td></tr>
         <tr><td><a href="https://www.cs.cmu.edu/~crary/819-f09/Hoare69.pdf">Hoare，1969</a>；<a href="https://softwarepreservation.computerhistory.org/FORTRAN/BackusEtAl-Preliminary%20Report-1954.pdf">FORTRAN 初步报告，1954</a>；<a href="https://writing.kemitchell.com/2022/06/11/Backus-Priesthood">Backus 1976 年演讲的摘录</a>；<a href="https://www.wired.com/2008/06/pb-theory/">Anderson，2008</a>；<a href="https://x.com/fchollet/status/2024519439140737442">Chollet 的帖子，2026</a></td><td>第一部分引用的几段话</td></tr>
