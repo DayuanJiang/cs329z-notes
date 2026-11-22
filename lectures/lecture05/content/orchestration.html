@@ -1,18 +1,18 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>agent（能自己调用工具、分很多步完成任务的语言模型系统）能完成的任务越来越长，一次运行里随便哪一步都可能失败：接口限流、超时、网络抖动、机器重启。承载它的基础设施必须可靠，出了问题还要查得出原因。</li>
-    <li>这里有两类工具。管可靠性的工具做的是编排（orchestration）：安排多个步骤按什么顺序执行，并在出错时自动处理，也就是重试，或者在进程中断之后接着跑。管可观测性（observability，能从外面看到系统内部每一步发生了什么）的工具把运行记录摆出来，供人去查。</li>
-    <li>Temporal 是第一类的代表。它把程序拆成两种东西：Activity 是可能失败的一步，Workflow 把这些步骤按顺序连起来。每一步的结果都记在服务端，所以失败的步骤可以自动重试，进程换了一个也能从记录里接着往下跑。</li>
-    <li>MLflow、LangSmith、Langfuse 是第二类的代表。它们记录每次模型调用和工具调用的输入、输出、耗时和花费。</li>
+    <li>agent（能自己调用工具、分很多步完成任务的语言模型系统）能完成的任务越来越难，难度用人做同一件事要花的时间来量。任务越难，一次运行通常要走的步数越多，任何一步都可能失败，原因可以是接口被限流（服务方限制一段时间内的调用次数）、超时、网络短暂中断或机器重启。承载它的基础设施必须可靠，出了问题还要查得出原因。</li>
+    <li>这里有两类工具。管可靠性的工具做的是编排（orchestration）：安排多个步骤按什么顺序执行，并在出错时自动处理，也就是重试，或者在进程中断之后接着跑。管可观测性（observability，能从外面看到系统内部每一步发生了什么）的工具显示运行记录，供人去查。</li>
+    <li>Temporal 是第一类的代表。它把程序拆成两种东西：Activity 是可能失败的一步，Workflow 把这些步骤按顺序连起来。每一步的结果都记在 Temporal 的服务端，也就是和执行程序的进程分开运行的一个服务，所以失败的步骤可以自动重试，进程换了一个也能从记录里接着往下跑。</li>
+    <li>MLflow、LangSmith、Langfuse 是第二类的代表。它们记录每次模型调用和工具调用的输入、输出、延迟（从发出调用到拿到结果用了多久）和花费。</li>
   </ul>
 </section>
 
 <section class="sec" id="why">
   <h2>为什么需要编排和可观测性</h2>
-  <p>编排（orchestration）在这里指的是：安排多个步骤按什么顺序执行，并且保证中途出错时整件事还能继续。没有这一层保证，跑 agent 的那台机器中途出点问题，任务就白做了。agent 要做的任务越长，这个问题越要紧。先看一张说明「任务在变长」的图。</p>
-  {{fig 92 | METR 的时间跨度图。横轴是模型发布的日期，纵轴是任务的长度，用人完成这个任务要花的时间来量，是对数刻度。每个点是一个模型，位置表示它有 50% 的机会完成多长的任务。纵轴左侧标了几个任务的例子，比如「回答一个问题」「在网上查一个事实」「训练一个分类器」。顶部灰色的区域写着：16 小时以上的测量在现有的任务集上不可靠。图片来源：<a href="https://metr.org/time-horizons/">METR</a>。}}
-  <p>METR 是一个评估 AI 能力的研究机构。它给每个模型算一个「50% 时间跨度」，算法分三步。先请熟练的人做一批软件工程、机器学习和网络安全方面的任务，记下人花的时间。再让模型做同一批任务。然后找出这样一个任务长度：模型在这个长度的任务上预计有一半的机会成功。</p>
+  <p>编排（orchestration）在这里指的是：安排多个步骤按什么顺序执行，并且保证中途出错时整件事还能继续。没有这一层保证，跑 agent 的那台机器中途出错时，已经完成的步骤都要重做。agent 一次运行要走的步数越多，这个问题越要紧。先看一张图，它画的是模型能做成的任务越来越难，难度用人完成这个任务要花的时间来量。</p>
+  {{fig 92 | METR 的时间跨度图。横轴是模型发布的日期，纵轴是任务的难度，用人完成这个任务要花的时间来量，是对数刻度，也就是每往上一格，时间乘上同一个倍数。每个点是一个模型，点的高度对应一个用时：人要花这么长时间的任务，这个模型有 50% 的机会做成。纵轴左侧标了几个任务的例子，比如「回答一个问题」「在网上查一个事实」「训练一个分类器」。顶部灰色的区域写着：16 小时以上的测量在现有的任务集上不可靠。图片来源：<a href="https://metr.org/time-horizons/">METR</a>。}}
+  <p>METR 是一个评估 AI 能力的研究机构。它给每个模型算一个「50% 时间跨度」，算法分三步。先请熟练的人做一批软件工程、机器学习和网络安全方面的任务，记下人花的时间。再让模型做同一批任务。然后找出这样一个用时：人要花这么长时间的任务，模型预计有一半的机会做成。这个用时就是这个模型的 50% 时间跨度。</p>
   <p>下表列出其中四个模型的 50% 时间跨度和它的 95% 置信区间。95% 置信区间的意思是：按同样的办法重复测量很多次，算出来的范围大约有 95% 会包含真实值。</p>
   <figure class="plate">
     <table class="tbl">
@@ -24,35 +24,35 @@
         <tr><th scope="row">Claude Mythos Preview（早期版本）</th><td>2026 年 4 月</td><td class="r">约 17.4 小时</td><td class="r">约 8.5 小时到 55.1 小时</td></tr>
       </tbody>
     </table>
-    <figcaption>最后一行已经超过了 16 小时这条可靠性的界限。METR 的这个页面在 2026 年 9 月注明不再更新，所以表里没有此后发布的模型。</figcaption>
+    <figcaption>最后一行已经超过了 16 小时，落在图上标明测量不可靠的范围里。METR 公布这些数值的网页叫时间跨度页面，它在 2026 年 9 月注明不再更新，所以表里没有此后发布的模型。</figcaption>
   </figure>
-  <p>按 METR 的论文，从 2019 年算起，这个时间跨度大约每 7 个月翻一倍。METR 在 2026 年 1 月扩充任务集之后重新测算：只看 2023 年以后发布的模型，翻倍的时间大约是 4 个月。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>纵轴量的是人的用时。</b>这张图常被读成「现在的 agent 可以自己连续工作十几个小时」。METR 在页面的问答里明确否定了这种读法：时间跨度量的是任务的难度，用人完成它要花多久来表示，和 AI 自己运行多长时间无关。METR 还提到，在 agent 能做成的任务上，它通常比人快好几倍。所以「12 小时」的意思是：一个熟练但对项目不熟悉的人要做 12 小时的任务，这个模型有一半的机会做成。出处：<a href="https://metr.org/time-horizons/">METR 的时间跨度页面</a>；<a href="https://arxiv.org/abs/2503.14499">Kwa 等，Measuring AI Ability to Complete Long Software Tasks</a>。</div></div>
-  <p>按这个意思来读，图说明的是模型在尝试越来越难的任务。任务越难，一次运行里要走的步数通常越多，运行的时间也可能越长，这一点图本身没有量。步数越多，其中某一步失败的机会也越多。由此有两点考虑：</p>
+  <p>按 METR 的论文（<a href="https://arxiv.org/abs/2503.14499">Kwa 等，2025 年</a>），从 2019 年算起，各个时期最好的模型的 50% 时间跨度大约每 7 个月翻一倍。METR 在 2026 年 1 月扩充任务集之后重新测算：只看 2023 年以后发布的模型，最好的模型的 50% 时间跨度翻一倍大约要 4 个月。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>纵轴量的是人的用时。</b>这张图常被读成「现在的 agent 可以自己连续工作十几个小时」。METR 在页面的问答里明确否定了这种读法：时间跨度量的是任务的难度，用人完成它要花多久来表示，和 AI 自己运行多长时间无关。METR 还提到，在 agent 能做成的任务上，它通常比人快好几倍。所以上表里 Claude Opus 4.6 的「约 12 小时」，意思是：一个熟练但对项目不熟悉的人要做 12 小时的任务，Claude Opus 4.6 有一半的机会做成。出处：<a href="https://metr.org/time-horizons/">METR 的时间跨度页面</a>；<a href="https://arxiv.org/abs/2503.14499">Kwa 等，Measuring AI Ability to Complete Long Software Tasks</a>。</div></div>
+  <p>按这个意思来读，图说明的是模型能做成的任务越来越难。任务越难，一次运行里要走的步数通常越多，运行的时间也可能越长，这一点图本身没有量。步数越多，其中某一步失败的机会也越多。由此有两点考虑：</p>
   <ul>
     <li>支撑 agent 运行的基础设施必须可靠。一次运行的步数多、时间可能很长，中途一步失败就让整个任务从头再来，代价很大。</li>
-    <li>要有日志和可观测性的工具，才能调试这些长时间运行的过程。</li>
+    <li>要有日志和可观测性的工具，才能调试这些步数多、可能跑很久的过程。</li>
   </ul>
   <p>这两点都是软件工程里从失败中总结出的经验，同样适用于 agent。</p>
 </section>
 
 <section class="sec" id="model">
   <h2>Temporal 的执行模型</h2>
-  <p>Temporal 是一个开源的平台，它对自己的定位是 durable execution，可以译作「持久化执行」：服务端保存程序的执行进度，进程崩溃、机器重启之后可以从中断的地方接着跑，临时的失败按设定的策略自动重试。</p>
+  <p>Temporal 是一个开源的平台，它对自己的定位是 durable execution，可以译作「持久化执行」。持久化执行的意思是：服务端保存程序的执行进度，进程崩溃、机器重启之后可以从中断的地方接着跑，临时的失败按设定的策略自动重试。</p>
   <p>自动重试有上限。一个步骤一直出错、重试次数用完时，这次运行仍然会以失败结束，这种情况要由程序自己处理。</p>
   <p>Temporal 是通用的后端基础设施，不专为 AI 设计，现在也被用来跑 agent。它是从 Uber 的项目 Cadence 分出来的，开发它的公司 Temporal Technologies 成立于 2019 年。</p>
   {{fig 98 | Temporal 的执行模型。竖线左边是你的代码：红色的圆是 Activity，绿色的连线是 Workflow，下面是执行它们的 Worker。竖线右边是 Temporal 的服务端：一个任务队列，里面分成 Activity 的队列和 Workflow 的队列；下面是执行历史和状态，存在数据库里。}}
   <p>图里的五个概念列在下面的表里。读表之前先分清一个名字。这一讲的<a href="engineer.html#spectrum">第一部分</a>用过小写的 workflow，指步骤由程序写定的多次模型调用，和由模型自己决定步骤的 agent 相对。表里的 Workflow 是 Temporal 的专用名词，首字母大写，只指安排步骤的那段代码。两个词管的事不同，后面会看到，agent 的循环也可以写成一个 Temporal 的 Workflow。</p>
-  <p>表的第三列用这一讲一直在用的日历程序举例。这个程序读一封邮件，提取里面的日程，有日程就挑一个表情符号，再把日程写进日历。演示的代码在课程配套仓库的一个 Jupyter notebook 里，notebook 是把代码和运行结果放在一起的文档。</p>
+  <p>表的第三列用这一讲一直在用的日历程序举例。这个程序读一封邮件，提取里面的日程，有日程就挑一个表情符号，再把日程写进日历。演示的代码在这一讲的配套仓库的一个 Jupyter notebook 里，notebook 是把代码和运行结果放在一起的文档。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">概念</th><th scope="col">是什么</th><th scope="col">在日历的例子里</th></tr></thead>
       <tbody>
         <tr><th scope="row">Activity</th><td>一个普通的函数，做一件界限清楚的事，可能会失败。调用外部服务、读写文件、调用语言模型，都放在 Activity 里</td><td>提取日程、挑表情符号、写日历，一共三个</td></tr>
         <tr><th scope="row">Workflow</th><td>把 Activity 按顺序连起来的那段代码。它必须是确定性的：同样的输入和同样的 Activity 结果，每次都走同一条路</td><td>先提取；没有日程就结束；有就挑表情符号，再写日历</td></tr>
-        <tr><th scope="row">Worker</th><td>真正执行 Workflow 和 Activity 代码的进程。它由你自己运行，不在 Temporal 的服务端上</td><td>演示的 notebook 里启动的一个后台任务</td></tr>
+        <tr><th scope="row">Worker</th><td>真正执行 Workflow 和 Activity 代码的进程。它由你自己运行，不在 Temporal 的服务端上</td><td>演示里的 Worker 是 notebook 进程里的一个后台任务，关掉 Worker 就是取消这个任务</td></tr>
         <tr><th scope="row">任务队列<br><span class="muted small">Task Queue</span></th><td>服务端的队列。Worker 不断从里面领任务，做完把结果交回去</td><td>名字叫 calendar 的队列</td></tr>
-        <tr><th scope="row">执行历史<br><span class="muted small">Event History</span></th><td>服务端为每一次 Workflow 运行保存的一份只增不改的记录：哪一步开始了，哪一步完成了，结果是什么</td><td>在网页界面里可以逐条查看</td></tr>
+        <tr><th scope="row">执行历史<br><span class="muted small">Event History</span></th><td>服务端为每一次 Workflow 运行保存的一份只增不改的记录：哪一步开始了，哪一步完成了，结果是什么</td><td>在 Temporal 的网页界面里可以逐条查看，后面的演示会打开它</td></tr>
       </tbody>
     </table>
     <figcaption>定义按 <a href="https://docs.temporal.io/workflows">Temporal 的文档</a>整理。</figcaption>
@@ -64,8 +64,8 @@
 
 <section class="sec" id="demo">
   <h2>把同一个程序写成 Workflow</h2>
-  <p>下面用 Temporal 把上一节说的日历程序再写一遍，这是它在这一讲里的第三个版本，前两个版本用的是 DSPy 和 LangGraph。代码和输出都取自上一节说的那个 Jupyter notebook，日历是仓库自带的小应用 tinycal。</p>
-  <p>逻辑和<a href="dspy.html#compose">第二部分</a>的 <code>UpdateCalendarFromEmail</code> 完全一样。那个版本是用 DSPy 写的，DSPy 是一个把模型调用写成 Python 程序的框架，这里的模型调用直接复用它的模块。要改的只有两处：把可能失败的每一步包成 Activity，把流程写成 Workflow。</p>
+  <p>下面用 Temporal 把上一节「Temporal 的执行模型」里说的日历程序再写一遍，这是它在这一讲里的第三个版本，前两个版本用的是 DSPy 和 LangGraph 这两个框架（framework，写程序时调用的库）。代码和输出都取自上一节说的那个 Jupyter notebook，日历是仓库自带的小应用 tinycal。</p>
+  <p>逻辑和<a href="dspy.html#compose">第二部分</a>的 <code>UpdateCalendarFromEmail</code> 完全一样。那个版本是用 DSPy 写的，DSPy 是一个把模型调用写成 Python 程序的框架，这里的模型调用直接复用它的 module，也就是 DSPy 里决定怎样调用模型的部件。要改的只有两处：把可能失败的每一步包成 Activity，把流程写成 Workflow。</p>
   <h3>Activity：可能失败的三步</h3>
   <p>先把三个步骤各写成一个 Activity：</p>
   <pre class="code"><code>@activity.defn
@@ -83,7 +83,7 @@ def select_emoji(title: str) -&gt; str:
 def add_to_calendar(details: dict, emoji: str) -&gt; str:
     tinycal.add_event(**details, emoji=emoji)
     return "added to calendar"</code></pre>
-  <p>三个函数都是普通的 Python 函数，加了一个 <code>@activity.defn</code> 的标记。前两个各调用一次模型，用的 <code>extract_cot</code> 和 <code>emoji_cot</code> 是 DSPy 的 <code>ChainOfThought</code> 模块，这种模块让模型先写一段推理再给结果。第三个调用日历的接口。它们的返回值都是字典、字符串这类简单的数据，因为结果要存进执行历史。</p>
+  <p>三个函数都是普通的 Python 函数，加了一个 <code>@activity.defn</code> 的标记。前两个各调用一次模型，用的 <code>extract_cot</code> 和 <code>emoji_cot</code> 是 DSPy 的 <code>ChainOfThought</code> 这种 module，它让模型先写一段推理再给结果。第三个调用日历的接口。它们的返回值都是字典、字符串这类简单的数据，因为结果要存进执行历史。</p>
   <h3>Workflow：把三步连起来</h3>
   <p>再写一个 Workflow，按顺序调用这三个 Activity，并给每次调用规定超时和重试：</p>
   <pre class="code"><code>RETRY = RetryPolicy(initial_interval=timedelta(seconds=1), maximum_attempts=5)
@@ -103,10 +103,10 @@ class CalendarWorkflow:
   <p>DSPy 版本的流程写在一个叫 <code>forward</code> 的方法里，这段代码读起来和它几乎一样。区别是每个步骤都通过 <code>workflow.execute_activity</code> 来调用，并带上两个参数：</p>
   <ul>
     <li><b><code>start_to_close_timeout</code>。</b>一次尝试从开始到结束最多允许 1 分钟。超过就算这次尝试失败。Temporal 要求每个 Activity 至少设一种超时。</li>
-    <li><b><code>retry_policy</code>。</b>失败之后隔 1 秒重试，总共最多执行 5 次，也就是第一次加上 4 次重试。没有写的参数用默认值，其中一项是每次重试的等待时间翻倍。</li>
+    <li><b><code>retry_policy</code>。</b>第一次失败之后等 1 秒再重试，总共最多执行 5 次，也就是第一次加上 4 次重试。没有写的参数用默认值，其中一项是每次重试前的等待时间比上一次翻倍。</li>
   </ul>
-  <p>Workflow 自己不直接调用模型，也不做任何读写。原因在上一节说过：它会被重放，里面的每一行都必须是确定性的。</p>
-  <p><code>@workflow.defn</code> 里的 <code>sandboxed=False</code> 关掉了 Python SDK 的一个辅助功能。这个功能默认把 Workflow 代码放在一个受限的环境里运行，帮助发现不确定的写法。演示的 notebook 没有写明关掉它的原因。Temporal 的文档不推荐关掉它，关掉之后就没有这些确定性检查。按文档的这个建议，自己写 Workflow 时保留默认的开启状态。出处：<a href="https://docs.temporal.io/develop/python/best-practices/python-sdk-sandbox">Temporal 文档的 Python SDK sandbox 一节</a>。</p>
+  <p>Workflow 自己不直接调用模型，也不做任何读写。原因在前面「Temporal 的执行模型」一节说过：它会被重放，里面的每一行都必须是确定性的。</p>
+  <p><code>@workflow.defn</code> 里的 <code>sandboxed=False</code> 关掉了 Python SDK 的一个辅助功能。Python SDK 是 Temporal 提供的一个 Python 库，程序通过它来使用 Temporal。这个功能默认把 Workflow 代码放在一个受限的环境里运行，帮助发现不确定的写法。演示的 notebook 没有写明关掉它的原因。Temporal 的文档不推荐关掉它，关掉之后就没有这些确定性检查。按文档的这个建议，你自己写 Workflow 时应该保留默认的开启状态。出处：<a href="https://docs.temporal.io/develop/python/best-practices/python-sdk-sandbox">Temporal 文档的 Python SDK sandbox 一节</a>。</p>
   <h3>Worker 和运行</h3>
   <p>最后启动一个 Worker，再提交一次运行：</p>
   <pre class="code"><code>worker = Worker(client, task_queue="calendar",
@@ -127,26 +127,26 @@ print(await client.execute_workflow(CalendarWorkflow.run,
 
 <section class="sec" id="retry">
   <h2>自动重试：失败两次，第三次成功</h2>
-  <p>调用模型的接口常常会临时出错：被限流，超时，网络断了一下。为了演示重试，下面造一个故意出错的 Activity。它前两次被调用时抛出「503 服务不可用」，第三次才正常返回。</p>
+  <p>调用模型的接口常常会临时出错：被限流，超时，网络短暂中断。为了演示重试，下面造一个故意出错的 Activity。它前两次被调用时抛出「503 服务不可用」，第三次才正常返回。</p>
   <pre class="code"><code>@activity.defn(name="select_emoji") # activities are matched by name
 def flaky_select_emoji(title: str) -&gt; str:
     print("select_emoji attempt", activity.info().attempt)
     if activity.info().attempt &lt; 3:
         raise RuntimeError("503 Service Unavailable")
     return emoji_cot(event_name=title).emoji</code></pre>
-  <p>这个函数登记的名字仍然是 <code>select_emoji</code>。再启动一个 Worker，把它放在原来那个函数的位置上，Workflow 的代码一行不用改。提交一封邮件：</p>
+  <p>这个函数登记的名字仍然是 <code>select_emoji</code>。再启动一个 Worker，让它监听另一个名叫 <code>retries</code> 的任务队列，在交给它的 Activity 列表里用这个函数代替原来的 <code>select_emoji</code> 函数。Workflow 的代码一行不用改。然后向 <code>retries</code> 队列提交一封邮件。前面那个 Worker 只监听 <code>calendar</code> 队列，所以这次运行只会由新的 Worker 执行：</p>
   <pre class="code"><code>await client.execute_workflow(CalendarWorkflow.run,
                                "Go for a walk on Tuesday, October 6, 2026 at 9am," \
                                " should take 30 minutes.", id="retry-1", task_queue="retries")</code></pre>
   <p>输出里先后打印了 <code>select_emoji attempt 1</code>、<code>attempt 2</code>、<code>attempt 3</code>，最后返回 <code>added to calendar</code>。日历上 10 月 6 日 9:00 到 9:30 多了一个 Go for a walk。</p>
-  {{fig 111 | retry-1 这次运行的时间线。中间那条 select_emoji 前面有一个重试的标记和数字 3，表示它一共执行了 3 次。这一条从红色渐变到绿色，占了整次运行的大部分时间，从左右两端的时间戳看，前后大约 3 秒。extract_event 和 add_to_calendar 各只执行了一次。}}
+  {{fig 111 | retry-1 这次运行的时间线。中间那条 select_emoji 前面有一个重试的标记和数字 3，表示它一共执行了 3 次。这一条从红色渐变到绿色，占了整次运行的大部分时间。从左右两端的时间戳看，整次运行前后大约 3 秒。extract_event 和 add_to_calendar 各只执行了一次。}}
   <p>重试是服务端做的。Workflow 的代码里没有循环，也没有 <code>try</code>。Activity 失败之后，服务端按照 <code>RetryPolicy</code> 重新安排这个任务，前面已经成功的 <code>extract_event</code> 不会重做。这一步重试了几次，事后在界面上可以查到。</p>
-  <p>等待的时间也和策略对得上。按这份策略，第一次失败后等 1 秒，第二次失败后等 2 秒，加起来是 3 秒，和时间线上的大约 3 秒对得上。</p>
+  <p>等待的时间也符合这份策略。按这份策略，第一次失败后等 1 秒，第二次失败后等 2 秒，加起来是 3 秒。时间线上整次运行大约 3 秒，其中大部分是 <code>select_emoji</code> 这一条，和这两次等待对得上。</p>
 </section>
 
 <section class="sec" id="timer">
   <h2>进程被关掉也能接着跑</h2>
-  <p>最后一个演示把两件事放在一起：由服务端计时的等待，和 Worker 中途被关掉。先写一个新的 Workflow：把日程加到日历，然后等一段时间，再发一条提醒。</p>
+  <p>最后一个演示把两件事放在一起：由服务端计时的等待，和 Worker 中途被关掉。先写一个新的 Workflow：把日程加到日历，然后等一段时间，再返回一句提醒。演示里的提醒就是这个 Workflow 的返回值，一个以 <code>Reminder!</code> 开头的字符串，没有另外发给谁。</p>
   <pre class="code"><code>@workflow.defn(sandboxed=False)
 class ReminderWorkflow:
     @workflow.run
@@ -155,8 +155,9 @@ class ReminderWorkflow:
                                 email, id="reminder-1-calendar")
         await workflow.sleep(seconds)
         return f"Reminder! ({email})"</code></pre>
-  <p>它先把前面的 <code>CalendarWorkflow</code> 当作一个子 Workflow 来运行，然后调用 <code>workflow.sleep</code>。这个等待和普通的 <code>sleep</code> 不同：计时器记在服务端，Worker 在等待期间不占用资源。等几秒和等几个月，写法是同一行。</p>
-  <p>接下来启动它，让它等 20 秒，并在第 10 秒把 Worker 关掉：</p>
+  <p>它先把前面的 <code>CalendarWorkflow</code> 当作一个子 Workflow 来运行。子 Workflow 是在一个 Workflow 里面启动的另一个 Workflow。这里用它整个复用 <code>CalendarWorkflow</code>，提取日程、挑表情符号、写日历这三步不用再写一遍。</p>
+  <p>然后它调用 <code>workflow.sleep</code>。这个等待和普通的 <code>sleep</code> 不同：计时器记在服务端，Worker 在等待期间不占用资源。等几秒和等几个月，写法是同一行。</p>
+  <p>接下来为它单独启动一个 Worker，监听名叫 <code>reminders</code> 的任务队列。然后提交一次运行，让它等 20 秒，并在提交 10 秒之后把这个 Worker 关掉：</p>
   <pre class="code"><code>handle = await client.start_workflow(ReminderWorkflow.run,
                     args=["Lab meeting on Thursday, October 8th, 2026 at 11am for 60 minutes.", 20],
                     id="reminder-1",
@@ -164,45 +165,49 @@ class ReminderWorkflow:
 await asyncio.sleep(10)
 reminder_worker_task.cancel()
 print("workflow status:", (await handle.describe()).status.name)      # still RUNNING, with no worker alive</code></pre>
-  <p>下表按时间顺序列出 Worker 这一边发生的事，和服务端同一时刻的记录。</p>
+  <p>代码里的 <code>reminder_worker_task.cancel()</code> 是关掉 Worker 的那一行。演示里的 Worker 是 notebook 进程里的一个后台任务，这一行取消了这个任务。对服务端来说，这和一个单独的 Worker 进程被关掉是一样的：<code>reminders</code> 队列上没有 Worker 在领任务了。前面两个演示启动的 Worker 监听的是别的队列，不会来接手。</p>
+  <p>下表按时间顺序列出 Worker 这一边发生的事，和服务端同一时刻的记录。时间从提交这次运行算起。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">时间</th><th scope="col">发生了什么</th><th scope="col">服务端的记录</th></tr></thead>
       <tbody>
         <tr><th scope="row">开始</th><td>Worker 执行子 Workflow 的三个 Activity，Lab meeting 被加到日历上。然后开始等待</td><td>三个 Activity 都已完成，各自的结果已记下。计时器已启动，时长 20 秒</td></tr>
-        <tr><th scope="row">第 10 秒</th><td>Worker 被关掉。此时没有任何进程在执行这个 Workflow</td><td>查询状态，仍然是 RUNNING</td></tr>
-        <tr><th scope="row">之后</th><td>启动一个新的 Worker。它重放 Workflow 的代码，子 Workflow 的结果直接从记录里取，不再执行。计时器到点之后，它返回提醒</td><td>Workflow 完成，结果是 Reminder! 加上邮件原文</td></tr>
+        <tr><th scope="row">第 10 秒</th><td>这个 Worker 被关掉。此时没有任何进程在执行这个 Workflow</td><td>查询状态，仍然是 RUNNING</td></tr>
+        <tr><th scope="row">之后</th><td>启动一个新的 Worker，监听同一个 <code>reminders</code> 队列。它重放 Workflow 的代码，子 Workflow 的结果直接从记录里取，不再执行。计时器到点之后，它返回提醒</td><td>Workflow 完成，结果是 Reminder! 加上邮件原文</td></tr>
       </tbody>
     </table>
   </figure>
   <p>最后查 10 月 8 日的日程，得到 <code>['Lab meeting', 'Office hours']</code>。Office hours 是前面 <code>calendar-1</code> 那次运行加的。Lab meeting 只有一个。Worker 换过一次，提取日程和挑表情符号的两次模型调用没有重做，日历也没有被写第二遍。</p>
   {{fig 117 | reminder-1 这次运行的时间线。最上面是整个 Workflow，前后大约 20 秒。黄色的长条是那个 20 秒的计时器，它下面是子 Workflow CalendarWorkflow，在一开始就完成了。}}
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「只加了一次」是因为 Worker 是在两步之间被关掉的。</b>Worker 被关的时候，写日历的那个 Activity 已经完成，并且已经向服务端报告了结果，所以重放时不会再执行。Temporal 对 Activity 的保证是「至少执行一次」。如果 Worker 恰好在日历已经写进去、但还没来得及报告的那一刻崩溃，服务端不知道这一步做完了，会让它重做，日历上就会出现两个 Lab meeting。所以 Temporal 的文档要求 Activity 做成幂等的（idempotent，同一个操作执行一次和执行多次，效果一样），比如写日历之前先查一下同样的日程是否已经存在。出处：<a href="https://docs.temporal.io/activity-definition">Temporal 文档的 Activity Definition 一节</a>。</div></div>
-  <p>把 Temporal 的版本和 DSPy 的版本放在一起看。流程没有变，三个步骤做的事也没有变。多出来的是三样：每一步的结果记在服务端，失败的步骤按规定自动重试，执行代码的进程换了也能接着跑。代价是多了一个要部署的服务端，以及「Workflow 必须是确定性的」这条写代码时要守的规矩。按这一部分开头的考虑，一个合理的判断是：一次运行要很久、中途失败就得从头重做的任务，值得付这个代价。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>agent 放在哪里。</b>把一个 agent 放进 Temporal 时，常见的做法是把 agent 的循环（下一步做什么、选哪个工具）写在 Workflow 里，把每一次模型调用和工具调用各写成一个 Activity。模型的回答是 Activity 的结果，会记进执行历史，重放时 Workflow 直接读到当时的回答。所以由模型决定下一步，和「Workflow 必须是确定性的」不冲突。Temporal 和 OpenAI 合作的 Agents SDK 集成就是这样做的，它在 2025 年 7 月发布预览版，2026 年 3 月正式可用。这样，一个跑了几个小时的 agent 中途遇到进程重启，已经做过的模型调用不必重来。出处：<a href="https://docs.temporal.io/develop/python/integrations/openai-agents">Temporal 文档</a>；<a href="https://temporal.io/blog/announcing-openai-agents-sdk-integration">Temporal 的公告</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>Lab meeting 只有一个，是因为 Worker 是在两步之间被关掉的。</b>Worker 被关的时候，写日历的那个 Activity 已经完成，并且已经向服务端报告了结果，所以重放时不会再执行。Temporal 对 Activity 的保证是「至少执行一次」。如果 Worker 恰好在日历已经写进去、但还没来得及报告的那一刻崩溃，服务端不知道这一步做完了，会让它重做，日历上就会出现两个 Lab meeting。所以 Temporal 的文档要求 Activity 做成幂等的（idempotent，同一个操作执行一次和执行多次，效果一样），比如写日历之前先查一下同样的日程是否已经存在。出处：<a href="https://docs.temporal.io/activity-definition">Temporal 文档的 Activity Definition 一节</a>。</div></div>
+  <p>把 Temporal 的版本和 DSPy 的版本放在一起看，两者的流程和三个步骤做的事完全相同。Temporal 的版本多出三样：每一步的结果记在服务端，失败的步骤按规定自动重试，执行代码的进程换了也能接着跑。代价是多了一个要部署的服务端，以及「Workflow 必须是确定性的」这条写代码时要守的规矩。按前面「为什么需要编排和可观测性」一节的考虑，一个合理的判断是：一次运行要很久、中途失败就得从头重做的任务，值得付这个代价。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>agent 放在哪里。</b>把一个 agent 放进 Temporal 时，常见的做法是把 agent 的循环（下一步做什么、选哪个工具）写在 Workflow 里，把每一次模型调用和工具调用各写成一个 Activity。模型的回答是 Activity 的结果，会记进执行历史，重放时 Workflow 直接读到当时的回答。所以由模型决定下一步，和「Workflow 必须是确定性的」不冲突。这样，一个跑了几个小时的 agent 中途遇到进程重启，已经做过的模型调用不必重来。Agents SDK 是 OpenAI 提供的一个用来写 agent 的 Python 库。Temporal 和 OpenAI 合作写了一套现成的代码，把这个库和 Temporal 接起来，让用这个库写的 agent 作为 Temporal 的 Workflow 来运行：agent 的循环在 Workflow 里，每次模型调用作为 Activity 执行。这套代码在 2025 年 7 月发布预览版，2026 年 3 月正式可用。出处：<a href="https://docs.temporal.io/develop/python/integrations/openai-agents">Temporal 文档</a>；<a href="https://temporal.io/blog/announcing-openai-agents-sdk-integration">Temporal 的公告</a>。</div></div>
 </section>
 
 <section class="sec" id="observe">
   <h2>可观测性的工具</h2>
-  <p>Temporal 的网页界面已经是一种可观测性：能看到每一步什么时候开始、重试了几次、返回了什么。另有一类工具专门做这件事，并且针对语言模型的应用，记录的重点是 prompt（给模型的输入文字）、模型的回答、token（模型处理文字的最小单位）数和花费。常见的有三个。</p>
+  <p>Temporal 的网页界面已经提供了一部分可观测性：能看到每一步什么时候开始、重试了几次、返回了什么。另有一类工具专门做这件事，并且针对语言模型的应用，记录的重点是 prompt（给模型的输入文字）、模型的回答、token（模型处理文字的最小单位）数和花费。常见的有三个。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col" class="nw">工具</th><th scope="col">谁做的</th><th scope="col">是否开源</th><th scope="col">说明</th></tr></thead>
+      <thead><tr><th scope="col" class="nw">工具</th><th scope="col">谁做的</th><th scope="col">开源还是商业产品</th><th scope="col">主要功能</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="https://mlflow.org/docs/latest/genai/tracing/">MLflow</a></th><td>Linux 基金会旗下的项目</td><td>开源</td><td>原本用来管理机器学习实验，后来加了追踪语言模型应用的功能。它有 DSPy 的集成</td></tr>
-        <tr><th scope="row"><a href="https://docs.langchain.com/langsmith/observability">LangSmith</a></th><td>LangChain 公司，2023 年 7 月发布</td><td>商业产品</td><td>和 LangChain、LangGraph 配合最紧，也可以用在别的框架写的程序上</td></tr>
-        <tr><th scope="row"><a href="https://langfuse.com/">Langfuse</a></th><td>Langfuse 团队，2026 年 1 月被 ClickHouse 收购</td><td>开源，MIT 许可，可以自己部署</td><td>追踪、prompt 管理、评估和统计面板</td></tr>
+        <tr><th scope="row"><a href="https://mlflow.org/docs/latest/genai/tracing/">MLflow</a></th><td>Linux 基金会旗下的项目</td><td>开源</td><td>记录一次请求里每一步的输入、输出和附带的信息</td></tr>
+        <tr><th scope="row"><a href="https://docs.langchain.com/langsmith/observability">LangSmith</a></th><td>LangChain 公司，2023 年 7 月发布。这家公司还开发 LangChain 和 LangGraph 这两个 Python 库</td><td>商业产品</td><td>调试、测试、评估和监控语言模型应用</td></tr>
+        <tr><th scope="row"><a href="https://langfuse.com/">Langfuse</a></th><td>Langfuse 团队，2026 年 1 月被 ClickHouse 收购。ClickHouse 是一家做同名数据库的公司</td><td>开源，MIT 许可，可以自己部署</td><td>记录请求的每一步、管理 prompt、评估、统计面板</td></tr>
       </tbody>
     </table>
+    <figcaption>「主要功能」一列按各自官网上的介绍整理，LangSmith 的一格按它 2023 年的<a href="https://www.langchain.com/blog/announcing-langsmith">发布公告</a>。评估指用度量在一批数据上给应用打分，度量是给输出打分的函数。监控指应用上线之后持续查看它的表现。</figcaption>
   </figure>
-  <p>MLflow 和 DSPy 的集成用起来是一行：调用 <code>mlflow.dspy.autolog()</code> 之后，DSPy 模块的调用会被自动记录。有一种调用默认不记录，就是优化器运行期间的调用。优化器是 DSPy 里自动改写 prompt 的部件，它靠一批数据和一个给输出打分的函数来改，一次优化会触发成百上千次调用。要记录的话，把参数 <code>log_traces_from_compile</code> 设为 <code>True</code>。记录下来的调用在 MLflow 的界面里查看，下面是一个例子。</p>
-  {{fig 119 | MLflow 的界面。左边一栏是一次运行里的各个步骤，这里只有一步 LM.__call__，耗时 0.01 秒。右边是这一步的输入和输出：输入的 prompt 是「请告诉我 MLflow 是做什么的」，输出是模型的回答。}}
+  <p>表外还有两点背景。MLflow 原本用来管理机器学习实验，记录语言模型应用是后来加的功能，它带有一段和 DSPy 配合的现成代码。LangSmith 和 LangChain、LangGraph 这两个库配合最紧，也可以用在别的框架写的程序上。</p>
+  <p>MLflow 里和 DSPy 配合的那段代码用起来是一行：调用 <code>mlflow.dspy.autolog()</code> 之后，DSPy 的 module 的调用会被自动记录。有一种调用默认不记录，就是优化器运行期间的调用。优化器是 DSPy 里自动改进程序的部件，改的是程序里的 prompt 或模型权重（模型里经过训练得到的参数）。它靠一批数据和一个给输出打分的函数来改，一次优化会触发成百上千次调用。要记录的话，把参数 <code>log_traces_from_compile</code> 设为 <code>True</code>。记录下来的调用在 MLflow 的界面里查看，下面是一个例子。</p>
+  {{fig 119 | MLflow 的界面。左边一栏是一次运行里的各个步骤，这里只有一步 LM.__call__，延迟标的是 0.01 秒。截图的出处没有解释这个数。这里的判断是它不能当作一次模型调用的典型延迟，因为一次调用要把请求经网络发给模型服务，再等模型生成回答。右边是这一步的输入和输出：输入的 prompt 是「请告诉我 MLflow 是做什么的」，输出是模型的回答。}}
   <p>这三个工具都围绕同一个概念：trace（追踪记录），也就是一次请求从头到尾的完整记录。一条 trace 由很多步组成，每一步是一次模型调用、一次工具调用或者一次检索。这个「一步」在不同的工具里名字不同：MLflow 和 OpenTelemetry 叫 span，LangSmith 叫 run，Langfuse 叫 observation。OpenTelemetry 是一套通用的可观测性开放标准，不限于语言模型的应用。</p>
-  {{figs 120 121 | 左：LangSmith 的一个项目页。上面一行是汇总：共 578 次运行，23,010 个 token，延迟的 P50 和 P99（一半的请求和 99% 的请求在这个时间以内完成），以及几项评分。图上这两个延迟的数很可能是示意用的。下面的表每行是一次运行，有输入、延迟和评分。右边是筛选面板。右：Langfuse 的首页面板。上排是各模型的延迟、各模型的花费、各类记录的数量随时间的变化；下排是总花费、trace 的条数和评分的统计。}}
+  <p>下面是 LangSmith 和 Langfuse 的两张截图。读图之前先说明图上的评分和 P50、P99 是什么。评分在 LangSmith 的界面上叫 Feedback，是按某一项标准给 trace 里的一步打的分，比如回答有没有帮助、是否连贯。按 <a href="https://docs.langchain.com/langsmith/feedback-data-format">LangSmith 文档</a>的说明，评分可以由人在界面上打，也可以由自动的评估程序生成。P50 和 P99 是延迟的两个统计值：一半的请求在 P50 这个时间以内完成，99% 的请求在 P99 这个时间以内完成。</p>
+  {{figs 120 121 | 左图是 LangSmith 的一个项目页。上面一行是汇总：共 578 个 run，23,010 个 token，延迟的 P50 和 P99，以及 helpfulness（有没有帮助）、coherence（是否连贯）等几项评分。图上 P99 标的数比 P50 小，同一批数据里不会这样，所以这两个延迟的数很可能是示意用的。下面的表每行是一个 run，有输入、延迟和评分。这张图的右侧是筛选面板。右图是 Langfuse 的首页面板。上排是各模型的延迟、各模型的花费、各类记录的数量随时间的变化。下排是总花费、trace 的条数和评分的统计。}}
   <p>从这些截图可以看出这类工具回答的两类问题。</p>
   <ul>
     <li><b>单次运行出了什么事。</b>点开一条 trace，逐步看每次调用的输入和输出。agent 在第几步走错了，工具返回了什么，prompt 里到底写了什么，都在这里。</li>
-    <li><b>整个系统长期表现怎样。</b>一段时间里的调用量、延迟、花费、评分的分布和走势。系统有多可靠，钱花在了哪个模型上，从面板上可以读出来。</li>
+    <li><b>整个系统长期表现怎样。</b>面板显示一段时间里调用量、延迟、花费和评分的分布和走势。系统有多可靠，钱花在了哪个模型上，从面板上可以读出来。</li>
   </ul>
 </section>
 
@@ -210,9 +215,9 @@ print("workflow status:", (await handle.describe()).status.name)      # still RU
   <h2>这一部分的小结</h2>
   <ul>
     <li>编排让 agent 保持可靠。</li>
-    <li>有了可观测性，才能调试和监控。</li>
+    <li>有了可观测性，才能调试单次运行，也才能监控，也就是持续查看整个系统的表现。</li>
     <li>软件工程里的最佳实践和工具，同样适用于 agent 的工程。</li>
-    <li>搭好评估、监控、持久化执行这些东西，是「搭一个 agent」和「把 agent 当工程来做」的分界。</li>
+    <li>这一讲的<a href="engineer.html#pillars">第一部分</a>区分了「搭一个 agent」和「把 agent 当工程来做」，那里说的是后者另外要有数据和评估。讲完这一部分，这条分界可以说得更全：看的是有没有搭好评估、监控、持久化执行这些东西。评估是第一部分三根支柱里的一根，和数据一起在<a href="optimizer.html">第三部分</a>讲过。监控和持久化执行是这一部分的内容：监控靠可观测性的工具来做，持久化执行是 Temporal 让运行可靠的办法。总览页说的「数据、系统、评估三样，加上可靠的运行和可观测性」，是把第一部分的三根支柱和这里的两样合在一起。</li>
   </ul>
   <p>最后一部分把整讲的经验归纳成<a href="practice.html">几条做法，并说明框架的局限</a>。</p>
 </section>
@@ -222,6 +227,7 @@ print("workflow status:", (await handle.describe()).status.name)      # still RU
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
     <li><b>METR 表里数值的来历。</b>数值取自 METR 页面附带的数据文件，原始单位是分钟，表里换算成了秒和小时。GPT-2 的数来自旧版的任务集，没有在新版上重测。出处：<a href="https://metr.org/time-horizons/">METR 的时间跨度页面</a>。</li>
+    <li><b>MLflow 截图上的 0.01 秒。</b>截图取自 Databricks 的一个示例 notebook。那里在调用模型之后只写了一句「可以查看 DSPy 自动记录下来的 trace」，然后放了这张截图，没有解释延迟为什么这么短。出处：<a href="https://notebooks.databricks.com/devrel/mlflow/2024-11-27-dspy.html">DSPy + MLflow 示例 notebook</a>。</li>
     <li><b>LangSmith 截图上的两个延迟数字。</b>图上 P99 标的是 1.20 秒，P50 标的是 3.20 秒。同一批数据里 P99 不会小于 P50，所以这两个数很可能是示意用的。</li>
   </ul>
 </section>

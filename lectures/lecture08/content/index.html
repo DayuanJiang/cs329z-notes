@@ -1,18 +1,21 @@
 <section class="sec" id="thesis">
   <h2>先看结论</h2>
-  <p class="lead-in">用多个 agent 有得有失：<mark>付出协调的成本，换来并行、专门化和更集中的上下文</mark>。工作能拆开时，这样做更可能划算；工作互相牵连得紧时，协调的成本更容易把好处抵消掉。划不划算，最后要和只用一个 agent 的做法比过才知道。后面讲的编排、通信和协调三部分，都是在想办法把这笔成本降下来。</p>
-  <p>这段话里有三个词需要说明。协调的成本指的是派任务、发消息、合并结果花掉的时间和 token。专门化指的是各个 agent 按自己的职责用不同的指令、模型和工具。更集中的上下文指的是每个 agent 只拿到和自己任务有关的信息。第一部分还列了第四样好处，探索面更广。它有前提：各个 agent 要拿到不同的任务或上下文。所以这段结论里没有写它。</p>
-  <p>这里的「能拆开」可以归纳成两层意思：各块不改同一份东西，做的过程中也不需要对方的中间结果。两者都是程度上的，共享和依赖越少，协调的成本越低。<a href="sas_vs_mas.html#split">第一部分</a>有具体的对照。</p>
-  <p>下面四个例子里，前三个直接支持这个结论。第四个说的是工作拆开之后怎样交给对方：交出去的请求，输入和输出都定义清楚时，合作得有效率。</p>
-  <p>四个例子的性质不同。前两个是论文里的实验结果，其中 CooperBench 是一个协作编程评测，让两个 agent 各实现一个功能，再把两份改动合并。第三个是一个项目里的经过。第四个是 Anthropic 研究文章里的判断，原文没有给数据。第一部分展开讲前两个，后两个分别在案例页和第三部分。</p>
+  <p class="lead-in">用多个 agent 有得有失：<mark>付出协调的成本，换来并行、专门化和更集中的上下文</mark>。工作能拆开时，这样做更可能划算；工作互相牵连得紧时，协调的成本更容易把好处抵消掉。划不划算，最后要和只用一个 agent 的做法比过才知道。决定用多个 agent 之后，有三件事要设计：编排（谁分派任务）、通信（谁看到什么）和协调（每件事归谁、谁先谁后），后面各用一个部分来讲。</p>
+  <p>这一讲分成五个部分和一个案例页，第一部分讲要不要用多个 agent，各部分的内容见后面的「<a href="#modules">按部分阅读</a>」一节。下面先说明这段结论里的三个词。</p>
+  <p>专门化指的是各个 agent 按自己的职责用不同的指令、模型和工具，工具是 agent 可以调用的外部功能，例如搜索网页或运行代码。更集中的上下文指的是每个 agent 只拿到和自己任务有关的信息，上下文是模型这一次能读到的全部内容。</p>
+  <p>协调的成本在这段结论里泛指用多个 agent 要付出的代价。第一部分把这些代价列成五个坏处：第一个是派任务、发消息、合并结果花掉的时间和 token，token 是模型处理文字的最小单位，另外四个是信息丢失、动作冲突、错误传播和工程复杂度。第一部分列这五个坏处时，把第一个叫作「协调的成本」。那一页的总结和建议里，这个词和这里一样泛指五个坏处。第四部分的名字「协调」范围更窄，只指每件事归谁、谁先谁后。</p>
+  <p>第一部分还列了第四样好处，探索面更广。它有前提：各个 agent 要拿到不同的任务或上下文。所以这段结论里没有写它。</p>
+  <p>这里的「能拆开」可以归纳成两个条件：各块不改同一份东西，做的过程中也不需要对方的中间结果。两个条件都可以满足得多一些或少一些，共享和依赖越少，协调的成本越低。<a href="sas_vs_mas.html#split">第一部分</a>有具体的对照。</p>
+  <p>下面四个例子里，前三个直接支持这个结论。第四个是一个判断，说的是工作拆开之后怎样交给对方：交出去的请求，输入和输出都定义清楚时，合作的效率高。</p>
+  <p>四个例子的性质不同。前两个是论文里的实验结果，其中 CooperBench 是一个协作编程评测，让两个 agent 各实现一个功能，再把两份改动合并。第三个是一个项目里的经过：16 个 agent 合写一个 C 编译器，这一讲把这个项目叫作 C 编译器案例，专门用一页来讲它，这一页叫案例页。第四个是 Anthropic 研究文章里的判断，原文没有给数据。第一部分展开讲前两个，后两个分别在案例页和第三部分。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">例子</th><th scope="col">具体是什么</th><th scope="col" class="nw">出处</th></tr></thead>
       <tbody>
-        <tr><th scope="row">同样的做法，换一个任务，结果相反</th><td>金融分析可以拆成几条并行的分析，多 agent 的成绩最多比单 agent 高 81%。规划任务要一步接一步做，多 agent 的成绩最多比单 agent 低 70%。两个百分比都是相对单 agent 成绩的变化比例。</td><td><a href="sas_vs_mas.html#task">Kim 等 2026</a></td></tr>
-        <tr><th scope="row">要改同一个代码库的两个功能，分开做更差</th><td>用 GPT-5 测：两个功能都交给一个 agent，成功率是 48%；分给两个 agent 各做一个，成功率是 28%。</td><td><a href="failures.html#cooper">CooperBench</a></td></tr>
-        <tr><th scope="row">任务拆不开时，agent 再多也没用</th><td>写 C 编译器的项目里，编译 Linux 内核是一整个大任务。16 个 agent 都碰到同一个 bug，各自修掉，又互相覆盖对方的修改。</td><td><a href="case_study.html#kernel">C 编译器案例</a></td></tr>
-        <tr><th scope="row">把别的 agent 当工具用时，合作得有效率</th><td>agent 给另一个 agent 发一个输入和输出都定义清楚的请求时，合作得有效率。把对方当成各有目标、没有上下级的同伴时，容易出问题。</td><td><a href="communication.html#tool">Anthropic 的研究文章</a></td></tr>
+        <tr><th scope="row">同样的做法，换一个任务，结果相反</th><td>Kim 等人 2026 年的论文比较了单 agent 和四种多 agent 架构，也就是第二部分讲的四种编排方式。成绩指任务的成功率或正确率，每种方式的成绩是它在 9 个模型上的平均。金融分析可以拆成几条并行的分析，四种里成绩最好的一种比单 agent 高 81%。规划任务要一步接一步做，四种都比单 agent 差，成绩最差的一种低 70%。两个百分比都是相对单 agent 成绩的变化比例。</td><td><a href="sas_vs_mas.html#task">Kim 等，2026</a></td></tr>
+        <tr><th scope="row">要改同一个代码库的两个功能，分开做更差</th><td>用 OpenAI 的模型 GPT-5 测：两个功能都交给一个 agent，成功率是 48%；分给两个 agent 各做一个，成功率是 28%。</td><td><a href="sas_vs_mas.html#coupled">CooperBench</a></td></tr>
+        <tr><th scope="row">任务拆不开时，agent 再多也没用</th><td>C 编译器案例里有一步是用 agent 写出的编译器编译 Linux 内核，以此检验这个编译器。编译内核是一整个大任务，16 个 agent 做这一步时都碰到同一个 bug，各自修掉，又互相覆盖对方的修改。</td><td><a href="case_study.html#kernel">C 编译器案例</a></td></tr>
+        <tr><th scope="row">Anthropic 的判断：把别的 agent 当工具用时，合作的效率高</th><td>Anthropic 的研究文章判断：agent 给另一个 agent 发一个输入和输出都定义清楚的请求时，合作的效率高。把对方当成各有目标、没有上下级的同伴时，容易出问题。文章没有给出支持这个判断的数据。</td><td><a href="communication.html#tool">Anthropic 的研究文章</a></td></tr>
       </tbody>
     </table>
   </figure>
@@ -20,55 +23,55 @@
 
 <section class="sec" id="story">
   <h2>五个问题</h2>
-  <p>设计多 agent 系统要考虑三件事：编排、通信、协调。在这之前要先回答要不要用，在这之后要知道会怎样失败。把它们排成五个问题。</p>
+  <p>这一讲把设计多 agent 系统要考虑的事归成三件：编排、通信、协调。在这之前要先回答要不要用，在这之后要知道会怎样失败，合起来是下表的五个问题。验证不在这三件事里，第五部分把它当作第四件事来讲。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="sas_vs_mas.html">一 要不要用多个 agent？</a></th><td>主要看工作能不能拆开。先只用一个 agent 把任务做好，当作比较的基准（叫作单 agent 基线）。单 agent 已经做得不错时，加 agent 往往得不偿失。</td><td>Kim 等人 2026 年的论文里，同一批多 agent 架构在金融分析任务上最多比单 agent 高 81%，在规划任务上最多低 70%。论文还观察到，单 agent 的正确率已经超过 45% 时，加 agent 的收益倾向于为负</td></tr>
-        <tr><th scope="row"><a href="orchestration.html">二 谁分派任务，谁做决定？<br><span class="muted small">编排</span></a></th><td>这是团队的结构，设计时定一次。两个选择：要不要一个 agent 统管全局（它叫 orchestrator，其余的叫 worker），worker 之间能不能直接交流。两个选择组合出四种方式：两样都没有的叫独立方式，两样都有的叫混合方式，另外两种是集中方式和去中心方式。交流越多，开销越大。选哪种要看任务。</td><td>同一篇论文实现的独立方式只把各个 agent 的输出拼在一起，没人核对，它在论文六个评测里的五个上都是四种方式里最差的。论文有一个 token 效率指标，名字叫每 1000 token 的成功数。论文没有写明它怎么算，所以数值没法按字面解释，只适合用来比较几种方式的相对高低：交流最多的混合方式是 13.6，单 agent 是 67.7，混合方式约为单 agent 的五分之一</td></tr>
-        <tr><th scope="row"><a href="communication.html">三 谁看到什么？<br><span class="muted small">通信</span></a></th><td>输入和输出要定义清楚。传得少省 token，但可能漏掉对方需要的上下文。人人都能读写的通道最灵活，也最难管，还可能在设计之外自己出现。</td><td>Anthropic 观察到，agent 把别的 agent 当工具用时合作得有效率。HuggingFace 事件是 OpenAI 一批网络安全评测里出的事故，其中一部分 agent 后来攻击了 Hugging Face。事故里，一个 agent 用内部的软件包仓库搭了一块留言板，后来约 1200 个本应互相隔离的 agent 都用上了它</td></tr>
-        <tr><th scope="row"><a href="coordination.html">四 每件事归谁，谁先谁后，冲突了怎么办？<br><span class="muted small">协调</span></a></th><td>这是运行过程中的记录和规则，有没有 orchestrator 都需要。从 C 编译器案例里得到的经验是把它做成显式的：用一份任务台账记下计划、谁负责什么和进度，agent 动手前先认领任务，也就是登记这件事归自己，然后各自在分开的工作区里做。靠 agent 自由聊天来商量，实验里没有提高成功率。</td><td>CooperBench 的实验里，agent 把最多 20% 的步数花在沟通上，合并冲突少了，成功率没有提高。任务台账、认领和分开的工作区有多大效果，这一讲用到的研究里没有对照数据</td></tr>
-        <tr><th scope="row"><a href="failures.html">五 会怎样失败？</a></th><td>占比最高的一类失败出在系统设计上，验证相关的失败也不少。多个 agent 的想法还会趋同，一个犯错往往一起犯错。这些结果来自规模不大的实验，说的是按现在的做法哪里会出问题。</td><td>7 个开源多 agent 系统的失败率在 41% 到 86.7% 之间。这些失败里，44.2% 是系统设计问题，23.5% 是验证问题</td></tr>
+        <tr><th scope="row"><a href="sas_vs_mas.html">一 要不要用多个 agent？</a></th><td>工作能拆开时，用多个 agent 可能划算，拆不开时往往更差。先只用一个 agent 把任务做好，当作比较的基准（叫作单 agent 基线）。单 agent 已经做得不错时，加 agent 往往得不偿失。</td><td>Kim 等人 2026 年的论文比较了单 agent 和四种编排方式。在金融分析任务上，四种里成绩最好的一种比单 agent 高 81%。在规划任务上，成绩最差的一种比单 agent 低 70%。这两个百分比是相对单 agent 成绩的变化比例。论文还观察到，单 agent 的正确率已经超过 45% 时，再加 agent，成绩往往反而更低，这是一个趋势，有例外。45% 和前面两个百分比不同，它是单 agent 正确率的数值</td></tr>
+        <tr><th scope="row"><a href="orchestration.html">二 谁分派任务，谁做决定？<br><span class="muted small">编排</span></a></th><td>这是团队的结构，设计时定一次。两个选择：要不要一个 agent 统管全局（它叫 orchestrator，其余的叫 worker），worker 之间能不能直接交流。直接交流指信息不经过 orchestrator 就到了别的 agent 那里，互发消息和读写同一份共享文件都算。两个选择组合出四种编排方式：两样都没有的叫独立方式，两样都有的叫混合方式，另外两种是集中方式和去中心方式。交流越多，开销越大。选哪种要看任务。各做各的、输出没人核对的独立方式，成绩在多数评测上最差。</td><td>依据都来自同一篇论文。先看开销：完成一个任务，互不交流的独立方式用的轮数约为单 agent 的 1.6 倍，交流最多的混合方式约为 6.2 倍，另外两种在两者之间。一轮大致是一个 agent 推理一次、调用一次工具并拿到工具返回的结果。论文还用「每 1000 token 的成功数」衡量 token 用得有没有效率：混合方式是 13.6，单 agent 是 67.7，混合方式约为单 agent 的五分之一。论文没有写明这个指标怎么算，两个数只适合用来比较相对高低，<a href="orchestration.html#price">第二部分</a>有说明。再看任务：上一行的金融分析任务上成绩最好的是集中方式，规划任务上四种方式都比单 agent 差。最后看独立方式：论文实现的独立方式只把各个 agent 的输出拼在一起，没人核对，它在论文六个评测里的五个上都是四种方式里最差的</td></tr>
+        <tr><th scope="row"><a href="communication.html">三 谁看到什么？<br><span class="muted small">通信</span></a></th><td>输入和输出要定义清楚。传得少省 token，但可能漏掉对方需要的上下文。留言板是一块所有 agent 都能读写的共享区域，上面的内容读哪些由读的一方自己定。留言板还可能在设计之外自己出现。</td><td>Anthropic 的研究文章判断，agent 把别的 agent 当工具用时合作的效率高，文章没有给数据。HuggingFace 事件是 OpenAI 一批网络安全评测里出的事故，其中一部分 agent 后来攻击了 Hugging Face，一个托管模型和数据集的网站。这些 agent 都从同一个内部软件包仓库取软件包，仓库的缓存里可以新建目录，别的 agent 能列出这些目录。事故里，一个 agent 把要说的话写成目录的名字，别的 agent 列出目录就读到了，这样搭出了一块留言板，后来约 1200 个本应互相隔离的 agent 都用上了它</td></tr>
+        <tr><th scope="row"><a href="coordination.html">四 每件事归谁，谁先谁后，冲突了怎么办？<br><span class="muted small">协调</span></a></th><td>这是运行过程中的记录和规则，有没有 orchestrator 都需要。从 C 编译器案例里得到的一条经验是把协调做成显式的，也就是写成明确的记录和步骤：agent 动手前先认领任务，然后各自在分开的工作区（agent 改文件用的目录）里做，再合并。认领指在任务台账上登记这件事归自己，任务台账是一份记下计划、谁负责什么和进度的工作记录。靠 agent 互发消息来商量谁做哪一部分，不能当作依靠。</td><td>CooperBench 的实验给了两个 agent 一个沟通工具，让它们可以互发消息。agent 花在沟通上的步数随模型不同，最多的占到全部步数的 20%，一步指 agent 的一次动作，例如发一条消息或做一次文件操作。和不给沟通工具时相比，合并冲突（两份改动合并时对不上的情况）少了，任务成功率的差别在统计上不显著，也就是这点差别可能只是偶然。任务台账和分开的工作区有多大效果，这一讲用到的研究里没有对照数据</td></tr>
+        <tr><th scope="row"><a href="failures.html">五 会怎样失败？</a></th><td>失败分成三类，占比最高的一类出在系统设计上，另外两类是 agent 之间不一致和任务验证的问题。agent 之间不一致指执行过程中，关键信息在 agent 之间的流动断了。多个 agent 的想法还会趋同，Anthropic 的研究文章由此推断，一个 agent 做了错误的决定，很可能许多 agent 都做同样的错误决定。这些结果来自规模不大的实验，说的是按现在的做法哪里会出问题。</td><td>失败分类的论文让 7 个开源多 agent 系统各在自己的一组评测任务上运行，任务有编程、数学题和通用的 agent 任务。没有达到任务目标算失败，7 个系统的失败率在 41% 到 86.7% 之间。这些失败里，44.2% 是系统设计的问题，32.3% 是 agent 之间不一致，23.5% 是任务验证的问题。想法趋同的依据是 Anthropic 研究文章里的一个实验：一群 agent 各自要做出一件出色的作品，超过一半的 agent 选了同样的两类项目，光线追踪器或者能编译自己的编译器。光线追踪器是一种渲染三维图像的程序</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
   </figure>
-  <p>第二个和第四个问题容易混。编排定的是团队的结构，协调管的是每一件具体的事，两者可以分开变。C 编译器案例和 CooperBench 都没有 orchestrator，协调的做法却不同。C 编译器案例有认领机制，agent 动手前先在共享的仓库里登记这个任务归自己。CooperBench 只给了分开的工作区和发消息的工具，分工靠 agent 自己商量。<a href="coordination.html#overview">第四部分</a>的开头有一张对照表。</p>
-  <p><a href="case_study.html">案例页</a>用一个真实的项目对照这五个问题：16 个 agent 写出一个能编译 Linux 内核的 C 编译器。它没有 orchestrator，agent 之间只通过 Git 仓库里的文件互通消息，再加一套测试。编排、通信、协调三个问题，它都有具体的做法。它还有一段卡住的经过，说明了并行什么时候没有用。第一个问题它回答不了，因为这个项目没有和单 agent 比过。</p>
-  <p>这一讲里对多 agent 不利的结果，读的时候要记住它们的条件：实验的规模不大，测的是当时的模型和当时的运行框架。运行框架是包在模型外面、负责提示词和工具的那层程序。Kim 等人的论文用的是 2025 年的模型，CooperBench 测的是 GPT-5 和 Claude Sonnet 4.5 这一代。有单 agent 对照的两组实验是 Kim 等人 2026 年的论文对几种架构的比较和 CooperBench，最多用到 9 个 agent。</p>
-  <p>前沿实验室的系统已经到约一万个同时运行的 agent。小规模上的结论能不能推到那里，目前没有公开的对照数据。细节在<a href="failures.html#scope">第五部分</a>。</p>
+  <p>第二个和第四个问题容易混。编排定的是团队的结构，协调管的是每一件具体的事，编排相同时，协调的做法可以不同。C 编译器案例和 CooperBench 都没有 orchestrator，协调靠的东西却不同。C 编译器案例靠认领文件，agent 动手前先往共享的仓库里写一个文件，登记这个任务归自己。CooperBench 事先给两个 agent 各分配了一个功能，另外只给了分开的工作区和一个用来互发消息的沟通工具。两个功能要改的代码有重叠或互相依赖，这部分代码谁改哪里，靠 agent 自己商量。<a href="coordination.html#overview">第四部分</a>的开头有一张对照表。</p>
+  <p><a href="case_study.html">案例页</a>用一个真实的项目对照这五个问题：16 个 agent 写出一个能编译 Linux 内核的 C 编译器。它没有 orchestrator，agent 之间只通过 Git 仓库里的文件互通消息，做得对不对由一套测试来检验。编排、通信、协调三个问题，它都有具体的做法。对应「会怎样失败」这个问题的，是它的一段卡住的经过：16 个 agent 卡在同一个 bug 上，说明了并行什么时候没有用。第一个问题它回答不了，因为这个项目没有和单 agent 比过。</p>
+  <p>这一讲里对多 agent 不利的结果，读的时候要记住它们的条件：实验的规模不大，测的是当时的模型和当时的运行框架。运行框架是包在模型外面、负责提示词和工具的那层程序。Kim 等人的论文用的是 2025 年的模型，CooperBench 测的是 GPT-5 和 Claude Sonnet 4.5 这一代。有单 agent 对照的两组实验是 Kim 等人 2026 年的论文对四种编排方式的比较和 CooperBench，最多用到 9 个 agent。</p>
+  <p>规模大得多的系统已经有了。OpenAI 用 agent 解过一道数学难题，叫 Navier-Stokes 问题。它为此运行的系统把 agent 分成小组，得出解答的那一组约有 1 万个同时运行的 agent。OpenAI 属于前沿实验室，也就是训练最强模型的那几家公司。小规模上的结论能不能推广到一万个 agent 的规模，目前没有公开的对照数据。细节在<a href="failures.html#scope">第五部分</a>。</p>
 </section>
 
 <section class="sec" id="modules">
   <h2>按部分阅读</h2>
   <div class="modlist">
-    <a href="sas_vs_mas.html"><span class="m">第一部分</span><span><b>要不要用多个 agent</b><p>先划清单 agent 和多 agent 的分界，再说多 agent 换来什么、付出什么，然后用三处证据说明什么时候划算，最后给出什么时候用哪一种的判断标准。</p></span></a>
+    <a href="sas_vs_mas.html"><span class="m">第一部分</span><span><b>要不要用多个 agent</b><p>先划清单 agent 和多 agent 的分界，再说多 agent 换来什么、付出什么，然后用三处证据说明什么时候划算，归纳出「能拆开」的两个条件，最后给出什么时候用哪一种的判断标准。</p></span></a>
     <a href="orchestration.html"><span class="m">第二部分</span><span><b>编排：谁分派任务，谁做决定</b><p>两个选择分出四种方式。这一部分先分清「去中心」的两种意思。去中心方式也叫 swarm，这个词平时还泛指一大群一起工作的 agent，两种用法也在这里分清。然后讲每种方式的代价，哪种适合哪种任务，实测的成本，最后讲按任务动态组队的 DyLAN。</p></span></a>
-    <a href="communication.html"><span class="m">第三部分</span><span><b>通信：谁看到什么</b><p>通信有四种方式：把 agent 当工具用、交接、共用一条对话、留言板。这一部分还讲没人批准就出现的留言板，搭建时常遇到的三个问题，以及 A2A 协议。A2A 协议规定不同系统里的 agent 怎样互相发现、发任务、交回结果。</p></span></a>
-    <a href="coordination.html"><span class="m">第四部分</span><span><b>协调：每件事归谁，谁先谁后</b><p>系统可以提供三样东西：任务台账、分开的工作区、共享记忆。这一部分还讲 agent 自己商量出来的三种做法。</p></span></a>
-    <a href="failures.html"><span class="m">第五部分</span><span><b>失败：哪里会出问题</b><p>先讲失败怎样分类，再讲协调的代价、想法趋同和目标冲突，然后说明这些结果能说明到哪一步，最后讲验证，以及每种失败对应哪一项设计。</p></span></a>
-    <a href="case_study.html"><span class="m">案例</span><span><b>16 个 agent 写出一个 C 编译器</b><p>这一页先讲这个案例怎么编排、怎么协调，再讲并行什么时候失灵，然后总结六条经验，最后说明这个案例没有说明什么。</p></span></a>
+    <a href="communication.html"><span class="m">第三部分</span><span><b>通信：谁看到什么</b><p>通信有四种方式：把 agent 当工具用、交接、共用一条对话、留言板。交接指一个 agent 把整场对话交给另一个 agent 接着做，共用一条对话指一组 agent 在同一个群里发言。这一部分还讲没人批准就出现的留言板，搭建时常遇到的三个问题，以及 A2A 协议。A2A 协议规定不同系统里的 agent 怎样互相发现、发任务、交回结果。</p></span></a>
+    <a href="coordination.html"><span class="m">第四部分</span><span><b>协调：每件事归谁，谁先谁后</b><p>系统可以提供三样东西：任务台账、分开的工作区、共享记忆。共享记忆是各个 agent 都能读到的、关于以前做过什么的记录。这一部分还讲 agent 自己商量出来的三种做法。</p></span></a>
+    <a href="failures.html"><span class="m">第五部分</span><span><b>失败：哪里会出问题</b><p>先讲失败怎样分类，再讲协调的代价、想法趋同和目标冲突，然后说明读这些结果时要记住的条件，最后讲验证，以及主要的失败各有什么针对它的做法。</p></span></a>
+    <a href="case_study.html"><span class="m">案例</span><span><b>16 个 agent 写出一个 C 编译器</b><p>案例页先讲这个案例怎么编排、协调和通信，各个 agent 的职责怎样分，再讲并行什么时候失灵，然后总结六条经验，最后说明这个案例没有说明什么。</p></span></a>
   </div>
 </section>
 
 <section class="sec" id="gaps">
   <h2>容易想当然的几件事</h2>
-  <p>这一节列出六句关于多 agent 系统的一句话概括，说明每一句不能照字面理解的地方。六句都漏掉了条件或细节，其中第一句和实测的数据对不上。这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代，出处和细节在最后一列指向的页面里。</p>
-  <p>表里会用到四种编排方式的名字。它们按两个选择来分：有没有一个统管全局的 agent（orchestrator），其余的 agent（worker）之间直接交流不交流。两样都没有的是独立方式，只有 orchestrator 的是集中方式，只有直接交流的是去中心方式，两样都有的是混合方式。</p>
+  <p>这一节列出六个关于多 agent 系统的简化说法，说明每一个不能照字面理解的地方。六个说法都漏掉了条件或细节，其中第一个和实测的数据对不上。这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代，出处和细节在最后一列指向的页面里。</p>
+  <p>表里会用到四种编排方式的名字。它们按两个选择来分：有没有一个统管全局的 agent（orchestrator），其余的 agent（worker）之间能不能直接交流。直接交流指信息不经过 orchestrator 就到了别的 agent 那里，互发消息和读写同一块留言板或共享文件都算。两样都没有的是独立方式，只有 orchestrator 的是集中方式，只有直接交流的是去中心方式，两样都有的是混合方式。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">简化的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
-        <tr><td>成本从低到高依次是：单 agent、有 orchestrator 的系统、swarm（严格的用法指去中心方式）</td><td>Kim 等人的成本图上，最贵的是混合方式。它有 orchestrator，只有按 swarm 的宽的用法才算 swarm，宽的用法泛指一大群一起工作的 agent。去中心方式和集中方式的成本接近。论文测了 OpenAI、Google 和 Anthropic 三家的模型，在 Google 和 Anthropic 两家的模型上，独立方式比单 agent 还便宜</td><td><a href="orchestration.html#cost">编排</a></td></tr>
-        <tr><td>去中心方式就是 swarm</td><td>「去中心」对应两种做法。一种是 agent 通过共享的留言板或文件交换信息，自己挑任务，C 编译器案例属于这一种。另一种是 agent 一轮一轮辩论，Kim 等人的论文测的是这一种，这一讲里去中心方式的数字都属于它。swarm 这个词平时还有更宽的用法，泛指一大群一起工作的 agent，里面可以有 orchestrator</td><td><a href="orchestration.html#swarm">编排</a></td></tr>
-        <tr><td>agent 之间会自发出现分角色、分资源、协商三种协调方式</td><td>CooperBench 的论文说这些行为很少见，出现在成功的例子里</td><td><a href="coordination.html#patterns">协调</a></td></tr>
-        <tr><td>多 agent 的好处之一是探索面更广，去中心方式适合大规模探索</td><td>Anthropic 的实验里，一群 agent 里超过一半选了同样的两类项目。数量多不会自动带来多样性</td><td><a href="failures.html#conformity">失败</a></td></tr>
-        <tr><td>目标冲突时，agent 有时用强制手段解决</td><td>Anthropic 的实验让同一个模型的三个 agent 接到互相冲突的任务，它们很快开始破坏对方的工作。最后怎样收场，随模型差别很大。强制手段指一个 agent 撤销别人的访问权限。停战指 agent 认识到对方只是接到了和自己冲突的任务，没有敌意，不再对抗。较早的两个模型一次停战都没有，后面的模型里有三个以停战为主。最强的一档常常先撤销对方的访问权限，把对方锁在外面，再和解</td><td><a href="failures.html#goals">失败</a></td></tr>
-        <tr><td>设计多 agent 系统要考虑的是编排、通信、协调三件事</td><td>验证可以当作第四件。失败分类里验证相关的失败占 23.5%，C 编译器案例的第一条经验也是测试</td><td><a href="failures.html#verify">失败</a></td></tr>
+        <tr><td>成本从低到高依次是：单 agent、有 orchestrator 的系统、swarm（严格的用法指去中心方式）</td><td>Kim 等人 2026 年的论文有一张成本图，把单 agent 和四种编排方式实测的美元成本画在一起，OpenAI、Google 和 Anthropic 三家的模型各占一格。这个排法和图有两处对不上。第一处，三格里最贵的都是混合方式，它有 orchestrator。swarm 严格指去中心方式，去中心方式的成本和有 orchestrator 的集中方式接近，所以「swarm 最贵」和图对不上。swarm 这个词平时也泛指一大群一起工作的 agent，按这个泛指的意思把混合方式也算作 swarm，「swarm 最贵」才成立。第二处，单 agent 有时比多 agent 贵：在 Google 和 Anthropic 两格里，独立方式比单 agent 还便宜</td><td><a href="orchestration.html#cost">编排</a></td></tr>
+        <tr><td>去中心方式就是 swarm</td><td>这个说法漏了两点。第一，swarm 这个词有两种用法：严格的用法指去中心方式，平时还泛指一大群一起工作的 agent，里面可以有 orchestrator。第二，「去中心」自己也对应两种做法：一种是 agent 通过共享的留言板或文件交换信息，自己挑任务，C 编译器案例属于这一种。另一种是 agent 一轮一轮辩论，Kim 等人的论文测的是这一种，这一讲里去中心方式的数字都属于它</td><td><a href="orchestration.html#swarm">编排</a></td></tr>
+        <tr><td>agent 之间会自发出现分角色、分资源、协商三种做法</td><td>CooperBench 的论文说这些行为很少见，出现在成功的例子里，在失败的例子里基本看不到</td><td><a href="coordination.html#patterns">协调</a></td></tr>
+        <tr><td>多 agent 的好处之一是探索面更广，去中心方式适合大规模探索</td><td>Anthropic 研究文章里的一个实验让一群 agent 各自做出一件出色的作品，超过一半的 agent 选了同样的两类项目：光线追踪器，或者能编译自己的编译器。文章没有写这一群有多少个 agent。数量多不会自动带来多样性</td><td><a href="failures.html#conformity">失败</a></td></tr>
+        <tr><td>目标冲突时，agent 有时用强制手段解决</td><td>这个说法漏了一个条件：冲突最后是不是靠强制手段了结，随模型差别很大。依据是 Anthropic 研究文章里的一个实验，它让同一个模型的三个 agent 接到互相冲突的任务，这些 agent 很快开始破坏对方的工作。强制手段指一个 agent 撤销别人的访问权限。停战指 agent 认识到对方只是接到了和自己冲突的任务，没有敌意，不再对抗。实验测了 Anthropic 的六个 Claude 模型。较早的两个一次停战都没有，后面的四个里有三个以停战为主。后面四个里有两个属于 Mythos 这一档，文章把这一档当作执行能力更强的模型，它们常常先撤销对方的访问权限，把对方锁在外面，再停战</td><td><a href="failures.html#goals">失败</a></td></tr>
+        <tr><td>设计多 agent 系统只要考虑编排、通信、协调三件事</td><td>这一讲按这三件事分部分来讲，验证可以当作第四件事。失败分类里验证相关的失败占 23.5%，C 编译器案例的第一条经验是「自主工作要靠可靠的测试」</td><td><a href="failures.html#verify">失败</a></td></tr>
       </tbody>
     </table>
-    <figcaption>只有第一行是简化的说法和数据对不上，在对应的页面上用橙色框标出。其余五行是需要补上条件或信息的地方，大多用蓝色框标出。</figcaption>
+    <figcaption>只有第一行是简化的说法和数据对不上，在对应的页面上用橙色框标出。其余五行是需要补上条件或信息的地方，大多用蓝色框标出。各部分的页面里，橙色的框专门标简化的说法和事实对不上的地方，蓝色的框是对正文的说明和提醒。</figcaption>
   </figure>
 </section>
 
@@ -79,43 +82,43 @@
     <table class="tbl">
       <thead><tr><th scope="col">引用时的写法</th><th scope="col">是什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
       <tbody>
-        <tr><th scope="row">Kim 等，2026</th><td><a href="https://arxiv.org/abs/2512.08296">Towards a Science of Scaling Agent Systems</a>：在六个评测、260 种配置上比较单 agent 和四种多 agent 架构（最新版本的数字）</td><td>一、二</td></tr>
+        <tr><th scope="row">Kim 等，2026</th><td><a href="https://arxiv.org/abs/2512.08296">Towards a Science of Scaling Agent Systems</a>：在六个评测、260 种配置上比较单 agent 和四种编排方式，论文把编排方式叫作多 agent 架构。一种配置是一个模型、一种编排方式和一个评测的组合。六个评测和 260 种配置是论文最新版本的数字</td><td>一、二、四、五、案例</td></tr>
         <tr><th scope="row">Liu 等，2023</th><td><a href="https://arxiv.org/pdf/2310.02170">DyLAN</a>：按任务动态挑选 agent 组队</td><td>二</td></tr>
         <tr><th scope="row">Wu 等，2024</th><td><a href="https://arxiv.org/pdf/2308.08155">AutoGen</a>：把多 agent 通信做成对话</td><td>三</td></tr>
         <tr><th scope="row">OpenAI Agents SDK</th><td>交接（handoff）和把 agent 当工具用（agent-as-tool）；参考了 <a href="https://cellcog.ai/blog/agent-handoffs-vs-agents-as-tools/">cellcog.ai</a> 的对比文章</td><td>三</td></tr>
-        <tr><th scope="row">Hong 等，2024</th><td><a href="https://openreview.net/pdf?id=VtmBAGCN7o">MetaGPT</a>：共享消息池加标准作业流程</td><td>三</td></tr>
-        <tr><th scope="row">METR、MoltBook</th><td>HuggingFace 事件的示意图；给 agent 用的社交留言板 <a href="https://www.moltbook.com/post/e72d9de7-2bfd-4ce0-93b0-f7af8ab7fb53">MoltBook</a></td><td>三</td></tr>
+        <tr><th scope="row">Hong 等，2024</th><td><a href="https://openreview.net/pdf?id=VtmBAGCN7o">MetaGPT</a>：让几个 agent 担任软件团队里各种角色的多 agent 框架。它的留言板叫共享消息池，agent 照着标准作业流程做事，也就是人类软件团队一步一步做事的固定流程</td><td>三</td></tr>
+        <tr><th scope="row">METR、MoltBook</th><td>来自研究机构 METR 的 HuggingFace 事件示意图；给 agent 用的社交留言板 <a href="https://www.moltbook.com/post/e72d9de7-2bfd-4ce0-93b0-f7af8ab7fb53">MoltBook</a></td><td>三</td></tr>
         <tr><th scope="row">Google A2A</th><td>Agent2Agent 协议；配图来自 <a href="https://codelabs.developers.google.com/">Google 的 codelab</a></td><td>三</td></tr>
         <tr><th scope="row">Fourney 等，2024</th><td><a href="https://arxiv.org/pdf/2411.04468">Magentic-One</a>：由 orchestrator 维护任务台账</td><td>四</td></tr>
-        <tr><th scope="row">OpenAI Symphony</th><td>把 issue tracker 当作 agent 的调度器</td><td>四</td></tr>
-        <tr><th scope="row">Zhang 等，2025</th><td><a href="https://arxiv.org/pdf/2506.07398">G-Memory</a>：给多 agent 系统设计的记忆，分成三张图</td><td>四</td></tr>
-        <tr><th scope="row">Khatua 等，2026</th><td><a href="https://arxiv.org/abs/2601.13295">CooperBench</a>：协作编程评测。作者包括 Diyi Yang 和 Michael Ryan</td><td>一、四、五</td></tr>
+        <tr><th scope="row">OpenAI Symphony</th><td>把 issue tracker 当作 agent 的调度器。issue tracker 是团队用来登记和跟踪任务的工具</td><td>四</td></tr>
+        <tr><th scope="row">Zhang 等，2025</th><td><a href="https://arxiv.org/pdf/2506.07398">G-Memory</a>：给多 agent 系统设计的记忆。记忆存成三张图，这里的图指由节点和连线组成的数据结构</td><td>四</td></tr>
+        <tr><th scope="row">Khatua 等，2026</th><td><a href="https://arxiv.org/abs/2601.13295">CooperBench</a>：协作编程评测。作者包括 Diyi Yang 和 Michael Ryan</td><td>一、三、四、五</td></tr>
         <tr><th scope="row">Cemri 等，2025</th><td><a href="https://arxiv.org/abs/2503.13657">Why Do Multi-Agent LLM Systems Fail?</a>：失败分类</td><td>五</td></tr>
         <tr><th scope="row">Zou，2026</th><td>Anthropic 的研究文章 <a href="https://www.anthropic.com/research/multiagent-systems">Patterns and problems in emerging multiagent systems</a>，通讯作者 Carolyn Zou。趋同那一节的两张配图另外来自 <a href="https://arxiv.org/pdf/2510.01171">arXiv 2510.01171</a> 和 <a href="https://arxiv.org/pdf/2510.22954">arXiv 2510.22954</a></td><td>三、五</td></tr>
         <tr><th scope="row">Carlini，2026</th><td>Anthropic 的文章 <a href="https://www.anthropic.com/engineering/building-c-compiler">Building a C compiler with a team of parallel Claudes</a></td><td>案例</td></tr>
         <tr><th scope="row">Anthropic</th><td><a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>：四种编排方式的示意图参考了这篇文章</td><td>一、二</td></tr>
       </tbody>
     </table>
-    <figcaption>这一讲的数字对照上面这些论文和文章的原文核对过。</figcaption>
+    <figcaption>这一讲主要的数字对照原文核对过，出处在这张表和下面的「其他资料」表里。</figcaption>
   </figure>
   <h3>其他资料</h3>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">资料</th><th scope="col">用来说明什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
       <tbody>
-        <tr><th scope="row">Anthropic，2025</th><td><a href="https://www.anthropic.com/research/multi-agent-research-system">How we built our multi-agent research system</a>：多 agent 用多少 token，适合和不适合哪些任务</td><td>一</td></tr>
+        <tr><th scope="row">Anthropic，2025</th><td><a href="https://www.anthropic.com/research/multi-agent-research-system">How we built our multi-agent research system</a>：多 agent 用多少 token，适合和不适合哪些任务，给子 agent 的任务说明要写什么。子 agent 指被另一个 agent 派出去做一部分工作的 agent</td><td>一、三</td></tr>
         <tr><th scope="row">Cognition，2025</th><td><a href="https://cognition.ai/blog/dont-build-multi-agents">Don’t Build Multi-Agents</a>：把互相牵连的工作拆给几个 agent 为什么会出问题</td><td>一</td></tr>
         <tr><th scope="row">OpenAI Agents SDK 文档</th><td><a href="https://openai.github.io/openai-agents-python/multi_agent/">Agent orchestration</a>：交接（handoff）和把 agent 当工具用（agent-as-tool）各自适合什么；流程由模型定还是由代码定</td><td>二、三</td></tr>
-        <tr><th scope="row">METR，2026</th><td><a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">对 OpenAI 和 Hugging Face 事件的独立调查</a>：HuggingFace 事件的经过</td><td>三</td></tr>
-        <tr><th scope="row">OpenAI，2026</th><td><a href="https://openai.com/index/open-source-codex-orchestration-symphony/">Symphony 的介绍文章</a></td><td>四</td></tr>
-        <tr><th scope="row">AgentBoard，2024</th><td><a href="https://arxiv.org/abs/2401.13178">arXiv 2401.13178</a>：进度率这个评测指标的出处</td><td>四</td></tr>
+        <tr><th scope="row">METR，2026</th><td><a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">METR 的调查报告</a>：对 HuggingFace 事件的独立调查，讲事件的经过和规模</td><td>三、五</td></tr>
+        <tr><th scope="row">OpenAI，2026</th><td><a href="https://openai.com/index/open-source-codex-orchestration-symphony/">Symphony 的介绍文章</a>：Symphony 是 OpenAI 把项目管理看板上的任务派给编程 agent 的系统，第四部分用它说明任务台账可以直接用团队已有的 issue tracker</td><td>四</td></tr>
+        <tr><th scope="row">AgentBoard，2024</th><td><a href="https://arxiv.org/abs/2401.13178">arXiv 2401.13178</a>：进度率这个评测指标的出处。进度率看任务推进了多少，没做完的任务也按推进的程度计分，第四部分 G-Memory 的效果对比用到它</td><td>四</td></tr>
         <tr><th scope="row">CooperBench 网站</th><td><a href="https://cooperbench.com/">cooperbench.com</a>：评测的设置和主要结论</td><td>四、五</td></tr>
-        <tr><th scope="row">OpenAI，2026</th><td><a href="https://openai.com/index/navier-stokes-solution/">On the Navier-Stokes Millennium Prize Problem</a>：解一道数学难题时，约 1 万个同时运行的 agent 是怎样分组和汇总的</td><td>一、二、五</td></tr>
+        <tr><th scope="row">OpenAI，2026</th><td><a href="https://openai.com/index/navier-stokes-solution/">On the Navier-Stokes Millennium Prize Problem</a>：解一道数学难题时，agent 怎样分组，各组的发现怎样汇总。得出解答的那一组约有 1 万个同时运行的 agent</td><td>一、二、三、五</td></tr>
         <tr><th scope="row">Cursor，2026</th><td><a href="https://cursor.com/blog/agent-swarm-model-economics">Agent swarms and the new model economics</a>：用几种不同的方式审查 worker 的产出</td><td>一</td></tr>
-        <tr><th scope="row">Claude Code 文档</th><td><a href="https://code.claude.com/docs/en/sub-agents">Create custom subagents</a>：Claude 什么时候自动把任务派给子 agent</td><td>一</td></tr>
+        <tr><th scope="row">Claude Code 文档</th><td><a href="https://code.claude.com/docs/en/sub-agents">Create custom subagents</a>：Claude Code 是 Anthropic 的编程 agent，这一页讲 Claude 什么时候自动把任务派给子 agent</td><td>一</td></tr>
         <tr><th scope="row">AutoGen 文档</th><td><a href="https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/tutorial/teams.html">Teams</a>：三种现成的群聊方式怎样决定下一个发言者</td><td>三</td></tr>
-        <tr><th scope="row">A2A 和 MCP 的归属</th><td><a href="https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/">Google 的发布文章</a>、<a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">Linux Foundation 的公告</a>、<a href="https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation">Anthropic 的公告</a></td><td>三</td></tr>
-        <tr><th scope="row">MoltBook 的两份分析</th><td><a href="https://www.tenable.com/blog/undercover-on-moltbook">Tenable 的文章</a>：接入公共留言板的安全风险；<a href="https://arxiv.org/abs/2605.31170">arXiv 2605.31170</a>：agent 在 MoltBook 上提出的新语言</td><td>三</td></tr>
+        <tr><th scope="row">Google、Linux Foundation 和 Anthropic 的三篇文章</th><td>一篇发布文章和两篇公告，用来说明 A2A 和 MCP 现在归谁管。A2A 是 agent 和 agent 之间通信的协议，MCP 是让 agent 连接工具的协议，两个协议现在都由基金会管理：<a href="https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/">Google 的发布文章</a>、<a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">Linux Foundation 的公告</a>、<a href="https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation">Anthropic 的公告</a></td><td>三</td></tr>
+        <tr><th scope="row">Tenable 的文章、arXiv 2605.31170</th><td>对 MoltBook 的两份分析。安全公司 <a href="https://www.tenable.com/blog/undercover-on-moltbook">Tenable 的文章</a>讲接入公共留言板的安全风险，<a href="https://arxiv.org/abs/2605.31170">arXiv 2605.31170</a> 讲 agent 在 MoltBook 上提出的新语言</td><td>三</td></tr>
       </tbody>
     </table>
   </figure>

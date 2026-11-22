@@ -1,88 +1,90 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>工具让模型做到它光靠生成文字做不到的事：拿到训练数据里没有的信息，做确定的计算，改变外部的东西。模型只负责写出「调用哪个工具、参数是什么」，执行由模型外面的程序完成。</li>
-    <li>早期的做法是训练模型学会用某几个工具。Toolformer（2023 年 2 月）教会一个模型用 5 个工具，Gorilla（2023 年 5 月）把范围扩大到 1,645 个 API。</li>
-    <li>现在一次工具调用分四步：从上下文（模型这一次调用能读到的全部文字）里的工具说明中选一个，填参数，校验，执行并把结果放回上下文。</li>
-    <li>MCP（Model Context Protocol）是连接 AI 应用和外部工具的标准协议。一个工具按它实现一次，支持它的应用都能用，不必为每一对应用和工具单独写对接代码。</li>
+    <li>工具让模型做到它光靠生成文字做不到的事：拿到权重（模型内部由训练定下来的那些数值）里没有的信息，做需要精确结果的计算，对外部世界产生作用。</li>
+    <li>模型只负责写出「调用哪个工具、参数是什么」。校验和执行由运行框架（harness）完成，它是包在模型外面、给它工具并管理多轮对话的程序。</li>
+    <li>早期的做法是靠训练教模型用工具。有两项这样的研究：Toolformer（2023 年 2 月）教会一个模型用 5 个工具，Gorilla（2023 年 5 月）把范围扩大到 1,645 个 API。</li>
+    <li>现在一次工具调用分四步：从上下文里的工具说明中选一个，填参数，校验，执行并把结果放回上下文。上下文指模型每次生成时能读到的全部文字。</li>
+    <li>MCP（Model Context Protocol）是连接 AI 应用和外部工具的标准协议。数据库、代码仓库这类提供工具的外部系统按它实现一次，支持它的应用都能用，不必为每一对应用和外部系统单独写对接代码。</li>
   </ul>
 </section>
 
 <section class="sec" id="why">
   <h2>工具解决什么问题</h2>
-  <p><a href="anatomy.html#tools-why">第二部分</a>举过几个例子：模型不知道今天的讲座在哪间教室，算不准多位数乘法，读不到用户电脑上的文件。归纳起来，工具补上的是三类缺口。</p>
+  <p><a href="anatomy.html#tools-why">第二部分</a>举过几个例子：模型不知道今天的讲座在哪间教室，算不准多位数乘法，读不到用户电脑上的文件。把这类例子归纳起来，模型光靠生成文字做不到的事有三类，都要靠工具来做，见下表。前两个例子分别属于第一类和第二类。第三个例子里，读文件是为了拿到模型没有的信息，也属于第一类。第三类说的是另一件事：模型生成的只是文字，要改一个文件、下一个订单，得有工具替它去做。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">缺口</th><th scope="col">工具</th><th scope="col">例子</th></tr></thead>
+      <thead><tr><th scope="col">模型做不到的事</th><th scope="col">工具</th><th scope="col">例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row">模型的权重里没有的信息：<br>最新的，或者不公开的</th><td>检索、搜索、数据库查询</td><td>查今天的天气，查公司内部的文档</td></tr>
-        <tr><th scope="row">需要精确结果的计算</th><td>计算器、代码执行</td><td>算 1400 人里 400 人占多大比例</td></tr>
-        <tr><th scope="row">要对外部世界<br>产生作用</th><td>文件操作、发邮件、操作浏览器、调用别的软件的接口</td><td>改一个文件，下一个订单</td></tr>
+        <tr><th scope="row">拿到权重里没有的信息：<br>最新的，或者不公开的</th><td>检索、搜索、数据库查询</td><td>查今天的天气，查公司内部的文档</td></tr>
+        <tr><th scope="row">做需要精确结果的计算</th><td>计算器、代码执行</td><td>算 1400 人里 400 人占多大比例</td></tr>
+        <tr><th scope="row">对外部世界<br>产生作用</th><td>文件操作、发邮件、操作浏览器、调用别的软件的接口</td><td>改一个文件，下一个订单</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>有了工具，agent 的动作就建立在查到的事实和算出的结果上，更可靠，前后也更一致。还有一个好处：需要某种能力时，可以把它交给一个专门的工具，底层的模型不必自己具备。下面 Gorilla 的例子里，用户想要一张图，模型自己不会画，它只要知道该调用哪个画图的模型。</p>
-  <p>模型按规定的格式输出一个函数名和一组参数，这一步常被叫作 function calling（函数调用）。它是一次工具调用里由模型完成的那一部分，校验和执行由模型外面的程序完成。</p>
+  <p>有了工具，agent（由 LLM 自己一步一步决定做什么、调用工具去完成任务的系统）的动作就建立在查到的事实和算出的结果上，更可靠。结果也更一致：同一道题交给计算器，每次算出的结果都相同。还有一个好处：需要某种能力时，可以把它交给一个专门的工具，底层的模型不必自己具备。下面 Gorilla 的例子里，用户想要一张图，模型自己不会画，它只要知道该调用哪个画图的模型。</p>
+  <p>模型按规定的格式输出一个函数名和一组参数，这一步常被叫作 function calling（函数调用）。它是一次工具调用里由模型完成的那一部分，校验和执行由运行框架完成。</p>
 </section>
 
 <section class="sec" id="toolformer">
   <h2>Toolformer：让模型自己学会什么时候用工具</h2>
   <p>现在的做法是把工具的说明写进上下文，由模型当场选用。在这之前，有过靠训练教模型用工具的做法。这一节和下一节各看一个，后面才看得出变化在哪。</p>
-  <p>早期的做法是把工具调用直接嵌在文字生成的过程里：模型写着写着，在需要的地方写出一个特殊的标记，表示这里要调用一个工具。</p>
+  <p>这一节看的是 Toolformer。它把工具调用直接嵌在文字生成的过程里：模型在生成文字的中途，到了需要的地方就插入一次调用。调用的写法是固定的：方括号里先写工具名和参数，再写一个箭头，箭头后面是工具返回的结果。</p>
   {{fig 51 | 右边是四个例子。彩色的部分是模型在句子中间插入的工具调用，方括号里是工具名和参数，箭头后面是工具返回的结果。四个例子依次用了问答系统、计算器、翻译系统和维基百科搜索。图片来源：<a href="https://arxiv.org/abs/2302.04761">Schick 等，2023</a>。}}
-  <p>看第一个例子。模型要续写「《新英格兰医学杂志》是……的注册商标」。写到这里，它插入一个调用：向问答系统提问「《新英格兰医学杂志》的出版方是谁」。问答系统返回「马萨诸塞州医学会」。模型再接着这个结果往下写。第二个例子里，模型写到「1400 名参与者中有 400 人」，调用计算器算 400 除以 1400，得到 0.29，然后写出「29%」。</p>
+  <p>看第一个例子。模型要续写的这句话说的是：《新英格兰医学杂志》是某个机构的注册商标。写到该填这个机构名字的位置，它插入一个调用：向问答系统提问「《新英格兰医学杂志》的出版方是谁」。问答系统返回「马萨诸塞州医学会」。模型再接着这个结果往下写。第二个例子里，模型写到「1400 名参与者中有 400 人」，调用计算器算 400 除以 1400，得到 0.29，然后写出「29%」。</p>
   <p>Toolformer 是 Meta 的研究者 2023 年 2 月发表的工作。它要教会模型四件事：调用哪个工具，什么时候调用，传什么参数，怎样把结果用到后面的生成里。难处在于没有现成的训练数据，没有人给大量文本标注过「这里该查一下」。它的办法是让模型自己造数据。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">步骤</th><th scope="col">做什么</th></tr></thead>
       <tbody>
-        <tr><th scope="row">一 采样</th><td>给每个工具写几个人工的示范，让模型在一个很大的文本数据集里，标出它认为可以插入工具调用的位置和调用的内容</td></tr>
+        <tr><th scope="row">一 采样</th><td>由人给每个工具写几个示范，让模型照着示范，在一个很大的文本数据集里标出它认为可以插入工具调用的位置，并在每个位置生成几个候选的调用。采样指让模型生成一次，生成带有随机性，所以同一个位置能得到几个不同的候选</td></tr>
         <tr><th scope="row">二 执行</th><td>真的去执行这些调用，拿到结果</td></tr>
         <tr><th scope="row">三 筛选</th><td>对每个调用做一次比较：把调用和它的结果插进去之后，模型预测后面的文字是不是更准了。准确度的提高超过一个阈值的才保留</td></tr>
-        <tr><th scope="row">四 训练</th><td>用保留下来的、带工具调用的文本对模型做 fine-tuning（在预训练模型的基础上继续训练）</td></tr>
+        <tr><th scope="row">四 训练</th><td>用保留下来的、带工具调用的文本对模型做 fine-tuning（在已经训练好的模型的基础上，用特定任务的数据继续训练）</td></tr>
       </tbody>
     </table>
     <figcaption>整理自 <a href="https://arxiv.org/abs/2302.04761">Schick 等，2023</a>。</figcaption>
   </figure>
-  <p>第三步是关键。它看的是把调用和结果插进去之后，模型预测后面文字的误差有没有变小，这个误差就是模型的预测损失。这个判断由模型自己算出来，不需要人来标注，所以论文标题说模型可以「自己教自己」用工具。</p>
-  <p>训练好之后，模型在生成时一旦写出表示「等待结果」的标记，生成就暂停，由外面的程序调用工具，把结果插进去，再继续生成。</p>
-  <p>它用的模型是 GPT-J，有 67 亿个参数。工具一共五个：问答系统、计算器、维基百科搜索、翻译系统、日历。数量很有限。后来范围大得多的工具使用沿用了上一段的做法：模型写出调用，外面的程序执行，再把结果交还给模型。</p>
+  <p>第三步是关键。它看的是把调用和结果插进去之后，模型预测后面文字的误差有没有变小，这个误差就是模型的预测损失。这个判断由模型自己算出来，不需要人来标注，所以论文的标题是 Language Models Can Teach Themselves to Use Tools，意思是语言模型可以自己教自己用工具。</p>
+  <p>训练好之后，模型在生成时一旦写出调用里的那个箭头，就表示它在等工具的结果。这时生成暂停，由运行框架调用工具，把结果接在箭头后面，再继续生成。</p>
+  <p>它用的模型是 GPT-J，参数量 67 亿。参数量指模型里权重的个数，说的是模型有多大。这一页别处单说的「参数」，都指调用工具时填的参数。工具一共五个：问答系统、计算器、维基百科搜索、翻译系统、日历。数量很有限。后来的系统能用的工具多得多，做法还是上一段那样：模型写出调用，运行框架执行，再把结果交还给模型。</p>
 </section>
 
 <section class="sec" id="gorilla">
   <h2>Gorilla：从五个工具到上千个 API</h2>
-  <p>工具从几个变成上千个，新的问题就出现了：模型记不住这么多接口，会写出根本不存在的调用。Gorilla（伯克利，2023 年 5 月）针对的就是这个问题。</p>
-  {{fig 52 | 左上：数据的来源和训练的过程。左下：使用时的过程，用户的请求先经过检索器找到相关的 API 文档，再由 Gorilla 写出调用。右：纵轴是准确率，横轴是幻觉的比例，越靠左上越好，幻觉在这里指调用了库里不存在的 API。上面一张是不带检索器的结果，下面一张是配了一个按关键词匹配的检索器之后的结果。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
+  <p>工具从几个变成上千个，新的问题就出现了：模型记不住这么多 API，会写出根本不存在的调用。Gorilla（伯克利，2023 年 5 月）针对的就是这个问题。</p>
+  {{fig 52 | 左上：数据的来源和训练的过程。左下：带检索器使用时的过程，用户的请求先经过检索器找到相关的 API 文档，再由 Gorilla 写出调用。右：纵轴是准确率，横轴是幻觉的比例，越靠左上越好，幻觉在这里指调用了 API 库里不存在的 API，API 库是论文收集的全部 API 和它们的文档。上面一张是不带检索器的结果，下面一张是配了一个按关键词匹配的检索器之后的结果。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
   <p>它的做法分四个环节，对应图的左半边。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">环节</th><th scope="col">做法</th></tr></thead>
       <tbody>
-        <tr><th scope="row">收集 API</th><td>从三个机器学习模型的仓库收集了 1,645 个 API 调用：Torch Hub 94 个，TensorFlow Hub 626 个，HuggingFace 925 个</td></tr>
+        <tr><th scope="row">收集 API</th><td>从三个机器学习模型的仓库收集了 1,645 个 API：Torch Hub 94 个，TensorFlow Hub 626 个，Hugging Face 925 个。一个 API 对应仓库里的一个模型，调用它就是写一行加载这个模型的代码。这些 API 和各自的文档合在一起，下面叫 API 库</td></tr>
         <tr><th scope="row">造训练数据</th><td>让 GPT-4 为每个 API 写 10 条「用户会怎么提这个需求」的指令，得到 16,450 对指令和 API</td></tr>
-        <tr><th scope="row">训练</th><td>在 LLaMA-7B（一个 70 亿参数的开源模型）上做 fine-tuning。训练时有一部分样本在 prompt 里附上检索到的 API 文档，让模型学会参考文档来写调用</td></tr>
-        <tr><th scope="row">使用</th><td>用户提出需求，检索器从 API 库里找到最相关的文档，和需求一起交给模型，模型写出具体的调用</td></tr>
+        <tr><th scope="row">训练</th><td>在 LLaMA-7B（一个参数量 70 亿的开源模型）上做 fine-tuning。论文训练了两个版本：一个只用上一步的指令和 API 来训练，另一个在训练时的 prompt 里附上检索到的 API 文档，让模型学会参考文档来写调用</td></tr>
+        <tr><th scope="row">使用</th><td>有两种用法。不带检索器时，用户的需求直接交给模型，模型写出具体的调用。带检索器时，检索器先从 API 库里找到最相关的文档，和需求一起交给模型</td></tr>
       </tbody>
     </table>
     <figcaption>整理自 <a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。</figcaption>
   </figure>
   <p>图左下的例子：用户说「想看几只猫跳舞庆祝」。检索器找到一个文生图模型 Stable Diffusion 的文档，Gorilla 写出加载这个模型的那行代码，执行之后得到一张图。底层的语言模型自己不会生成图片，它把这件事交给了一个外部的工具。</p>
-  <p>这篇论文把两种错误分开统计。幻觉指调用了一个库里根本不存在的 API，也就是凭空想出一个工具。普通的错误指 API 是存在的，但用得不对。</p>
+  <p>这篇论文把两种错误分开统计。幻觉指调用了一个 API 库里根本不存在的 API，也就是凭空想出一个工具。普通的错误指 API 是存在的，但用得不对。</p>
+  <p>下表里的两个比例，分母都是全部的测试请求。准确率是写对了的请求占的比例：模型写出的调用和参考答案比对，调用的函数和指明是哪个模型的那几个参数都对得上才算对。幻觉的比例是出现幻觉的请求占的比例。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">API 来源</th><th scope="col">模型</th><th scope="col" class="r">准确率</th><th scope="col" class="r">幻觉的比例</th></tr></thead>
+      <thead><tr><th scope="col">仓库</th><th scope="col">模型</th><th scope="col" class="r">准确率</th><th scope="col" class="r">幻觉的比例</th></tr></thead>
       <tbody>
         <tr><th scope="row" rowspan="2">Torch Hub</th><td>GPT-4</td><td class="r">38.70%</td><td class="r">36.55%</td></tr>
         <tr><td>Gorilla</td><td class="r">59.13%</td><td class="r">6.98%</td></tr>
-        <tr><th scope="row" rowspan="2">HuggingFace</th><td>GPT-4</td><td class="r">19.80%</td><td class="r">37.16%</td></tr>
+        <tr><th scope="row" rowspan="2">Hugging Face</th><td>GPT-4</td><td class="r">19.80%</td><td class="r">37.16%</td></tr>
         <tr><td>Gorilla</td><td class="r">71.68%</td><td class="r">10.95%</td></tr>
         <tr><th scope="row" rowspan="2">TensorFlow Hub</th><td>GPT-4</td><td class="r">18.20%</td><td class="r">78.65%</td></tr>
         <tr><td>Gorilla</td><td class="r">83.79%</td><td class="r">5.40%</td></tr>
       </tbody>
     </table>
-    <figcaption>不给例子、不带检索器时的结果，来自 <a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a> 的表 1。GPT-4 是 2023 年 3 月的版本。</figcaption>
+    <figcaption>不给例子、不带检索器时的结果，来自 <a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a> 的表 1。GPT-4 是 2023 年 3 月的版本。表里的 Gorilla 是训练时不带检索器的那个版本。Hugging Face 两行的判法不同：GPT-4 只要选对任务的类别就算对，Gorilla 仍按上面的办法比对。</figcaption>
   </figure>
-  <p>一个 70 亿参数的小模型，专门训练之后，在「写对 API 调用」这件事上超过了当时的 GPT-4，凭空编造接口的情况也少得多。这张表里两个模型都没有带检索器，所以它说明的是专门训练的效果：工具一多，通用模型光凭记忆写调用很容易出错。</p>
+  <p>一个参数量只有 70 亿的小模型，专门训练之后，在「写对 API 调用」这件事上超过了当时的 GPT-4，凭空编造 API 的情况也少得多。这张表里两个模型都没有带检索器，所以它说明的是专门训练的效果：工具一多，通用模型光凭记忆写调用很容易出错。</p>
   <p>查文档有没有用，论文是另外测的，结论取决于检索器好不好。给 GPT-4 配上一个总能找到正确文档的理想检索器，它在 Torch Hub 上的准确率从 38.70% 升到 66.12%，幻觉的比例从 36.55% 降到 0.53%。换成按关键词匹配的 BM25 检索器，准确率是 35.48%，比不带检索器时还低一点。论文的说法是，检索器不够好时，找来的文档有时会误导模型，带来更多的错误。</p>
 </section>
 
@@ -90,15 +92,15 @@
   <h2>一次工具调用里发生了什么</h2>
   <p>上面两项工作讲的是模型怎样学会用工具。从系统的角度看，现在的一次工具调用分四步。</p>
   {{fig 58 | 上面是四个步骤。下面是一个例子：用户问 test.py 里有什么。}}
-  <p>下表列出四步各自做什么、由谁做，最后一列是图里的例子。</p>
+  <p>下表列出四步各自做什么、由谁做，最后一列是图里的例子。表里的运行框架（harness）指包在模型外面、给它工具并管理多轮对话的程序。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">步骤</th><th scope="col">做什么</th><th scope="col">由谁做</th><th scope="col">例子：用户问「test.py 里有什么」</th></tr></thead>
       <tbody>
         <tr><th scope="row">一 选工具<br><span class="muted small">Select</span></th><td>上下文里放着每个可用工具的说明（schema，写明工具的名字、用途和参数）。模型从中选一个</td><td>模型</td><td>选中 <code>read_file</code></td></tr>
         <tr><th scope="row">二 填参数<br><span class="muted small">Arguments</span></th><td>按说明里规定的字段和类型，从任务里找出要填的值</td><td>模型</td><td><code>{"path": "test.py"}</code></td></tr>
-        <tr><th scope="row">三 校验<br><span class="muted small">Validate</span></th><td>检查参数是否符合说明里的规定。有的系统还用约束解码，让模型根本写不出格式不对的调用</td><td>模型外面的程序</td><td>检查 <code>path</code> 是一个字符串</td></tr>
-        <tr><th scope="row">四 执行<br><span class="muted small">Execute</span></th><td>真正运行这个工具，通常在沙箱（sandbox，一个和外界隔离的运行环境）里。结果返回到上下文</td><td>模型外面的程序</td><td>文件的内容 <code>def add(a, b): …</code> 回到上下文，模型据此回答用户</td></tr>
+        <tr><th scope="row">三 校验<br><span class="muted small">Validate</span></th><td>模型写完调用之后，检查参数是否符合说明里的规定。有的系统把格式的检查提前到第二步里做：用约束解码限制模型生成时每一步能写出什么，让它根本写不出格式不对的调用</td><td>运行框架</td><td>检查 <code>path</code> 是一个字符串</td></tr>
+        <tr><th scope="row">四 执行<br><span class="muted small">Execute</span></th><td>真正运行这个工具，通常在沙箱（sandbox，一个和外界隔离的运行环境）里。结果返回到上下文</td><td>运行框架</td><td>文件的内容 <code>def add(a, b): …</code> 回到上下文，模型据此回答用户</td></tr>
       </tbody>
     </table>
   </figure>
@@ -115,24 +117,25 @@
 
 # 3. what the harness appends after running the tool
 "def add(a, b): ..."</code></pre>
-  <p>这里要分清谁在做什么。模型从头到尾只做了一件事：生成第 2 段那一行文字。读文件的是运行框架（harness，包在模型外面、提供工具并管理多轮对话的程序），模型看到的是运行框架放回来的结果。所以工具能做什么、不能做什么，由运行框架决定；一个工具调用要不要先经过人的批准，也在这一层控制。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>约束解码是什么。</b>模型每生成一个 token（模型处理文字的最小单位），本来可以从整个词表里任选。约束解码（constrained decoding）在每一步只允许它选那些不会破坏规定格式的 token。它保证的是格式。参数的值对不对，不在它的检查范围内。约束解码在第 2 讲展开。出处和下一个框相同：<a href="https://web.archive.org/web/20250103232131/https://openai.com/index/introducing-structured-outputs-in-the-api/">OpenAI，2024</a>（存档页面）。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>约束解码的一个例子：OpenAI 的 Structured Outputs。</b>OpenAI 在 2024 年 8 月推出的 Structured Outputs 就是这样做的。开发者用 JSON Schema 描述想要的输出，JSON Schema 是一种写明一段 JSON 里有哪些字段、各是什么类型的格式。系统把它转成一套语法规则，生成时只保留符合规则的 token。按 OpenAI 的说明，只靠训练，模型在他们的测试里有 93% 的输出符合 schema；加上约束解码之后是 100%。出处：<a href="https://web.archive.org/web/20250103232131/https://openai.com/index/introducing-structured-outputs-in-the-api/">OpenAI，2024</a>（存档页面）。</div></div>
+  <p>这里要分清谁在做什么。在这次工具调用里，模型做的只有一件事：生成第 2 段那一行文字，选哪个工具、填什么参数都写在这一行里。读文件的是运行框架，模型看到的是运行框架放回来的结果，再根据它回答用户。所以交给模型哪些工具、每个工具允许做什么，由运行框架决定。一个工具调用要不要先经过人的批准，也在这一层控制。</p>
+  <p><a href="anatomy.html#env">第二部分</a>说一个环境里可以做哪些操作由环境决定。环境指 agent 之外、它的动作作用在上面的那个世界，比如一个终端、一个网页浏览器。这句话和上一段说的是两层：环境决定有哪些操作可做，比如在终端里可以执行命令。运行框架决定把其中哪些做成工具交给模型，以及每个工具允许做到哪一步。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>约束解码是什么。</b>模型每生成一个 token（模型处理文字的最小单位），本来可以从整个词表（模型能输出的全部 token 的清单）里任选。约束解码（constrained decoding）在每一步只允许它选那些不会破坏规定格式的 token。它保证的是格式。参数的值对不对，不在它的检查范围内。约束解码在第 2 讲展开。出处和下一个框相同：<a href="https://web.archive.org/web/20250103232131/https://openai.com/index/introducing-structured-outputs-in-the-api/">OpenAI，2024</a>（存档页面）。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>约束解码的一个例子：OpenAI 的 Structured Outputs。</b>OpenAI 在 2024 年 8 月推出的 Structured Outputs 就是这样做的。开发者用 JSON Schema 描述想要的输出，JSON Schema 是一种写明一段 JSON 里有哪些字段、各是什么类型的格式。系统把它转成一套语法规则，生成时只保留符合规则的 token。OpenAI 还专门训练了模型 gpt-4o-2024-08-06，让它更会按给定的 JSON Schema 输出。按 OpenAI 的说明，只靠这项训练，这个模型在 OpenAI 自己的测试里有 93% 的输出符合给定的 JSON Schema，加上约束解码之后是 100%。出处：<a href="https://web.archive.org/web/20250103232131/https://openai.com/index/introducing-structured-outputs-in-the-api/">OpenAI，2024</a>（存档页面）。</div></div>
 </section>
 
 <section class="sec" id="then-now">
-  <h2>从「训练出来的工具」到「写在上下文里的工具」</h2>
-  <p>把前面三节放在一起看，工具使用的做法有一个明显的变化。</p>
+  <h2>从靠训练学会用工具，到把工具的说明写进上下文</h2>
+  <p>把 Toolformer、Gorilla 和上一节的四步调用放在一起看，工具使用的做法有一个明显的变化。下表按三个问题比较这三种做法。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">Toolformer<br><span class="muted small">2023 年 2 月</span></th><th scope="col">Gorilla<br><span class="muted small">2023 年 5 月</span></th><th scope="col">现在常见的做法</th></tr></thead>
       <tbody>
-        <tr><th scope="row">模型怎么知道有哪些工具</th><td>训练时学会的，5 个</td><td>训练时学过，使用时再检索文档，1,645 个</td><td>工具的说明直接写在上下文里，换工具不用重新训练</td></tr>
+        <tr><th scope="row">模型怎么知道有哪些工具</th><td>训练时学会的，5 个</td><td>训练时学过，使用时还可以带上检索器查文档，1,645 个</td><td>工具的说明直接写在上下文里，换工具不用重新训练</td></tr>
         <tr><th scope="row">调用写在哪</th><td>夹在正在生成的句子中间</td><td>作为回答，输出一行代码</td><td>作为一段结构化的输出，和给用户的文字分开</td></tr>
-        <tr><th scope="row">结果怎么用</th><td>插回句子里，接着往下写</td><td>执行代码得到结果</td><td>作为一条观察放回上下文，模型再决定下一步</td></tr>
+        <tr><th scope="row">结果怎么用</th><td>插回句子里，接着往下写</td><td>论文只做到写出调用。这行代码执行之后的结果不再交回模型</td><td>作为一条观察放回上下文，模型再决定下一步</td></tr>
       </tbody>
     </table>
-    <figcaption>最后一列是对上面「一次工具调用」那张图的概括。</figcaption>
+    <figcaption>最后一列是对上面「一次工具调用」那张图的概括。结构化的输出指按规定的格式写出的内容，比如 JSON。观察指动作之后返回给模型的结果。</figcaption>
   </figure>
   <p>变化的好处写在表的第一行：换工具不用重新训练模型。工具的说明后来怎样有了统一的格式，第 4 讲展开。</p>
   <p>最后一列的做法还留着两个问题。第一，工具的说明要占上下文，工具越多，占得越多。上下文里该放什么、怎样控制长度，是第 2 讲的内容。第二，执行调用的是应用自己的运行框架，所以每个应用都要为每个工具写一份对接的代码。下面的 MCP 处理的是第二个问题。</p>
@@ -140,15 +143,15 @@
 
 <section class="sec" id="mcp">
   <h2>MCP：给工具定一个统一的接口</h2>
-  <p>如果每个 AI 应用都要为每个工具单独写一套对接代码，工具和应用一多就做不下去了。举例来说，3 个应用要接 5 个工具，就是 15 套对接代码；再多一个应用，又是 5 套。</p>
-  {{fig 59 | 左边是各种 AI 应用：聊天界面、代码编辑器、别的应用。右边是数据来源和工具：数据库和文件系统、开发工具、办公工具。中间是 MCP 这个标准协议，两边的数据可以双向流动。图片来源：<a href="https://modelcontextprotocol.io/docs/getting-started/intro">MCP 官方文档</a>。}}
-  <p>Model Context Protocol（简称 MCP）是 Anthropic 在 2024 年 11 月 25 日开源的一个标准，用来把 AI 应用和数据所在的系统连起来。有了它，工具这一边按协议实现一次，做成一个 MCP 服务器；应用这一边按协议实现一次，就能连上所有的 MCP 服务器。上面的例子变成 3 加 5 一共 8 份实现。</p>
-  <p>MCP 里有三个角色。</p>
+  <p>模型要用的工具，来自数据库、代码仓库、办公软件这类系统，这一节把它们叫作外部系统。如果每个 AI 应用都要为每个外部系统单独写一套对接代码，应用和外部系统一多就做不下去了。举例来说，3 个应用要接 5 个外部系统，就是 15 套对接代码；再多一个应用，又是 5 套。</p>
+  {{fig 59 | 左边是各种 AI 应用：聊天界面、代码编辑器、别的应用。右边是数据来源和工具：数据库和文件系统、开发工具、办公工具，也就是正文说的外部系统。中间是 MCP 这个标准协议，两边的数据可以双向流动。图片来源：<a href="https://modelcontextprotocol.io/docs/getting-started/intro">MCP 官方文档</a>。}}
+  <p>Model Context Protocol（简称 MCP）是 Anthropic 在 2024 年 11 月 25 日开源的一个标准，用来把 AI 应用和外部系统连起来。有了它，每个外部系统这一边按协议实现一次，做成一个 MCP 服务器，一个服务器可以提供很多个工具。应用这一边按协议实现一次，就能连上所有的 MCP 服务器。上面的例子变成 3 加 5 一共 8 份实现。</p>
+  <p>MCP 里有三个角色。下面的三个角色、服务器提供的三样东西和协议的两层，都按 2026 年 7 月 28 日版的架构文档来写。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">角色</th><th scope="col">是什么</th><th scope="col">例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row">主机<br><span class="muted small">MCP host</span></th><td>用户直接使用的 AI 应用。它负责协调，为每个要连接的服务器建一个客户端</td><td>Claude Desktop、Claude Code 这样的应用</td></tr>
+        <tr><th scope="row">主机<br><span class="muted small">MCP host</span></th><td>用户直接使用的 AI 应用。它为每个要连接的服务器建一个客户端，并管理这些客户端</td><td>Claude Desktop、Claude Code 这样的应用</td></tr>
         <tr><th scope="row">客户端<br><span class="muted small">MCP client</span></th><td>主机里的一个部件，和一个服务器保持连接，从它那里取得工具、资源和 prompt 模板</td><td>主机连了三个服务器，里面就有三个客户端</td></tr>
         <tr><th scope="row">服务器<br><span class="muted small">MCP server</span></th><td>向客户端提供工具、资源和 prompt 模板的程序</td><td>一个把 PostgreSQL 数据库、Git 仓库或者 Slack 包装起来的程序</td></tr>
       </tbody>
@@ -158,30 +161,30 @@
   <ul>
     <li><b>工具（tools）。</b>AI 应用可以调用的函数，用来执行动作，比如操作文件、调用接口、查询数据库。</li>
     <li><b>资源（resources）。</b>提供上下文信息的数据，比如文件的内容、数据库里的记录。</li>
-    <li><b>prompt 模板（prompts）。</b>可以重复使用的模板，比如一段系统 prompt 或者几个示范。</li>
+    <li><b>prompt 模板（prompts）。</b>可以重复使用的模板，比如一段系统 prompt（开发者事先写给模型的那段固定说明）或者几个示范。</li>
   </ul>
   <p>协议本身分两层。数据层规定消息的内容，用的是 JSON-RPC 2.0（一种用 JSON 表示远程调用的通用格式）。传输层规定消息怎么送：服务器和应用在同一台机器上时，用标准输入输出；通过网络连接时，用 HTTP。</p>
   <p>MCP 只规定应用和服务器之间怎样交换这些内容。应用怎样使用 LLM、怎样管理拿到的内容，它不规定。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>MCP 和 function calling 是两个层次的东西。</b>function calling 说的是模型怎样输出一次调用。MCP 说的是应用怎样发现有哪些工具、怎样把调用送到工具那里并把结果取回来。一个应用通常两样都用：先通过 MCP 从服务器拿到工具的说明，把它们放进模型的上下文；模型按 function calling 的格式输出一次调用；应用再通过 MCP 把这次调用发给服务器执行。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>协议还在变，读别处的介绍时要留意它说的是哪个版本。</b>协议的版本按日期编号。2026 年 7 月 28 日的版本把协议改成了无状态的：每个请求自带协议版本和所需的能力信息，服务器可以单独处理每一个请求。协议的归属也变了：2025 年 12 月 9 日，Anthropic 把 MCP 捐给了 Linux 基金会下面新成立的 Agentic AI Foundation，这个基金会由 Anthropic、Block 和 OpenAI 共同发起。出处：<a href="https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture">MCP 架构文档，2026-07-28 版</a>；<a href="https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation">Anthropic，2025</a>。MCP 最初的发布见 <a href="https://www.anthropic.com/news/model-context-protocol">Anthropic，2024</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>协议还在变，读别处的介绍时要留意它说的是哪个版本。</b>协议的版本按日期编号。2026 年 7 月 28 日的版本把协议改成了无状态的：每个请求自带协议版本和有关的能力信息，服务器可以单独处理每一个请求。能力（capabilities）是协议里的说法，指客户端或服务器声明自己支持哪些功能。无状态说的是每个请求的内容自成一体，上面表里客户端和服务器之间的那条连接在这个版本里照样有。协议的归属也变了：2025 年 12 月 9 日，Anthropic 把 MCP 捐给了 Linux 基金会下面新成立的 Agentic AI Foundation，这个基金会由 Anthropic、Block 和 OpenAI 共同发起。出处：<a href="https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture">MCP 架构文档，2026-07-28 版</a>；<a href="https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation">Anthropic，2025</a>。MCP 最初的发布见 <a href="https://www.anthropic.com/news/model-context-protocol">Anthropic，2024</a>。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>客户端也可以向服务器提供能力。</b>上面讲的三样东西都是服务器提供给应用的。反过来，客户端也可以向服务器提供能力。2026 年 7 月 28 日的版本里这类能力只列了一项，就是让服务器向用户追问信息（elicitation）。早先版本里让服务器借用应用的模型来生成文字的能力（sampling），在这个版本里已经标为弃用。出处：<a href="https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture">MCP 架构文档，2026-07-28 版</a>。</div></div>
 </section>
 
 <section class="sec" id="summary">
   <h2>这一部分的小结</h2>
   <ul>
-    <li>工具补上模型的三类缺口：没有的信息，不精确的计算，对外部世界的作用。</li>
+    <li>模型光靠生成文字有三类事做不到，要靠工具来做：拿到权重里没有的信息，做需要精确结果的计算，对外部世界产生作用。</li>
     <li>模型只生成「调用哪个工具、参数是什么」这段文字。校验和执行由运行框架完成，结果作为观察放回上下文。</li>
     <li>Toolformer 和 Gorilla 靠训练教模型用工具。现在更常见的做法是把工具的说明放在上下文里，由模型当场选择。</li>
-    <li>MCP 把应用和工具之间的对接标准化，工具实现一次，各个应用都能用。</li>
+    <li>MCP 把应用和工具之间的对接标准化，提供工具的外部系统实现一次，各个应用都能用。</li>
   </ul>
-  <p>工具使用的更多内容，包括怎样设计工具、怎样评测、常见的失败，在第 4 讲。到这里，agent 的几个部件都看过了。下一部分把它们放回到完整的系统里，看<a href="systems.html">workflow 和 agent 的区别</a>。</p>
+  <p>工具使用的更多内容，包括怎样设计工具、怎样评测、常见的失败，在第 4 讲。到这里，agent 的几个部件都看过了。下一部分把它们放回到完整的系统里，看<a href="systems.html">workflow 和 agent 的区别</a>：下一步做什么由事先写好的代码决定的是 workflow，由模型自己决定的是 agent。</p>
 </section>
 
 <section class="sec" id="notes">
   <h2>资料说明</h2>
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
-    <li><b>Gorilla 收集的 API 数目。</b>三个仓库的数目以论文图 3 为准：Torch Hub 94 个，TensorFlow Hub 626 个，HuggingFace 925 个，合计 1,645 个。论文正文里另有两处数字和它略有出入，印的是 696 和 95。出处：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。</li>
+    <li><b>Gorilla 收集的 API 数目。</b>三个仓库的数目以论文图 3 为准：Torch Hub 94 个，TensorFlow Hub 626 个，Hugging Face 925 个，合计 1,645 个。论文正文里另有两处数字和它略有出入：引言把 TensorFlow Hub 的数目印成 696，讲数据收集的一节把 Torch Hub 的数目印成 95。出处：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。</li>
   </ul>
 </section>

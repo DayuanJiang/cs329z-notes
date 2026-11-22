@@ -1,33 +1,36 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>优化器要用到三样东西：一个程序（系统），一批带标注的样例（数据），一个打分的函数（度量）。这正是<a href="engineer.html#pillars">第一部分</a>说的三根支柱。</li>
-    <li>演示里，同一个提取日程的 signature（DSPy 里对模型输入和输出的声明）交给小模型 Gemma 3 12B，20 封测试邮件只有 11 封全对。用 GEPA 优化器在 30 封训练邮件上优化之后，20 封全对。整个过程只改了 prompt（给模型的输入文字）里的那段指令。</li>
-    <li>优化要花钱，结果要在没参与优化的数据上检验，度量要量的是你真正关心的东西。训练模型时的那些规矩在这里全部适用。</li>
-    <li>DSPy 里搭一个 agent（能自己调用工具、分很多步完成任务的语言模型系统）也只要一行：把 signature 和一组工具交给 <code>dspy.ReAct</code>。</li>
+    <li>DSPy 是一个把模型调用写成 Python 程序的框架（framework，写程序时调用的库）。优化器是它里面自动改进程序的部件，改的是程序里的 prompt（给模型的输入文字）或模型权重（模型里经过训练得到的参数）。这一页演示的优化器叫 GEPA，它只改 prompt。</li>
+    <li>优化器要用到三样东西：一个程序（系统），一批带标准答案的数据，一个给程序的输出打分的函数（度量）。这正是<a href="engineer.html#pillars">第一部分</a>说的三根支柱：数据、系统、评估。评估指用度量在一批数据上给系统打分。</li>
+    <li>演示里要优化的是第二部分写的提取程序。它用一个 signature（DSPy 里对模型输入和输出的声明）规定从邮件里提取日程的名称、日期、开始时间和时长，日期、开始时间、时长三项都和标准答案一致才算全对。把它交给小模型 Gemma 3 12B，20 封测试邮件只有 11 封全对。用 GEPA 在 30 封训练邮件上优化之后，20 封全对。整个过程只改了 prompt 里的那段指令。</li>
+    <li>用优化器有六件事要留意，列在<a href="#cautions">「用优化器要注意的几件事」</a>一节的表里。其中三件在训练模型时就要考虑，优化 prompt 时同样适用：优化要花钱，结果要在没参与优化的数据上检验，度量要量的是你真正关心的东西。另一件和上面的成绩有关：测试集只有 20 封，凭 20 封全对还不能断定小模型的真实准确率是 100%。</li>
+    <li>DSPy 里搭一个 agent 也只要一行：把 signature 和一组工具交给 <code>dspy.ReAct</code>。</li>
   </ul>
 </section>
 
 <section class="sec" id="question">
   <h2>要回答的问题：小模型能不能做同样的事</h2>
-  <p><a href="dspy.html#class">上一部分</a>的提取程序用的是 gpt-5.4-nano。现在换一个问题：一个权重公开、小到可以在普通硬件上运行的模型，能不能把同一件事做好？演示里选的是 Gemma 3 12B，因为它不做任何调整就能把这个任务做出一部分，但做得不够好，正好留出改进的空间。</p>
-  <p>Gemma 3 是 Google 在 2025 年 3 月发布的一组开放权重的模型，有 1B、4B、12B、27B 四档。名字里的数字按惯例表示参数量，12B 是 120 亿上下。</p>
+  <p><a href="dspy.html#class">第二部分</a>写了一个提取程序：读一封邮件，提取里面日程的名称、日期、开始时间和时长。它用的模型是 gpt-5.4-nano，这是 OpenAI 的 GPT-5.4 系列里最小的一档。OpenAI 的<a href="https://openai.com/index/introducing-gpt-5-4-mini-and-nano/">发布文章</a>写明这个模型只通过接口提供，没有给出它的参数量。第二部分说过，演示通过 OpenRouter 这个转接多家模型的服务来调用它。</p>
+  <p>现在换一个问题：一个权重公开、小到可以在普通硬件上运行的模型，能不能把同一件事做好？演示里选的是 Gemma 3 12B，因为它不做任何调整就能把这个任务做出一部分，但做得不够好，正好留出改进的空间。下面说的小模型都指 Gemma 3 12B。</p>
+  <p>Gemma 3 是 Google 在 2025 年 3 月发布的一组开放权重的模型，有 1B、4B、12B、27B 四档。开放权重指模型的参数公开，可以下载下来自己训练和运行。名字里的数字按惯例表示参数量，12B 是 120 亿上下。</p>
   <p>要让它做好，可以手工反复改 prompt，也可以让优化器来改。优化器需要三样东西，下面依次准备。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">支柱</th><th scope="col">在这个演示里是什么</th></tr></thead>
       <tbody>
-        <tr><th scope="row">系统</th><td>一个 <code>dspy.Predict(ExtractEvent)</code>，背后的模型换成 Gemma 3 12B</td></tr>
+        <tr><th scope="row">系统</th><td>提取程序 <code>dspy.Predict(ExtractEvent)</code>，背后的模型换成 Gemma 3 12B</td></tr>
         <tr><th scope="row">数据</th><td>50 封带标准答案的邮件，30 封用来优化，20 封用来测试</td></tr>
-        <tr><th scope="row">评估和度量</th><td>日期、开始时间、时长三项全部和标准答案一致记 1 分，否则记 0 分</td></tr>
+        <tr><th scope="row">评估</th><td>度量的规则是：日期、开始时间、时长三项全部和标准答案一致记 1 分，否则记 0 分。评估就是用这个度量给提取程序在 20 封测试邮件上的输出打分</td></tr>
       </tbody>
     </table>
+    <figcaption><code>ExtractEvent</code> 是第二部分写的提取日程的 signature，<code>dspy.Predict</code> 拿到它之后直接调用一次模型。这一页把 <code>dspy.Predict(ExtractEvent)</code> 叫作提取程序。</figcaption>
   </figure>
 </section>
 
 <section class="sec" id="data">
   <h2>数据：50 封带标准答案的邮件</h2>
-  <p>仓库里的 <code>data/emails.json</code> 有 50 封邮件。它们是用一个脚本生成的，内容模仿真实的邮件，比如预约提醒、会议通知、面试安排。脚本用了固定的随机种子，也就是给随机数生成器一个固定的起点，所以每次运行生成的邮件都相同。</p>
+  <p>这一讲的配套仓库里的 <code>data/emails.json</code> 有 50 封邮件。它们是用一个脚本生成的，内容模仿真实的邮件，比如预约提醒、会议通知、面试安排。脚本用了固定的随机种子，也就是给随机数生成器一个固定的起点，所以每次运行生成的邮件都相同。</p>
   <p>每封邮件配有四项标准答案：日程名称、日期、开始时间、时长。其中 9 封邮件没有提到时长，这一项的标准答案是空。</p>
   <p>第一封邮件和它的标准答案是这样的：</p>
   <pre class="code"><code>Dear Prof. Lindqvist,
@@ -38,7 +41,7 @@ It will run for one hour. I'll circulate slides two days before.
 Best,
 Tomas
 GOLD: {'event_name': 'thesis committee meeting', 'date': '2026-10-28', 'start': '14:45', 'duration_minutes': 60}</code></pre>
-  <p>接着把每条数据包成 <code>dspy.Example</code>，声明 <code>email</code> 是输入，其余字段是标注，再随机打乱，切成两份：</p>
+  <p>接着把每条数据包成 <code>dspy.Example</code>，声明 <code>email</code> 是输入，其余字段是标准答案，再随机打乱，切成两份：</p>
   <pre class="code"><code>examples = [dspy.Example(**row).with_inputs("email") for row in rows]
 random.Random(0).shuffle(examples)
 trainset, testset = examples[:30], examples[30:]</code></pre>
@@ -47,7 +50,7 @@ trainset, testset = examples[:30], examples[30:]</code></pre>
 
 <section class="sec" id="metric">
   <h2>度量：三项全对才算对</h2>
-  <p>度量是一个函数，输入是标准答案 <code>gold</code> 和程序的输出 <code>pred</code>，返回一个分数。这里用的是精确匹配：</p>
+  <p>度量是一个函数，输入是标准答案 <code>gold</code> 和程序的输出 <code>pred</code>，返回一个分数。这里用的是精确匹配，也就是输出和标准答案完全一致才算对：</p>
   <pre class="code"><code>def event_metric(gold, pred, trace=None, pred_name=None, pred_trace=None):
     checks = {
         "date": str(pred.date) == gold.date,
@@ -71,35 +74,52 @@ evaluate = dspy.Evaluate(devset=testset, metric=event_metric, num_threads=8, dis
 
 <section class="sec" id="baseline">
   <h2>优化之前：gpt-5.4-nano 全对，小模型对了 11 封</h2>
-  <p>先确认任务本身和度量没有问题：让默认的 gpt-5.4-nano 跑一遍测试集，20 封全对。然后建一个用小模型的提取器，signature 和之前是同一个，只是单独给它指定了模型：</p>
+  <p>先确认任务本身和度量没有问题：让默认的 gpt-5.4-nano 跑一遍测试集，20 封全对。然后建一个用小模型的提取程序，signature 还是 <code>ExtractEvent</code>，只是单独给它指定了模型：</p>
   <pre class="code"><code>small_lm = dspy.LM("openrouter/google/gemma-3-12b-it", api_key=OPENROUTER_API_KEY, max_tokens=1024, temperature=0.0)
 
 extract_small = dspy.Predict(ExtractEvent)   # same signature...
 extract_small.set_lm(small_lm)               # ...but this predictor uses the small model
 
 before = evaluate(extract_small)</code></pre>
-  <p>小模型的成绩是 20 封里 11 封全对，也就是 55%。这时它拿到的指令只有 signature 的文档字符串里的那一句：<code>Extract event details from an email.</code></p>
+  <p>小模型的成绩是 20 封里 11 封全对，也就是 55%。这时小模型拿到的指令只有 signature 的文档字符串（docstring）里的那一句：<code>Extract event details from an email.</code> 这一句在第二部分叫任务说明，DSPy 把它当作这个 signature 的指令，这一页都叫它指令。文档字符串指类定义开头用三个引号括起来的说明文字。</p>
 </section>
 
 <section class="sec" id="gepa">
   <h2>优化：让 GEPA 改写指令</h2>
-  <p>优化只需要两行。第一行建一个 GEPA 优化器，告诉它用哪个度量、度量调用的预算是多少、由哪个模型来反思。第二行把小模型的提取器和训练集交给它。</p>
+  <p>优化只需要两行。第一行建一个 GEPA 优化器，告诉它用哪个度量、度量调用的预算是多少、由哪个模型来反思。第二行把小模型的提取程序和训练集交给它。</p>
   <pre class="code"><code>gepa = dspy.GEPA(metric=event_metric, max_metric_calls=100, reflection_lm=dspy_llm, num_threads=8)
 extract_optimized = gepa.compile(extract_small, trainset=trainset)</code></pre>
   <p>这里有两个模型，分工不同。被优化的是小模型 Gemma 3 12B 的 prompt。负责读错误、写新指令的是 <code>reflection_lm</code>，也就是 gpt-5.4-nano，下面叫它反思模型。</p>
   <p>预算是大约 100 次度量调用，也就是整个优化过程中大约给程序的输出打 100 次分。仓库的说明写着这一步大约要 3 分钟。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>GEPA 的出处和思路。</b>GEPA 出自 Agrawal 等人 2025 年的论文 <a href="https://arxiv.org/abs/2507.19457">GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning</a>，发表在 ICLR 2026。它的思路是让一个模型用自然语言反思程序哪里做错了，从反复的尝试里总结出规则，再提出新的 prompt。摘要里报告，它比此前领先的 prompt 优化器 MIPROv2 高出 10% 以上，举的例子是在数学题集 AIME-2025 上准确率高 12%。摘要没有写明这两个数是百分点还是相对比例。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>GEPA 的出处和思路。</b>GEPA 出自 Agrawal 等人 2025 年的论文 <a href="https://arxiv.org/abs/2507.19457">GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning</a>，发表在 ICLR 2026，ICLR 是机器学习领域的一个学术会议。它的思路是让一个模型用自然语言反思程序哪里做错了，从反复的尝试里总结出规则，再提出新的 prompt。摘要里报告，它比此前领先的 prompt 优化器 MIPROv2 高出 10% 以上，举的例子是在数学题集 AIME-2025 上准确率高 12%。摘要没有写明「10% 以上」是在哪些任务上、按哪一项指标比的，也没有写明这两个数是百分点还是相对比例。</div></div>
   <h3>它在过程中做了什么</h3>
-  <p>GEPA 的算法第 9 讲会讲到。这里先说看懂运行日志需要的三点。</p>
+  <p>GEPA 的算法第 9 讲会讲到。这里先说看懂运行日志需要的四点。</p>
   <ul>
-    <li>GEPA 保留一批各有所长的指令，每一版叫一个候选。「各有所长」指每一版至少在一封训练邮件上得分最高，并列也算。开始时只有原始的那一句话指令这一个候选。</li>
-    <li>每一轮从候选里随机挑一个来改。一个候选在越多的邮件上得分最高，被挑中的机会越大。</li>
-    <li>每一轮做的事是：挑一版指令，在一小批训练样例上运行，把出错的地方交给反思模型写新指令。新指令在这一小批上更好，才拿去做完整的评估，也就是在全部 30 封训练邮件上运行一遍。</li>
+    <li>GEPA 保留一批各有所长的指令，每一版叫一个候选。开始时只有原始的那一句话指令这一个候选。</li>
+    <li>「各有所长」按每一封训练邮件来判断。GEPA 对每一封训练邮件记下在这一封上得分最高的候选，得分一样高的几版都记上。一版候选只要在某一封邮件上是唯一得分最高的，就一定留下。其余的候选里可能有多余的，GEPA 会把多余的去掉。怎样算多余、按什么顺序去掉，写在这四点后面，那里还有一个例子。</li>
+    <li>每一轮从留下的候选里随机挑一个来改。一个候选得分最高的邮件越多，被挑中的机会越大，和别的候选得分一样高的邮件也算在内。</li>
+    <li>每一轮做的事是：挑一版指令，在一小批训练邮件上运行，把出错的地方交给反思模型写新指令。新指令在这一小批上更好，才拿去做完整的评估，也就是在全部 30 封训练邮件上运行一遍。</li>
   </ul>
-  <p>notebook（课程配套仓库里的 Jupyter notebook，代码和运行结果放在一起的文档）里保存的运行日志记下了这样一个过程：</p>
+  <p>第二点说的去掉多余的候选，步骤是这样的。GEPA 把候选按全部训练邮件上的总分从低到高排好，一版一版地检查。检查到某一版时，看它得分最高的那几封邮件。如果每一封上都还有别的没被去掉的候选和它得分一样高，这一版就是多余的，GEPA 把它去掉。只要有一封上没有这样的候选，就留下它。已经去掉的候选在后面的检查里不再算数，所以每封邮件上至少会留下一版得分最高的候选。比如只有两版候选、它们在每一封邮件上得分都相同时，先检查的一版被去掉，后检查的一版留下。</p>
+  <p>下表是一个假设的例子，用来说明这个步骤，它不在演示的日志里。例子里有甲、乙、丙三版候选和四封邮件，1 表示这一封全对，0 表示有错。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col" class="nw">轮次</th><th scope="col">日志里记的事</th><th scope="col" class="r nw">训练集 30 封的全对比例</th></tr></thead>
+      <thead><tr><th scope="col" class="nw">邮件</th><th scope="col" class="r">候选甲的得分</th><th scope="col" class="r">候选乙的得分</th><th scope="col" class="r">候选丙的得分</th><th scope="col">这一封上得分最高的候选</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">第 1 封</th><td class="r">1</td><td class="r">1</td><td class="r">1</td><td>甲、乙、丙</td></tr>
+        <tr><th scope="row">第 2 封</th><td class="r">1</td><td class="r">0</td><td class="r">1</td><td>甲、丙</td></tr>
+        <tr><th scope="row">第 3 封</th><td class="r">0</td><td class="r">1</td><td class="r">1</td><td>乙、丙</td></tr>
+        <tr><th scope="row">第 4 封</th><td class="r">1</td><td class="r">0</td><td class="r">0</td><td>甲</td></tr>
+        <tr><th scope="row">总分</th><td class="r">3</td><td class="r">2</td><td class="r">3</td><td></td></tr>
+      </tbody>
+    </table>
+    <figcaption>假设的例子：三版候选在四封邮件上的得分。</figcaption>
+  </figure>
+  <p>乙的总分最低，先检查它。乙得分最高的是第 1 封和第 3 封，这两封上丙的得分和它一样高，所以乙被去掉。再检查甲和丙，这两版总分相同，先检查哪一版结果都一样。甲在第 4 封上是唯一得分最高的，留下。乙去掉之后，第 3 封上得分最高的只剩丙，丙也留下。最后留下甲和丙两版：丙在第 3 封上比甲好，甲在第 4 封上比丙好，这就是「各有所长」。按第三点，甲和丙各在三封邮件上得分最高，下一轮被挑中的机会相同。</p>
+  <p>notebook（配套仓库里的 Jupyter notebook，代码和运行结果放在一起的文档）里保存的运行日志记下了这样一个过程：</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col" class="nw">轮次</th><th scope="col">日志里记的事</th><th scope="col" class="r nw">最好的一版指令的全对比例</th></tr></thead>
       <tbody>
         <tr><th scope="row">开始</th><td>用原始的一句话指令跑完 30 封训练邮件，23 封全对</td><td class="r">76.7%</td></tr>
         <tr><th scope="row">第 1 轮</th><td>抽 3 封邮件，原指令对了 2 封。反思模型看了错误和反馈，写出一版新指令。新指令在这 3 封上只对了 1 封，被丢弃</td><td class="r">不变</td></tr>
@@ -109,12 +129,13 @@ extract_optimized = gepa.compile(extract_small, trainset=trainset)</code></pre>
         <tr><th scope="row">第 7 轮</th><td>又从原始指令出发，抽 3 封对了 2 封。新写的指令 3 封全对，在全部 30 封上也全对，成为最好的一版</td><td class="r">100%</td></tr>
       </tbody>
     </table>
-    <figcaption>按 notebook 里 GEPA 的日志整理。</figcaption>
+    <figcaption>按 notebook 里 GEPA 的日志整理。最后一列是到这一轮为止最好的一版指令在 30 封训练邮件上的全对比例，「不变」表示这一轮没有收下新指令。</figcaption>
   </figure>
-  <p>第 7 轮被挑中的仍是原始指令，原因在上面说的挑选规则里。第 3 轮收下的那版指令在 30 封训练邮件里错了一封，日志显示原始指令在这一封上是对的。原始指令在这一封上得分最高，所以一直留在候选里，仍有机会被挑中。</p>
+  <p>表里第一行的 76.7% 和上一节「优化之前」的 55% 用的是同一个模型、同一句指令，量的邮件不同：76.7% 是在 30 封训练邮件上量的，55% 是在 20 封测试邮件上量的。两份邮件是从 50 封里随机分出来的，每份只有二三十封，量出来的比例会有出入。notebook 没有分析这两份邮件上的成绩为什么差这么多。</p>
+  <p>第 7 轮被挑中的仍是原始指令，原因在第二点的规则里。第 3 轮收下的那版指令在 30 封训练邮件里错了一封，日志显示原始指令在这一封上是对的。在这一封上得分最高的只有原始指令这一版，所以它不会被去掉，仍有机会被挑中。这和上面假设的例子里候选甲靠第 4 封留下是同一种情况。</p>
   <p>把表里的评估加起来，度量一共被调用了 120 次：3 次 30 封的完整评估，加上 10 次 3 封的小批评估。所以预算里的 100 是约数，日志的第一行写的就是 approx 100。</p>
   <h3 id="result">结果</h3>
-  <p>最后用测试集的 20 封邮件给优化后的提取器打分，和优化之前的两个成绩放在一起：</p>
+  <p>最后用测试集的 20 封邮件给优化后的提取程序打分，和优化之前的两个成绩放在一起：</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">模型</th><th scope="col">指令</th><th scope="col" class="r">测试集 20 封里全对的封数</th><th scope="col" class="r">比例</th></tr></thead>
@@ -126,7 +147,7 @@ extract_optimized = gepa.compile(extract_small, trainset=trainset)</code></pre>
     </table>
     <figcaption>notebook 里保存的输出。测试集的 20 封邮件没有参与优化。</figcaption>
   </figure>
-  <p>模型没有变，signature 的字段没有变，变的只有那段指令。原来是一句话，现在是几十行，节选如下：</p>
+  <p>优化前后，模型和 signature 的字段都相同，只有那段指令换了。原来是一句话，现在是几十行，节选如下：</p>
   <pre class="code"><code>You are given a single email (plain text). Your job is to extract calendar event details from it and return them in a structured JSON-like set of fields.
 ...
 2. date:
@@ -140,14 +161,14 @@ extract_optimized = gepa.compile(extract_small, trainset=trainset)</code></pre>
    - Do NOT leave duration_minutes as null when an explicit duration is present. Example 3 shows the assistant must extract “two-hour session” as 120 (the prior response was marked wrong for missing it).</code></pre>
   <p>这些内容本来可以由人一条一条写进文档字符串。优化器做的，是让反思模型读小模型在训练邮件上的错误和反馈，把纠正的规则写进指令。</p>
   <p>日志里先后写出的几版指令都在强调两件事：<code>10/13/2026</code>、<code>11/17/2026</code> 这类斜线写法的日期不要读错，「two-hour session」这类用文字写的时长不要漏掉。小模型原先很可能主要错在这两处。这是从指令的内容推断出来的，日志里没有按字段统计的错误数。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>自动写出来的 prompt 也要读一遍。</b>上面节选的最后一句提到了「Example 3」。它指的是优化过程中反思模型当时看到的那一小批样例。到了实际使用时，prompt 里并没有这些样例，模型读到这句话不知道 Example 3 是什么。这一版指令在测试集上仍然全对，说明这句多余的话在这里没有造成问题，但它提醒了一件事：优化器给出的是一段要由人过目的文字。<a href="practice.html#limits">第七部分</a>会回到这个话题。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>DSPy 的优化器各调什么。</b>DSPy 里的优化器各自调整三样东西里的一样或几样：指令、示例、模型权重。GEPA 和 <a href="https://arxiv.org/abs/2406.11695">MIPROv2</a> 这类只改 prompt，不动模型，所以也能用在不公开权重的模型上。<code>dspy.BootstrapFinetune</code> 则会微调（fine-tuning，用新的数据接着训练模型，改动它的权重），需要模型提供微调的接口。它们的用法是一样的：给一个程序、一份数据、一个度量。出处：<a href="https://dspy.ai/current/diving-deeper/choosing-an-optimizer/">DSPy 文档的优化器一节</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>自动写出来的 prompt 也要读一遍。</b>上面节选的最后一句提到了「Example 3」。它指的是优化过程中反思模型当时看到的那一小批训练邮件。到了实际使用时，prompt 里并没有这些邮件，模型读到这句话不知道 Example 3 是什么。这一版指令在测试集上仍然全对，说明这句多余的话在这里没有造成问题，但它提醒了一件事：优化器给出的是一段要由人过目的文字。<a href="practice.html#limits">第七部分</a>会回到这个话题。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>DSPy 的优化器各调什么。</b>DSPy 里的优化器各自调整三样东西里的一样或几样：指令、示例、模型权重。示例指放进 prompt 里、演示任务该怎么做的例子，它和指令都是 prompt 的一部分。GEPA 和 <a href="https://arxiv.org/abs/2406.11695">MIPROv2</a> 这类只改 prompt，不动模型，所以也能用在不公开权重的模型上。<code>dspy.BootstrapFinetune</code> 则会微调（fine-tuning，用新的数据接着训练模型，改动它的权重），需要模型提供微调的接口。它们的用法是一样的：给一个程序、一份数据、一个度量。出处：<a href="https://dspy.ai/current/diving-deeper/choosing-an-optimizer/">DSPy 文档的优化器一节</a>。</div></div>
 </section>
 
 <section class="sec" id="cautions">
   <h2>用优化器要注意的几件事</h2>
   <p>优化器用起来只要两行，它给出的结果却有六件事要留意，列在下表里。</p>
-  <p>表里的过拟合（overfitting）指 prompt 只在优化时见过的数据上表现好，换成新数据就变差。防它的办法和训练模型权重时一样，把数据分成三份。训练集给优化器看，用来找错误、写新指令。验证集用来在优化过程中比较几版指令，从中挑出最好的一版。测试集留到最后检验。</p>
+  <p>表里的过拟合（overfitting）指 prompt 只在优化时见过的数据上表现好，换成新数据就变差。避免过拟合的办法和训练模型权重时一样，把数据分成三份。训练集给优化器看，用来找错误、写新指令。验证集用来在优化过程中比较几版指令，从中挑出最好的一版。测试集留到最后检验。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">事项</th><th scope="col">说明</th></tr></thead>
@@ -156,23 +177,24 @@ extract_optimized = gepa.compile(extract_small, trainset=trainset)</code></pre>
         <tr><th scope="row">过拟合</th><td>优化 prompt 和训练模型权重一样，要分训练集、验证集和测试集。这个演示里优化器只看了 30 封训练邮件，100% 是在另外 20 封上量出来的。日志里还有一条警告：没有另外提供验证集，GEPA 就把训练集同时当验证集用。写新指令和挑选指令用的是同一批邮件，这样选出来的 prompt 会偏向训练集</td></tr>
         <tr><th scope="row">测试集太小</th><td>20 封邮件，每一封占 5 个百分点。20 封全对，并不说明真实的准确率就是 100%。粗略估算，在「20 次全对」的条件下，真实错误率仍有可能高到 14% 左右。演示用 20 封够了，要下结论还需要更多的数据</td></tr>
         <tr><th scope="row">可重复</th><td>DSPy 默认把每一次模型调用缓存在内存和磁盘上，磁盘上的位置是 <code>~/.dspy_cache</code>：请求完全相同的调用，直接返回上次的结果。所以带着缓存重跑 notebook，会得到一模一样的 prompt。没有缓存的话，优化过程有随机性，重跑一次通常会得到不同的 prompt</td></tr>
-        <tr><th scope="row">奇怪的 prompt</th><td>优化器只以度量的分数为目标，有时会写出人不会写的东西，表后有一个例子。那个例子出自 2024 年，用的是当时的模型 Llama2-70B。模型在那之后进步了不少，这类现象很可能比那时少见。这一点没有系统的测量，它仍然可能出现</td></tr>
-        <tr><th scope="row">度量有漏洞</th><td>如果度量有漏洞，优化器就可能找到一个分数很高、但没有在做你想要的事的 prompt。比如这一页的度量不检查日程名称，一条让模型把名称全写错的 prompt 照样能拿满分。在一个可靠的评估上分数更高的怪 prompt，也许就是好 prompt。评估不可靠时，分数说明不了什么</td></tr>
+        <tr><th scope="row">奇怪的 prompt</th><td>优化器只以度量的分数为目标，有时会写出人不会写的东西，表后有一个例子。那个例子出自 2024 年，用的是当时的模型 Llama2-70B。模型在那之后进步了不少，这类现象很可能比那时少见，但这个判断没有系统的测量作依据。用现在的模型，优化器仍然可能写出奇怪的 prompt</td></tr>
+        <tr><th scope="row">度量有漏洞</th><td>如果度量有漏洞，优化器就可能找到一个分数很高、但没有在做你想要的事的 prompt。比如这一页的度量不检查日程名称，一条让模型把名称全写错的 prompt 照样能拿满分。评估可靠时，一条看起来奇怪但分数更高的 prompt 可能确实更好。评估不可靠时，分数说明不了什么</td></tr>
       </tbody>
     </table>
     <figcaption>「14% 左右」是这样算的：如果真实错误率是 p，连续 20 次全对的机会是 (1 − p) 的 20 次方。p 取 14% 时这个机会大约是 5%。错误率再高，20 封全对的机会就不到 5%，这样的巧合很少见，所以把 14% 当作真实错误率的粗略上限。</figcaption>
   </figure>
   <h3>奇怪的 prompt：《星际迷航》的例子</h3>
   <p>「奇怪的 prompt」那一行有一个例子，出自 Battle 和 Gollapudi 2024 年的论文 <a href="https://arxiv.org/abs/2402.10949">The Unreasonable Effectiveness of Eccentric Automatic Prompts</a>。他们用 DSPy 的优化器，让 Llama2-70B 为小学数学应用题的数据集 GSM8K 优化自己的 prompt。优化时给优化器看的题目数量试了几种，其中一种是 50 道。</p>
-  <p>在用 50 道题优化的那一次里，得分最高的一条 prompt 是《星际迷航》风格的。system message（对话开头给模型的总说明）让模型在湍流中规划航线、找出异常的来源，回答则以「舰长日志，星历某年某月」开头。论文说，模型的数学推理似乎因为表现出对《星际迷航》的喜爱而变好了。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>这条《星际迷航》风格的 prompt 常被说成「让模型的数学变好了」。</b>论文表里的得分要分两组题来看。它只在用来优化的那 50 道题上领先，在另外留出的评估题上低于最好的手写 prompt。</div></div>
-  <p>下表列出两组题上的得分和两组的平均分。得分是精确匹配得分，也就是答案和标准答案完全一致的题所占的比例。</p>
+  <p>在用 50 道题优化的那一次里，论文举出了优化器给出的 prompt 里得分最高的一条，它是《星际迷航》风格的。论文没有写明这个「得分最高」是按哪一组题上的得分排的，它和手写 prompt 比较的结果见后面的表。</p>
+  <p>这条 prompt 的 system message（对话开头给模型的总说明）让模型在湍流中规划航线、找出异常的来源，回答则以「舰长日志，星历某年某月」开头。论文对此的评论是：没想到在 prompt 里表示喜欢《星际迷航》，似乎就能提高模型的数学推理能力。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>这条《星际迷航》风格的 prompt 常被说成「让模型的数学变好了」。</b>论文表里的得分要分两组题来看。它只在用来优化的那 50 道题上领先，在另外留出的 50 道评估题上低于最好的手写 prompt。</div></div>
+  <p>下表列出两组题上的得分和两组的平均分。得分是精确匹配得分，也就是答案和标准答案完全一致的题所占的比例，0.66 就是答对了 66% 的题。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">在哪些题上量的</th><th scope="col" class="r">《星际迷航》风格的 prompt</th><th scope="col" class="r">最好的手写 prompt</th></tr></thead>
       <tbody>
         <tr><th scope="row">用来优化的 50 道题</th><td class="r">0.66</td><td class="r">0.44</td></tr>
-        <tr><th scope="row">另外留出的评估题</th><td class="r">0.52</td><td class="r">0.68</td></tr>
+        <tr><th scope="row">另外留出的 50 道评估题</th><td class="r">0.52</td><td class="r">0.68</td></tr>
         <tr><th scope="row">两组题的平均</th><td class="r">0.59</td><td class="r">0.56</td></tr>
       </tbody>
     </table>
@@ -183,24 +205,25 @@ extract_optimized = gepa.compile(extract_small, trainset=trainset)</code></pre>
 
 <section class="sec" id="react">
   <h2>在 DSPy 里搭一个 agent</h2>
-  <p>前面的程序都是 workflow：步骤由代码规定，模型只在规定的位置被调用。如果想让模型自己决定调用哪些工具、调用几次，DSPy 有一个现成的 module（DSPy 里决定怎样调用模型的部件），叫 <code>dspy.ReAct</code>。</p>
+  <p>前面的程序，步骤都由代码规定，模型只在规定的位置被调用。这一页的提取程序只调用一次模型。第二部分的日历程序读一封邮件，把里面提到的日程加到日历上。它调用两次模型，先提取日程，再给日程挑一个表情符号，先做什么、后做什么都写在代码里。这样的程序叫 workflow（步骤由程序写定的多次模型调用）。</p>
+  <p>如果想让模型自己决定调用哪些工具、调用几次，DSPy 有一个现成的 module（DSPy 里决定怎样调用模型的部件），叫 <code>dspy.ReAct</code>。</p>
   <pre class="code"><code>agent = dspy.ReAct("request -&gt; summary", tools=tinycal.TOOLS)
 
 result = agent(request="Schedule a 30-minute coffee with John on Oct 7, 2026 in the afternoon after my lectures, "
                        "and put a book emoji on every one of my lectures for that same week.")
 print(result.summary)</code></pre>
   <p>第一行就是整个 agent。signature 是 <code>request -&gt; summary</code>：给一个请求，把请求里的事都办了，最后交一段总结。工具是 tinycal 的七个 Python 函数。tinycal 是配套仓库自带的小日历应用，这七个函数用来查看、添加、修改和删除日程，以及查当天的日期和空闲的时段，名字列在<a href="dspy.html#example">第二部分</a>。每个函数自己的参数和说明就是工具的定义。</p>
-  <p>请求里有两件事：10 月 7 日下午课后安排一个 30 分钟的咖啡，以及给那一周的每一节课加上一个书本的表情符号。要办成，得先查日历上有哪些课、几点下课，这些步骤都没有写在代码里。运行之后，agent 给两节课加上了书本的表情符号，并在 10 月 7 日 15:00 到 15:30 排了「Coffee with John」。课是 14:50 结束的。</p>
+  <p>请求里有两件事：10 月 7 日下午课后安排和 John 喝一次 30 分钟的咖啡，以及给那一周的每一节课加上一个书本的表情符号。要办成，得先查日历上有哪些课、几点下课，这些步骤都没有写在代码里。运行之后，agent 给两节课加上了书本的表情符号，并在 10 月 7 日 15:00 到 15:30 排了「Coffee with John」。课是 14:50 结束的。</p>
   {{fig 47 | 运行之后的 tinycal 界面。10 月 5 日和 7 日的两节课前面多了书本的表情符号，10 月 7 日 15:00 到 15:30 多了 Coffee with John。}}
   <p>ReAct 是一种 agent 的结构，名字来自 Reasoning 和 Acting。模型在一个循环里交替做三件事：写一段想法（Thought），发出一个动作（Action，比如调用一个工具），读到结果（Observation），然后再想下一步，直到它认为可以结束。ReAct 的细节第 6 讲会讲到。</p>
   {{fig 49 | ReAct 论文里的一个例子。问题是：除了 Apple Remote，还有什么设备能控制 Apple Remote 最初要操作的那个程序。模型先搜索 Apple Remote，得知那个程序叫 Front Row；再搜索 Front Row，没有找到；改搜 Front Row (software)，得知它可以用键盘的功能键控制；最后给出答案。图片来源：<a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a>。}}
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这个 signature 写得比较随意。</b><code>request -&gt; summary</code> 靠的是模型把 request 理解成「要办的事」，把 summary 理解成「办完之后的总结」。它在这里行得通。要求更明确的时候，可以像<a href="dspy.html#class">上一部分</a>那样写成一个类，加上任务说明和字段描述。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这个 signature 写得比较随意。</b><code>request -&gt; summary</code> 靠的是模型把 request 理解成「要办的事」，把 summary 理解成「办完之后的总结」。它在这里行得通。要求更明确的时候，可以像<a href="dspy.html#class">第二部分</a>那样写成一个类，加上任务说明和字段描述。</div></div>
 </section>
 
 <section class="sec" id="rlm">
   <h2>处理很长的输入：dspy.RLM</h2>
-  <p>有的输入长到放不进模型的上下文窗口（模型一次能读入的文字上限）。DSPy 内置了另一种 agent 式的 module，叫 <code>dspy.RLM</code>，用来处理这种很长的输入。RLM 是 Recursive Language Model（递归语言模型）的缩写。</p>
-  <p>下面的例子只是演示用法：把 50 封邮件拼成一个很长的字符串，当作收件箱，然后问一个问题：哪些日程在 Gates 楼举行，各在哪一天。50 封邮件加起来并不长，现在的模型一般都能直接读完。</p>
+  <p>有的输入长到放不进模型的上下文窗口（模型一次能读入的文字上限）。DSPy 内置了另一个由模型自己决定步骤的 module，叫 <code>dspy.RLM</code>，用来处理这种很长的输入。RLM 是 Recursive Language Model（递归语言模型）的缩写。</p>
+  <p>下面的例子只是演示用法：把 50 封邮件拼成一个字符串，当作收件箱，然后问一个问题：哪些日程在 Gates 楼举行，各在哪一天。这个字符串并不长，现在的模型一般都能直接读完。</p>
   <pre class="code"><code>rows = json.load(open("data/emails.json"))
 inbox = "\n\n=====\n\n".join(row["email"] for row in rows)
 
@@ -209,7 +232,7 @@ result = rlm(inbox=inbox, question="Which events are held in the Gates building,
 print(result.event_names)
 print(result.dates)</code></pre>
   <p>输出是 <code>['The thesis defense for Wei Zhang']</code> 和 <code>['Monday, December 7, 2026']</code>。50 封邮件里确实只有这一封提到了 Gates：Wei Zhang 的论文答辩，地点是 Gates 104。</p>
-  <p>模型并没有把 50 封邮件从头读一遍。在别的例子里，signature 的输入会原样放进 prompt。<code>dspy.RLM</code> 的做法不同：它开一个隔离的、可以执行 Python 代码的环境，把 <code>inbox</code> 作为一个变量放进去。</p>
+  <p><code>dspy.RLM</code> 处理输入的办法和前面的 module 不同。在别的例子里，signature 的输入会原样放进 prompt。<code>dspy.RLM</code> 则开一个隔离的、可以执行 Python 代码的环境，把 <code>inbox</code> 作为一个变量放进去，50 封邮件的全文留在这个环境里。</p>
   <p>模型看到的只是这个变量的名字、类型、长度和开头的一小段。然后它写代码去查看这个变量，比如打印其中一段，或者搜索 Gates 这个词，再根据看到的内容决定下一步。<code>max_iters=8</code> 限定它最多写 8 轮代码。</p>
   <p>需要时，模型还可以在代码里把其中一段文字交给另一次模型调用去处理，「递归」指的就是这个。下面的示意图画的是外层的一次调用怎样发起下一层的调用。</p>
   {{fig 50 | RLM 的示意图。左边是最外层的一次调用：很长的 prompt 被装进环境里的一个变量，模型通过写代码查看它的开头、把它切成几段，再对每一段发起新的模型调用。右边两个小框就是这些下一层的调用，它们各自处理一段，把结果返回给外层。图片来源：<a href="https://arxiv.org/abs/2512.24601">Zhang、Kraska 和 Khattab，2025</a>。}}
@@ -220,11 +243,11 @@ print(result.dates)</code></pre>
   <h2>DSPy 的小结</h2>
   <ul>
     <li>signature 定义输入和输出的约定。</li>
-    <li>module 组合 signature 和程序逻辑，并规定怎样让模型按这个约定给出输出，比如 <code>dspy.Predict</code>、<code>dspy.ChainOfThought</code>、<code>dspy.BestOfN</code>。</li>
-    <li>有了数据和度量，optimizer 可以改进程序里的 prompt 或模型权重。</li>
+    <li>module 组合 signature 和程序逻辑，并规定怎样让模型按这个约定给出输出。第二部分讲过三个。<code>dspy.Predict</code> 调用一次模型，直接要结果。<code>dspy.ChainOfThought</code> 让模型先写一段推理再给结果。<code>dspy.BestOfN</code> 把一个 module 最多运行 N 次，返回分数最高的一次。</li>
+    <li>有了数据和度量，优化器可以改进程序里的 prompt 或模型权重。</li>
     <li>DSPy 有内置的 module，让 agent 来给出 signature 规定的输出：<code>dspy.ReAct</code> 和 <code>dspy.RLM</code>。</li>
   </ul>
-  <p>下一部分换一个框架，<a href="langgraph.html">用 LangGraph 把同一个程序再写一遍</a>。</p>
+  <p>第四部分换一个框架，<a href="langgraph.html">用 LangGraph 把第二部分的日历程序再写一遍</a>。</p>
 </section>
 
 <section class="sec" id="notes">
