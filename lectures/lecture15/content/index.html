@@ -54,7 +54,7 @@
   <div class="modlist">
     <a href="graders.html"><span class="m">第一部分</span><span><b>判分的办法有三种：代码、人、语言模型</b><p>讲代码检查可能覆盖不到什么，评分器判错的两个方向，三种评分器各自的做法、例子和缺点，以及怎么组合。</p></span></a>
     <a href="metrics.html"><span class="m">第二部分</span><span><b>第一阶段：让语言模型代替文本指标</b><p>讲语言模型评审的三个阶段怎么分，以及第一阶段的三项研究：G-Eval 让模型按评分标准打分，GPTScore 按模型生成这段文字的概率来算分，Chiang 和 Lee 把人类评分员的问卷原样交给模型。</p></span></a>
-    <a href="preference.html"><span class="m">第三部分</span><span><b>第二阶段：判断人更喜欢哪一个回答</b><p>讲怎样从人的比较里训练打分模型，也就是论文说的奖励模型，InstructGPT 这项研究怎样把这个办法从写摘要推广到用户给模型的各种指令，MT-Bench 这套两轮问答题的论文怎样检验 GPT-4 当评审，开源的评审模型 Prometheus，以及单独打分和两两比较两种问法。</p></span></a>
+    <a href="preference.html"><span class="m">第三部分</span><span><b>第二阶段：判断人更喜欢哪一个回答</b><p>讲怎样从人的比较里训练打分模型，也就是论文说的奖励模型，以及 InstructGPT 这项研究怎样把这个办法从写摘要推广到用户给模型的各种指令。再讲 MT-Bench 这套两轮问答题的论文怎样检验 GPT-4 当评审，开源的评审模型 Prometheus，以及单独打分和两两比较两种问法。</p></span></a>
     <a href="actions.html"><span class="m">第四部分</span><span><b>第三阶段：评 agent 做了什么</b><p>讲三项研究：WebVoyager 让模型看截图判断任务成败，Pan 等人把评审的判定用来改进 agent，Agent-as-a-Judge 让评审自己也成为 agent。最后看这些评审有多可靠。</p></span></a>
     <a href="bias.html"><span class="m">第五部分</span><span><b>评审的偏差，以及怎样对着人的判断校准</b><p>讲位置偏差、长度偏差和自我偏好三种偏差，用少量人工标注自动生成评审的 AutoMetrics，从人用自己的话写下的反馈里归纳出指标的 AutoLibra，以及搭评审的检查表。</p></span></a>
     <a href="variance.html"><span class="m">第六部分</span><span><b>同一个任务跑很多次，分数怎么报</b><p>讲三种汇总办法，pass@k 和 pass^k 怎么算，平均成功率相同、行为不同的两个 agent，该用哪一种，以及报分数时要写明的四件事。</p></span></a>

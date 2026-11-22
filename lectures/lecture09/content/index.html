@@ -60,7 +60,7 @@
 <section class="sec" id="modules">
   <h2>按部分阅读</h2>
   <div class="modlist">
-    <a href="when.html"><span class="m">第一部分</span><span><b>什么时候值得做优化</b><p>先用一个小测验说明为什么不能凭直觉改 prompt，再讲优化是什么、要有哪三样东西、模型变强之后优化为什么仍然有用、什么情况下值得做、能带来什么，最后用一张表列出后面各部分改什么、怎么改。</p></span></a>
+    <a href="when.html"><span class="m">第一部分</span><span><b>什么时候值得做优化</b><p>先用一个小测验说明为什么不能凭直觉改 prompt。再讲优化是什么、要有哪三样东西、模型变强之后优化为什么仍然有用、什么情况下值得做、能带来什么。最后用一张表列出后面各部分改什么、怎么改。</p></span></a>
     <a href="fewshot.html"><span class="m">第二部分</span><span><b>优化示例：放哪些例子，按什么顺序放</b><p>先看示例的顺序对结果的影响有多大，以及不用额外的标注怎样挑出好的顺序。再看带推理过程的示例怎样让要优化的系统自己生成：让它自己写推理，只留答对的。STaR 这种方法拿留下的推理去训练模型。DSPy 这个库把它们直接放进 prompt 当示例，再试很多套不同的示例，留下分数最高的一套，这种做法叫 bootstrap。</p></span></a>
     <a href="instructions.html"><span class="m">第三部分</span><span><b>优化指令：让语言模型看着结果改 prompt</b><p>依次讲四种让语言模型改写指令的方法：OPRO、MIPROv2、TextGrad 和 GEPA。其中 MIPROv2 的三步用一个例子走一遍，GEPA 讲流程、例子和结果。最后说明改写 prompt 为什么有效。</p></span></a>
     <a href="sft.html"><span class="m">第四部分</span><span><b>监督微调：让学生模型照着教师的轨迹学</b><p>先讲监督微调的训练目标交叉熵损失，它量的是模型给正确的下一个 token 的概率有多低。接着讲监督微调最有名的应用，叫指令微调：用「一条指令加一个应有的回答」形式的数据训练模型，让它学会按指令回答。然后讲怎样用教师模型的运行轨迹训练学生模型去做 agent 的任务，例子是 OpenThoughts-Agent 和 FireAct 两项研究。最后讲这种办法的局限。</p></span></a>

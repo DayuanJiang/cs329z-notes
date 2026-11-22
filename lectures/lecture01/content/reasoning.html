@@ -4,7 +4,7 @@
     <li>对 agent 来说，推理是一种对内的动作：它更新的是 agent 自己的状态，也就是它接下来能看到的文字，环境不受影响。这里的 agent 指由 LLM 自己一步一步决定做什么、调用工具去完成任务的系统，环境指 agent 之外、它的动作作用在上面的那个世界。</li>
     <li>先推理再行动有两个好处：同样的推理思路可以用到相似的新情况里，人也能看出 agent 为什么做了这个动作。</li>
     <li>ReAct 把推理和行动交替进行：想一步，做一步，看结果，再想。ReAct 论文在一个问答数据集上抽查了 ReAct 答错的 50 道题：没有一道是因为编造了推理过程或事实，47% 是推理本身出了错。各类错误的定义和完整的数在<a href="#react-results">ReAct 的成绩</a>一节。</li>
-    <li>除了 ReAct，还有几种让推理更好的办法：多想几遍取多数（self-consistency），失败后写一段反思留给下一次（Reflexion），让几个 agent 就同一道题辩论，或者由一个 orchestrator（负责拆任务、派任务的 agent）把任务分给几个 agent。</li>
+    <li>除了 ReAct，还有几种让推理更好的办法：多想几遍取多数（self-consistency），失败后写一段反思留给下一次（Reflexion），让几个 agent 就同一道题辩论，或者由一个 orchestrator 把任务分给几个 agent。orchestrator 指负责拆任务、派任务的 agent。</li>
     <li>这些办法改变的都是怎样组织对模型的调用，模型的权重保持不变。权重指模型内部由训练定下来的那些数值，也叫参数。</li>
   </ul>
 </section>

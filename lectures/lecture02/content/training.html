@@ -195,7 +195,7 @@
       </tbody>
     </table>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>后两条的出处。</b>模型迎合用户看法的现象，见 <a href="https://arxiv.org/abs/2310.13548">Sharma 等，2023</a> 的《Towards Understanding Sycophancy in Language Models》。标注员的处境，见《时代》周刊 2023 年 1 月 18 日的调查报道：OpenAI 通过外包公司 Sama 在肯尼亚雇人给暴力、仇恨和性侵害内容的文字打标签，用来训练一个检测有害内容的工具，标注员拿到手的工资大约是每小时 1.32 到 2 美元。那项工作是给内容分类，和上面给回答排序是两种标注。出处：<a href="https://time.com/6247678/openai-chatgpt-kenya-workers/">TIME</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>后两条的出处。</b>模型迎合用户看法的现象，见 <a href="https://arxiv.org/abs/2310.13548">Sharma 等，2023</a> 的《Towards Understanding Sycophancy in Language Models》。标注员的处境，见《时代》周刊 2023 年 1 月 18 日的调查报道。报道说，OpenAI 通过外包公司 Sama 在肯尼亚雇人给暴力、仇恨和性侵害内容的文字打标签，用来训练一个检测有害内容的工具。标注员拿到手的工资大约是每小时 1.32 到 2 美元。那项工作是给内容分类，和上面给回答排序是两种标注。出处：<a href="https://time.com/6247678/openai-chatgpt-kenya-workers/">TIME</a>。</div></div>
   <h3>做法三：能自动判对错的奖励</h3>
   <p>第三类做法是让奖励可以自动验证，叫 RLVR（reinforcement learning with verifiable rewards）。前面讲学人的偏好的那一小节里，打分的是一个猜测人喜欢什么的模型。这里打分的是一个能客观判对错的检查：答案对了给分，错了不给。</p>
   {{fig 116 | 右上的方框列出了四种可以自动验证的奖励：单元测试、Lean 证明、精确匹配、系统状态。下面的流程图是一种常用的强化学习算法 GRPO：对同一个问题 q，模型生成一组回答，每个回答得到一个奖励，在组内比较之后算出每个回答比平均水平好多少，再据此更新模型。图片来源：<a href="https://arxiv.org/abs/2402.03300">Shao 等，2024</a>。}}

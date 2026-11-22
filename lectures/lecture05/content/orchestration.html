@@ -38,7 +38,7 @@
 
 <section class="sec" id="model">
   <h2>Temporal 的执行模型</h2>
-  <p>Temporal 是一个开源的平台，它对自己的定位是 durable execution，可以译作「持久化执行」：服务端保存程序的执行进度，进程崩溃、机器重启之后可以从中断的地方接着跑，临时的失败按设定的策略自动重试。</p>
+  <p>Temporal 是一个开源的平台，它对自己的定位是 durable execution，可以译作「持久化执行」。持久化执行的意思是：服务端保存程序的执行进度，进程崩溃、机器重启之后可以从中断的地方接着跑，临时的失败按设定的策略自动重试。</p>
   <p>自动重试有上限。一个步骤一直出错、重试次数用完时，这次运行仍然会以失败结束，这种情况要由程序自己处理。</p>
   <p>Temporal 是通用的后端基础设施，不专为 AI 设计，现在也被用来跑 agent。它是从 Uber 的项目 Cadence 分出来的，开发它的公司 Temporal Technologies 成立于 2019 年。</p>
   {{fig 98 | Temporal 的执行模型。竖线左边是你的代码：红色的圆是 Activity，绿色的连线是 Workflow，下面是执行它们的 Worker。竖线右边是 Temporal 的服务端：一个任务队列，里面分成 Activity 的队列和 Workflow 的队列；下面是执行历史和状态，存在数据库里。}}

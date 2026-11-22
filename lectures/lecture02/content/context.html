@@ -14,7 +14,7 @@
   <p>ChatGPT 刚出现的那段时间，大家关心的是 prompt 工程（prompt engineering）。prompt 是交给模型的那段输入文字，prompt 工程研究的是这段文字该怎么措辞，模型才答得好。那时流行过各种写法，比如告诉模型「答不好这个问题世界就要毁灭」。</p>
   <p>现在的 agent 要在很多轮里连续工作，能给模型的信息非常多，问题变成了：这么多信息，哪些放进去，怎么组织，怎么删减。这就是上下文工程。它管的范围比 prompt 工程大：一段文字怎么措辞只是其中的一部分。</p>
   {{fig 161 | 左：prompt 工程，上下文里只有 system prompt（放在对话最前面、用来设定模型行为的那段文字）和一条用户消息，模型回一条消息。右：agent 的上下文工程。最左一栏是可以放进去的全部材料（文档、工具、记忆文件、详细的说明、领域知识、消息历史），经过中间的挑选，只有一部分进入上下文。模型的输出除了消息还有工具调用，工具的结果又回到左边的材料里，等待下一轮挑选。图片来源：<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025 年 9 月</a>。}}
-  <p>这张图出自 Anthropic 2025 年 9 月的文章《Effective context engineering for AI agents》。文章里有两个定义。上下文指调用一次模型时放进去的那组 token。上下文工程指在推理时（也就是模型一次次被调用、生成输出的时候）挑选并维护最合适的那组 token 的一整套办法，prompt 之外进入上下文的所有其他信息，比如工具调用的结果，也在它的范围里。</p>
+  <p>这张图出自 Anthropic 2025 年 9 月的文章《Effective context engineering for AI agents》。文章里有两个定义。上下文指调用一次模型时放进去的那组 token。上下文工程指在推理时挑选并维护最合适的那组 token 的一整套办法。这里的推理时，指模型一次次被调用、生成输出的时候。prompt 之外进入上下文的所有其他信息，比如工具调用的结果，也在上下文工程的范围里。</p>
   <h3>agent 的上下文里有什么</h3>
   <figure class="plate">
     <table class="tbl">

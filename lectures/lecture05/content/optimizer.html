@@ -81,7 +81,7 @@ extract_small = dspy.Predict(ExtractEvent)   # same signature...
 extract_small.set_lm(small_lm)               # ...but this predictor uses the small model
 
 before = evaluate(extract_small)</code></pre>
-  <p>小模型的成绩是 20 封里 11 封全对，也就是 55%。这时它拿到的指令只有 signature 的文档字符串（docstring，类定义开头用三个引号括起来的说明文字）里的那一句：<code>Extract event details from an email.</code> 这一句在第二部分叫任务说明，DSPy 把它当作这个 signature 的指令，这一页都叫它指令。</p>
+  <p>小模型的成绩是 20 封里 11 封全对，也就是 55%。文档字符串（docstring）指类定义开头用三个引号括起来的说明文字。这时小模型拿到的指令只有 signature 的文档字符串里的那一句：<code>Extract event details from an email.</code> 这一句在第二部分叫任务说明，DSPy 把它当作这个 signature 的指令，这一页都叫它指令。</p>
 </section>
 
 <section class="sec" id="gepa">

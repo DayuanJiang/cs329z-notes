@@ -168,7 +168,7 @@ extract(email="We have a meeting scheduled for this Friday, October 9th at 10 AM
   <p>在 DSPy 里做这件事不用改 signature，只要把 <code>dspy.Predict</code> 换成 <code>dspy.ChainOfThought</code>：</p>
   <pre class="code"><code>extract_cot = dspy.ChainOfThought(ExtractEvent)
 extract_cot(email="We have a meeting scheduled for this Friday, October 9th at 10 AM PST.")</code></pre>
-  <p>结果里多了一个排在最前面的字段 <code>reasoning</code>，内容是模型的推理：邮件说这个星期五 10 月 9 日上午 10 点有一个会议，所以名称是 meeting，日期是 10 月 9 日，开始时间是 10:00，没有给出时长。后面四个字段和之前一样。</p>
+  <p>结果里多了一个排在最前面的字段 <code>reasoning</code>，内容是模型的推理。这段推理写的是：邮件说这个星期五 10 月 9 日上午 10 点有一个会议，所以名称是 meeting，日期是 10 月 9 日，开始时间是 10:00，没有给出时长。后面四个字段和之前一样。</p>
   <p><code>ChainOfThought</code> 做的事很简单：在输出字段的最前面加一个 <code>reasoning</code>。字段的顺序在这里起了作用，排在最前面的字段最先生成。</p>
   <p>这是演示所用的 DSPy 3.4 的行为。从 3.5.0 起有一处变化。有些模型自带推理功能：模型在给出回答之前自己先推理一遍，这段推理和回答分开，由模型服务单独返回。用这样的模型时，<code>ChainOfThought</code> 直接取这段自带的推理放进 <code>reasoning</code> 字段。模型服务没有把推理的内容返回时，这个字段是空的。</p>
   <p>DSPy 自带的 module 还有几个。下表列出这一讲提到的五个，和每一个怎样得到 signature 规定的输出：</p>

@@ -19,7 +19,7 @@
   <h2>为什么需要结构化的输入输出</h2>
   <p>原因在于现在的 AI 应用很少只有一个模型，通常是好几个部件配合工作。</p>
   {{fig 152 | 左边是一个单独的神经网络，右边是由几个模型、检索、数据库、计算器、终端组成的系统。下面一行字是：越来越多新的 AI 成果来自复合系统。图片来源：<a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">伯克利人工智能研究实验室（缩写 BAIR）的博客文章，2024 年 2 月</a>。}}
-  <p>这张图出自伯克利人工智能研究实验室 2024 年的一篇博客文章，它把这类系统叫作复合 AI 系统（compound AI system），定义是：用多个相互配合的部件来完成 AI 任务的系统，这些部件包括对模型的多次调用、检索器和外部工具。</p>
+  <p>这张图出自伯克利人工智能研究实验室 2024 年的一篇博客文章，文章把这类系统叫作复合 AI 系统（compound AI system）。文章给的定义是：用多个相互配合的部件来完成 AI 任务的系统，这些部件包括对模型的多次调用、检索器和外部工具。</p>
   <p>部件之间要来回传数据，就需要一份共同的约定，规定数据长什么样。程序之间传数据靠的是固定的格式，比如 JSON（一种用花括号、引号和冒号组织数据的文本格式）。语言模型默认输出的是自由的文字。如果它多写了一句开场白，或者少了一个引号，接它输出的程序就会出错。</p>
 </section>
 
@@ -56,7 +56,7 @@
 extract = dspy.Predict(Extract)
 extract(message="I'm Sarah (sarah@acme.co). Meet Thursday?")</code></pre>
   <p>这段代码声明了一个输入字段 message 和三个输出字段：name 是字符串，email 是字符串或者空，intent 只能是 meeting、intro、follow-up 三个值之一。交给它的是一条消息，消息里写着「我是 Sarah（sarah@acme.co）。周四见面？」，邮箱就在这条消息里。得到的结果是 name 为 Sarah、email 为 sarah@acme.co、intent 为 meeting。使用的人只写了一句任务说明「Extract contact info」，关于格式的 prompt 一句也没有写。</p>
-  {{fig 156 | DSPy 实际发给模型的内容。蓝色部分是 system prompt（放在对话最前面、设定模型行为的那段文字）：列出输入字段和输出字段的名字和类型，规定每个字段前面要有一行形如 [[ ## 字段名 ## ]] 的标记，并对 email 和 intent 的取值写了具体要求，最后是任务本身「Extract contact info」。灰色部分是用户 prompt：填进了那条消息，并再次要求按顺序输出各个字段，最后以 completed 标记结束。图里的方括号标记是 DSPy 较早的默认格式，现在文档里默认用的是 XML 标签。}}
+  {{fig 156 | DSPy 实际发给模型的内容。蓝色部分是 system prompt（放在对话最前面、设定模型行为的那段文字）。这段 system prompt 列出输入字段和输出字段的名字和类型，规定每个字段前面要有一行形如 [[ ## 字段名 ## ]] 的标记，并对 email 和 intent 的取值写了具体要求，最后是任务本身「Extract contact info」。灰色部分是用户 prompt：填进了那条消息，并再次要求按顺序输出各个字段，最后以 completed 标记结束。图里的方括号标记是 DSPy 较早的默认格式，现在文档里默认用的是 XML 标签。}}
   <p>可以看到，DSPy 在背后做了三件事：把 signature 翻译成一段详细规定格式的 prompt；把输入填进去，发给模型；按约定的标记把模型的回答拆开，取出每个字段的值。按 <a href="https://dspy.ai/current/getting-started/first-program/">DSPy 文档</a>的描述，做这些事的部件叫 adapter：它把 signature 和输入变成发给模型的消息，再把模型的回答解析成输出字段。</p>
   <p>这种办法默认靠的是「说清楚，再解析」，格式没有硬性的保证。模型如果没有照格式回答，解析就会失败。约束解码从机制上保证格式，这种办法靠 prompt 说明和事后解析，两种办法可以叠加：格式由 prompt 说明，解码时再加约束。</p>
 </section>
