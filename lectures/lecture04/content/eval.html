@@ -104,8 +104,8 @@
     <figcaption>出处：<a href="https://arxiv.org/abs/2307.16789">Qin 等，2023</a>。</figcaption>
   </figure>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>ToolBench 里的 API 后来只有不到一半能调用成功，成绩也复现不了。</b>2024 年的 StableToolBench 论文重新检查了 ToolBench。他们把数据集里的 16,464 个 API 逐个重新调用了一遍，只有 44.4% 的 API 调用成功。论文按原因把调用失败的 API 分成几项，下面的百分比都是占全部 API 的比例。最多的一项占 25.9%，是数据集自己的问题。论文把它叫作解析错误（parsing error），只说明它是数据集保存在本地的 API 文档在后处理时出错造成的。另外几项是这些 API 的线上服务后来变了或用不了：14.8% 连不上，6.4% 没有授权，3.6% 参数变了，3.5% 接口找不到。还有 1.4% 归为其他原因。他们按原来的设置重跑，得到的通过率和原论文报告的也对不上。出处：<a href="https://arxiv.org/abs/2403.07714">Guo 等，2024</a>。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>让语言模型当评审，分数也会波动。</b>同一篇论文还发现，用 gpt-3.5 当评审，也就是 ToolEval 原来用的 ChatGPT，同一批结果重复评几次，分数会波动。出处同上。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>StableToolBench 针对上面两个问题各做了一项改动。</b>针对 API 调不通，他们在模型和真实的 API 之间加了一个虚拟的 API 服务器，模型的调用都发给它。它先查缓存。缓存里存着以前调用得到的返回，同样的调用再来时，直接给出存下的返回。缓存里没有，就去调用真实的 API。真实的 API 也调不通时，由一个语言模型按这个 API 的文档写出一份模拟的返回，论文用的是 gpt-4-turbo。针对评审的分数波动，他们换用 GPT-4 当评审。出处同上。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>让语言模型当评审，分数也会波动。</b><a href="https://arxiv.org/abs/2403.07714">同一篇论文</a>还发现，用 gpt-3.5 当评审，也就是 ToolEval 原来用的 ChatGPT，同一批结果重复评几次，分数会波动。出处同上。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>StableToolBench 针对上面两个问题各做了一项改动。</b>针对 API 调不通，他们在模型和真实的 API 之间加了一个虚拟的 API 服务器，模型的调用都发给它。它先查缓存。缓存里存着以前调用得到的返回，同样的调用再来时，直接给出存下的返回。缓存里没有，就去调用真实的 API。真实的 API 也调不通时，由一个语言模型按这个 API 的文档写出一份模拟的返回，论文用的是 gpt-4-turbo。针对评审的分数波动，他们换用 GPT-4 当评审。出处：<a href="https://arxiv.org/abs/2403.07714">Guo 等，2024</a>。</div></div>
 </section>
 
 <section class="sec" id="tau">

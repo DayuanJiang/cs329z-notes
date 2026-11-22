@@ -220,7 +220,7 @@
         <tr><th scope="row">工具使用和客服</th><td>ToolEmu、τ-bench、τ²-bench</td><td>τ-bench 让 agent 按规定和一个模拟的用户对话，用工具完成任务。τ²-bench 加了一个电信领域，用户那一侧也要自己用工具</td><td>第一步换的是测量的东西。ToolEmu 测的是安全。它的工具由一个语言模型来模拟：agent 调用工具时，这个语言模型写出这次调用会返回什么。这样不用把每个工具和每个场景真的搭出来，就能在很多种工具和场景上测试 agent。分数是 agent 做出有风险的事的频率。后两个测的是任务有没有做成</td></tr>
       </tbody>
     </table>
-    <figcaption>后两列按各个基准测试的论文和官方页面整理。聊天那一行的 Chatbot Arena 是一个聊天类的基准测试，它让真实用户给两个匿名模型的回答投票，再按投票给模型排名。Terminal-Bench 的版本记录来自它的<a href="https://huggingface.co/datasets/harborframework/terminal-bench">数据集页面</a>和第三方的版本汇总。</figcaption>
+    <figcaption>后两列按各个基准测试的论文和官方页面整理。聊天那一行的 Chatbot Arena 是一个聊天类的基准测试，它让真实用户给两个匿名模型的回答投票，再按投票给模型排名。Terminal-Bench 的版本记录来自它的<a href="https://huggingface.co/datasets/harborframework/terminal-bench">数据集页面</a>和第三方的版本汇总。终端一组在配图上只列了 1.0、2.1 和 4.0 三个版本，表里按版本记录补上了中间的 2.0 和 3.0。</figcaption>
   </figure>
   <p>把七组放在一起看，表里从前一个到后一个的变化有两类。有的换的是范围、任务或测量的东西，表里已经写明。编程一组的 Multilingual 扩大的是语言的范围，操作电脑和网页一组的前三个是环境一步步变大，BrowseComp 是另一类任务，工具使用和客服一组的第一步换的是测量的东西。有的是前一个基准测试不再好用，被后一个替换。</p>
   <p>一个基准测试被替换有三种原因。对照前面的七条性质，可以这样看每种原因让哪几条不再满足。</p>

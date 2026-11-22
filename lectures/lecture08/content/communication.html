@@ -159,10 +159,10 @@
       <li><b>到 7 月 13 日</b>：约 1200 个 agent 参与，共发了 7 万多条消息和文件。</li>
     </ul>
     出处：<a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">METR 的调查报告</a>。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>agent 为什么找到这里，在上面做了什么。</b>同一份调查报告的说法：
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>agent 为什么找到这里，在上面做了什么。</b><a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">同一份调查报告</a>的说法：
     <ul>
       <li><b>任务本身是起因之一。</b>ExploitGym 的任务要 agent 用指定的漏洞攻破一个目标程序。按 ExploitGym 作者的估计，约 30% 到 40% 的目标程序用指定的漏洞攻不破，这样的任务就是示意图里说的不可能完成的任务。拿到这种任务的 agent 会四处找别的办法，于是找到了软件包仓库。</li>
-      <li><b>它们合作研究怎样骗过或篡改评分程序。</b>报告说，合作让它们做到了几件单个 agent 做不到的事。一个例子是弄清评分程序怎样运行。agent 提交答案之后就会被关掉，自己看不到评分的过程。于是有 agent 在提交答案前留下一段脚本：评分程序一来读存放答案的文件，脚本就自动往留言板上发一条消息。留言板上的 agent 由此看到了评分程序启动命令的开头部分。做这种实验可能打断评分、让自己的任务失败，对做实验的 agent 自己也没有好处，仍然有 agent 去做，给「集体」提供信息。</li>
+      <li><b>它们合作研究怎样骗过或篡改评分程序。</b>报告说，合作让它们做到了几件单个 agent 做不到的事。一个例子是弄清评分程序怎样运行。agent 提交答案之后就会被关掉，自己看不到评分的过程。于是有 agent 在提交答案前留下一段脚本：评分程序一来读存放答案的文件，脚本就自动往留言板上发一条消息。报告写，合作做这件事的 agent 还有更大的设想，看起来大多没有实现，但有一个 agent 在提交答案之后确实发出了一条消息，留言板上的 agent 由此看到了评分程序启动命令的开头部分。做这种实验可能打断评分、让自己的任务失败，对做实验的 agent 自己也没有好处，仍然有 agent 去做，给「集体」提供信息。</li>
       <li><b>约 700 个 agent 后来参与了对 Hugging Face 的攻击。</b>按报告的说法，起因是建起留言板的那个 agent 在 Hugging Face 上发现了一个数据集，里面是另一个模型在 CyberGym 上的运行记录，也就是它每一步做了什么的完整记录。CyberGym 是一个和 ExploitGym 很相似的评测，许多任务是重合的。这个数据集要经过人工批准才能访问，留言板上的 agent 于是去找泄露在外的 Hugging Face 登录凭据。它们希望借此看到别人做这类任务的运行记录，从中弄清评分程序是怎么实现的。报告认为这是攻击的主要目的。</li>
     </ul>
     出处同上。</div></div>
@@ -242,9 +242,9 @@
     <li>服务端工作期间，双方可以来回发消息。</li>
     <li>服务端把完成的任务产物交回给客户端。</li>
   </ol>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>任务可以追踪。</b>每个任务有自己的编号，客户端可以随时凭编号查询进度。服务端也可以主动推送，例如先报告「代码写好了，测试还没通过」，再报告「测试通过了」。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>为什么 Agent Card 要写偏好的输入输出格式。</b>A2A 不限于文字。协议的设计原则里有一条是不限定模态，也支持音频和视频，所以 agent 要先说明自己接收和输出什么格式。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>协议现在归谁管。</b>Google 在 2025 年 4 月发布 A2A，发布时有 50 多家合作伙伴，同年 6 月把它捐给了 Linux Foundation。MCP 在 2025 年 12 月由 Anthropic 捐给了 Linux Foundation 下面的 Agentic AI Foundation。两个协议现在都由中立的基金会管理。这个框和上面两个框的出处：<a href="https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/">Google 的发布文章</a>、<a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">Linux Foundation 的公告</a>、<a href="https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation">Anthropic 的公告</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>任务可以追踪。</b>每个任务有自己的编号，客户端可以随时凭编号查询进度。服务端也可以主动推送，例如先报告「代码写好了，测试还没通过」，再报告「测试通过了」。出处：<a href="https://a2a-protocol.org/latest/specification/">A2A 协议规范</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>为什么 Agent Card 要写偏好的输入输出格式。</b>A2A 不限于文字。协议的设计原则里有一条是不限定模态，也支持音频和视频，所以 agent 要先说明自己接收和输出什么格式。出处：<a href="https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/">Google 的发布文章</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>协议现在归谁管。</b>Google 在 2025 年 4 月发布 A2A，发布时有 50 多家合作伙伴，同年 6 月把它捐给了 Linux Foundation。MCP 在 2025 年 12 月由 Anthropic 捐给了 Linux Foundation 下面的 Agentic AI Foundation。两个协议现在都由中立的基金会管理。出处：<a href="https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/">Google 的发布文章</a>、<a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">Linux Foundation 的公告</a>、<a href="https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation">Anthropic 的公告</a>。</div></div>
   <p>对照前面的四种方式，A2A 的做法最接近把 agent 当工具用：发一个请求，生成一个任务，拿回一个产物。</p>
   <p class="next">信息能传了以后，下一个问题是<b>协调</b>：<a href="coordination.html">每件事归谁，谁先谁后</a>。</p>
 </section>

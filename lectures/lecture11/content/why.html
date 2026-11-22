@@ -79,7 +79,7 @@
   <p>训练一个语言模型，先后要经过三个阶段：第一个阶段是预训练，第二个阶段是监督微调和 RLHF，第三个阶段是强化学习。这三个阶段是按用的数据来分的，每个阶段需要的数据不一样。</p>
   <p>RLHF 是 reinforcement learning from human feedback 的缩写，指用人对回答的评价当奖励来做强化学习。它的训练方法是强化学习，用的数据仍然是对话，所以和监督微调排在同一个阶段。第三个阶段说的强化学习，指在环境里做的强化学习。</p>
   <p>训练的阶段还有别的分法。<a href="types.html#scale">第二部分</a>用到的一种是按先后分成预训练、中期训练和后训练三段。这里的第二、第三个阶段，在那种分法里都属于后训练。</p>
-  <p>行业最看重哪种数据，是按这三个阶段的顺序依次变过来的。Andrej Karpathy 在 2025 年 8 月的一篇帖子里把这个变化说成三个时期，他的原词是 era：预训练的时期要紧的是网上的文字，监督微调的时期要紧的是对话，现在强化学习的时期要紧的是环境。阶段说的是一个模型训练的先后步骤，时期说的是行业发展的先后，每个时期最要紧的数据，就是对应的那个阶段用的数据。</p>
+  <p>行业最看重哪种数据，是按这三个阶段的顺序依次变过来的。OpenAI 的创始成员、后来担任过 Tesla AI 总监的 Andrej Karpathy 在 2025 年 8 月的一篇帖子里把这个变化说成三个时期，他的原词是 era。按他的说法，预训练的时期要紧的是网上的文字，监督微调的时期要紧的是对话，现在强化学习的时期要紧的是环境。阶段说的是一个模型训练的先后步骤，时期说的是行业发展的先后，每个时期最要紧的数据，就是对应的那个阶段用的数据。</p>
   <p>下面的图和表按阶段来排，表里「数据怎么来」一列用的是他帖子里的说法。</p>
   {{fig 8 | 左：三个训练阶段和各自用的数据。右：Andrej Karpathy 2025 年 8 月 27 日发在 X 上的帖子，高亮的一句说的是环境让模型有机会真正去交互。}}
   <figure class="plate">
@@ -91,7 +91,7 @@
         <tr><th scope="row">强化学习<br><span class="muted small">RL</span></th><td>环境</td><td>要专门去造。Karpathy 说核心的难题和以前一样：要的是大量、多样、质量高的一批环境，和第一行对网页文档的要求相同</td><td>怎样采取动作、看到结果、再继续</td></tr>
       </tbody>
     </table>
-    <figcaption>「数据怎么来」一列是 Karpathy 帖子里的说法。第一行的「质量高」是在网页文档里面相比。<a href="types.html#scale">第二部分</a>说预训练的数据质量较低，是拿它和后面阶段的数据相比。出处：<a href="https://x.com/karpathy/status/1960803117689397543">Karpathy 的帖子</a>。</figcaption>
+    <figcaption>「数据怎么来」一列是 Karpathy 帖子里的说法。第一行的「质量高」可以理解为在网页文档里面相比。<a href="types.html#scale">第二部分</a>说预训练的数据质量较低，是拿它和后面阶段的数据相比。两种说法各自的来历见<a href="#notes">资料说明</a>。出处：<a href="https://x.com/karpathy/status/1960803117689397543">Karpathy 的帖子</a>。</figcaption>
   </figure>
   <p>agent 数据通常指后两样：对话和环境。对话是示范，告诉模型该怎么做。环境是练习的地方，模型在里面自己做，做完有人或程序告诉它做得对不对。</p>
   <p>放到 agent 任务上，对话就是运行轨迹（trajectory）：一次解题过程的完整记录。它在格式上仍是一段对话，只是轮流出现的除了任务和 agent 的回答，还有 agent 每一步的动作和工具返回的结果。<a href="types.html#trajectory">第二部分</a>有一条完整的例子。</p>
@@ -188,6 +188,8 @@
   <ul>
     <li><b>Google 和 Mechanize 的交易。</b>最早的报道来自 Business Insider，这里依据的是 Times of India 对它的转述，没有读到 Business Insider 的原文。出处：<a href="https://timesofindia.indiatimes.com/technology/tech-news/as-google-completes-1-5-billion-plus-deal-for-ai-startup-mechanize-its-co-founder-joins-company-as-research-scientist/articleshow/134197435.cms">Times of India 的转述</a>。</li>
     <li><b>UniPat 的融资。</b>The Information 的报道需要订阅，原文没有核对到，这里依据的是 Dealroom 的摘要。摘要里讲订单的原话是「$30 million worth of customer orders」，没有说明这是已经签下的合同总额，还是一年的金额。出处：<a href="https://app.dealroom.co/news/note/china-s-unipat-hits-1b-valuation-on-just-30m-in-orders">Dealroom 的摘要</a>。</li>
+    <li><b>预训练数据的「质量高」和「质量较低」。</b>Karpathy 的帖子说，预训练要的是一批 high quality 的网页文档。第二部分引用的 CS336 数据一讲说，整个训练过程是从大量质量较低的数据，走向少量高质量的数据，这是拿前后阶段的数据相比。两个出处都没有提到对方的说法。三个阶段那张表的表注说 Karpathy 的「质量高」是在网页文档里面相比，这是这一页的理解。出处：<a href="https://x.com/karpathy/status/1960803117689397543">Karpathy 的帖子</a>；<a href="https://github.com/stanford-cs336/lectures/blob/main/lecture_13.py">CS336 第 13 讲</a>。</li>
+    <li><b>SERA 的 2.5 万条和 4.7 万条。</b>论文的表 1 给 SERA-32B 这个模型列的训练数据是 2.5 万条。论文图 1 的脚注说，SERA 的数据集最多有 4.7 万条，所以它的线画到 4.7 万条为止。这两个数为什么不同，论文没有说明。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</li>
     <li><b>SERA 在两个运行框架里的成绩。</b>52% 和 23% 是从论文的图上读出来的近似值，论文没有给出同时列出这两个数的表格。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</li>
   </ul>
 </section>

@@ -57,13 +57,13 @@
 
 <section class="sec" id="flow">
   <h2>上下文快满的时候会发生什么</h2>
-  <p>队列管理器一直统计 prompt 用了多少 token。论文举的例子里有两个阈值，一个叫警告线，一个叫清空线。prompt 的 token 数达到哪一个，队列管理器就做下表里对应的事。</p>
+  <p>队列管理器一直统计 prompt 用了多少 token。论文举的例子里有两个阈值，一个叫警告线，一个叫清空线。prompt 的 token 数超过哪一个，队列管理器就做下表里对应的事。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">什么时候</th><th scope="col">队列管理器做什么</th><th scope="col">模型可以做什么</th></tr></thead>
       <tbody>
-        <tr><th scope="row">prompt 的 token 数达到警告线<br><span class="muted small">例如上下文窗口的 70%</span></th><td>往队列里插一条系统消息，提醒模型队列里的消息快要被移出去了。论文把它叫作内存压力警告</td><td>趁消息还在上下文窗口里，调用函数把重要的内容写进工作上下文或归档库</td></tr>
-        <tr><th scope="row">prompt 的 token 数达到清空线<br><span class="muted small">例如上下文窗口的 100%</span></th><td>把队列里最早的一批消息移出去（例如相当于上下文窗口 50% 的量），再用原来的摘要和这批被移出的消息生成一段新的摘要，放在队列的第一条</td><td>被移出去的消息看不到了，但它们永久保存在对话历史库里，可以用函数搜索回来</td></tr>
+        <tr><th scope="row">prompt 的 token 数超过警告线<br><span class="muted small">例如上下文窗口的 70%</span></th><td>往队列里插一条系统消息，提醒模型队列里的消息快要被移出去了。论文把它叫作内存压力警告</td><td>趁消息还在上下文窗口里，调用函数把重要的内容写进工作上下文或归档库</td></tr>
+        <tr><th scope="row">prompt 的 token 数超过清空线<br><span class="muted small">例如上下文窗口的 100%</span></th><td>把队列里最早的一批消息移出去（例如相当于上下文窗口 50% 的量），再用原来的摘要和这批被移出的消息生成一段新的摘要，放在队列的第一条</td><td>被移出去的消息看不到了，但它们永久保存在对话历史库里，可以用函数搜索回来</td></tr>
       </tbody>
     </table>
     <figcaption>70%、100%、50% 在论文里都是举例用的数，可以配置。出处：<a href="https://arxiv.org/abs/2310.08560">Packer 等，2023</a>，第 2.2 节。</figcaption>

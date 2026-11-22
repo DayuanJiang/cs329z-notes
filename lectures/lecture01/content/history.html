@@ -51,7 +51,7 @@
   <p class="lead-in">很多人最熟悉的定义来自 Russell 和 Norvig 1995 年出版的教科书：<mark>agent 是任何可以看作通过传感器感知环境、并通过执行器作用于环境的东西</mark>。</p>
   <p>这个定义很宽。书里举的例子是人：眼睛、耳朵是传感器，手、腿、嘴是执行器。它只要求两件事：能感知，能行动。<a href="anatomy.html#five">第二部分</a>讲 agent 的结构时，agent 从环境得到观察、向环境发出动作，这两件事就是这里说的感知和行动。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>图上的用词和 1995 年的原书不同。</b>本节开头那张图上，教科书封面下面的那行字把 Russell 和 Norvig 1995 年的定义写成 sensors 和 actuators。1995 年的第一版用的词是 effectors，actuators 是后来版本里的写法。两个词在这里是同一个意思，都译作执行器。</div></div>
-  <p>有了定义，这一时期做出来的 agent 仍有一个局限。这里用帮用户处理日常电脑事务的那一类 agent 来说明：它的规则和知识要靠人事先写进去。</p>
+  <p>再看这一时期做出来的 agent 有什么局限。这里只讲一类，也就是帮用户处理日常电脑事务的 agent：它早先的两种做法，都要靠人事先把规则或知识写进去。</p>
   <p><a href="https://agents.media.mit.edu/publications/aaai-ymp/section3_1.html">Lashkari、Metral 和 Maes 1994 年的一篇论文</a>这样概括此前的这类 agent。一种做法是用户自己给 agent 写规则，用户要自己动手写，还要随着习惯的变化一直维护这些规则。另一种做法是由工程师把关于某个应用和某个领域的大量知识写进去，工作量很大，写进去的知识是固定的，不能按每个用户的习惯调整。这篇论文的作者之一 Maes，就是本节开头那本论文集的编者。</p>
 </section>
 
@@ -188,7 +188,7 @@
       <thead><tr><th scope="col">阶段</th><th scope="col">agent 指什么</th><th scope="col">局限</th></tr></thead>
       <tbody>
         <tr><th scope="row">1990 年以前</th><td>能自己行动、互相协商和分工的软件实体，主要是概念和协议</td><td>还没有技术能让它具备通用的智能</td></tr>
-        <tr><th scope="row">1990 年代</th><td>有了定义：自主、能交互、能反应、能主动；或者更宽的，能感知和行动的任何东西</td><td>以帮用户处理日常电脑事务的 agent 为例，规则和知识要靠人事先写进去</td></tr>
+        <tr><th scope="row">1990 年代</th><td>有了定义：自主、能交互、能反应、能主动；或者更宽的，能感知和行动的任何东西</td><td>这里只讲了一类：帮用户处理日常电脑事务的 agent，早先的两种做法都要靠人事先把规则或知识写进去</td></tr>
         <tr><th scope="row">强化学习时代</th><td>通过试错学会在环境里拿高分的系统</td><td>一个 agent 只会一项任务</td></tr>
         <tr><th scope="row">LLM 时代</th><td>把一个通用的语言模型放进「推理、行动、观察」的循环</td><td>可靠性、训练、长任务、安全、评估五个问题还没有解决，见<a href="challenges.html">第七部分</a></td></tr>
       </tbody>
@@ -204,6 +204,7 @@
     <li><b>Hewitt 等人的论文是不是最早用 agent 一词的 AI 文献。</b>这篇 1973 年的论文是较早的一例。它是不是最早的一处，没有核对到。</li>
     <li><b>Maes 编的《Designing Autonomous Agents》的出版年份。</b>「1990 年代」一节的配图上，这本书标的年份是 1994。MIT 出版社的页面写的出版日期是 1991 年 2 月。Internet Archive 网站上这本书的书目记录写的是 1990 年，并注明它是一份期刊 1990 年两期合刊的重印本。没有查到 1994 年的版本。出处：<a href="https://mitpress.mit.edu/9780262631358/designing-autonomous-agents/">MIT 出版社</a>。</li>
     <li><b>Russell 和 Norvig 的定义在各版里的用词。</b>1995 年的第一版用的是 effectors，第四版的原句用的是 actuators。第一版的原句读自一所大学网站上保存的第 2 章副本。作者 Russell 在加州大学伯克利分校的个人网页下有第一版这一章的网址，那个网址没能打开。出处：<a href="https://aima.eecs.berkeley.edu/4th-ed/pdfs/newchap02.pdf">教科书第四版第 2 章</a>。</li>
+    <li><b>1990 年代 agent 的局限只讲了一类。</b>「1990 年代」一节和小结的表讲的局限，说的是帮用户处理日常电脑事务的那一类 agent 早先的两种做法，依据是 Lashkari、Metral 和 Maes 1994 年的论文。这一时期别的 agent 有什么局限，没有找到出处。这篇论文的摘要还写到，当时已经有研究者提出让这类 agent 观察用户的操作来学习，并做出了能运行的原型。所以靠人事先写规则或知识，只是这类 agent 早先的做法。这篇论文收在 AAAI 会议 1994 年的论文集里。出处：<a href="https://agents.media.mit.edu/publications/aaai-ymp/section3_1.html">论文的引言</a>；<a href="https://aaai.org/papers/00444-aaai94-068-collaborative-interface-agents/">AAAI 网站上的摘要</a>。</li>
     <li><b>OSWorld 和 Terminal-Bench 两张图的出处。</b>「2023 年以后」一节讲 agent 成绩的配图里，右边有 OSWorld 和 Terminal-Bench 两张花费和准确率的关系图。这两张图的样式显示它们出自某个模型的发布材料，具体是哪一份没有核对到，所以正文不引用图上的数。</li>
   </ul>
 </section>

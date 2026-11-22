@@ -288,6 +288,8 @@ git commit --no-verify -m 'init'</code></pre>
   <ul>
     <li><b>例一里榜首那份结果用的模型。</b>报告这件事的维护者写的是 Claude Opus，不带版本号。他第二天在同一个 issue 里说，这个排行榜上大部分结果的运行轨迹已经放到网上供人查看，并列出了这些结果用的模型，其中名字带 Opus 的只有 claude-4-opus-20250514。这份名单覆盖的是榜上大部分结果。出处：<a href="https://github.com/SWE-bench/SWE-bench/issues/465">SWE-bench issue #465</a>。</li>
     <li><b>清空 git 历史防的是什么。</b>Self-play SWE-RL 的论文只写了这一步是为了防止信息通过 git 历史泄露。「怎么堵：修环境」一节里说 git 历史里留着应用改动之前、没有这个 bug 的代码，是按论文写的做法推出来的：论文写明带 bug 的仓库是在原来的仓库上应用注入 bug 的改动得到的。出处：<a href="https://arxiv.org/abs/2512.18552">Self-play SWE-RL 的论文，Wei 等，2025</a>。</li>
+    <li><b>例二里加一句话之后，不对齐低了多少。</b>论文的原话是 final misalignment is reduced by 75-90%，没有写明是和哪一次训练相比。论文的图 5 比的是几次训练，它们只在系统 prompt 里讲利用漏洞的那一句话上不同，其中一次不加这句话。「哪些办法有用」的表按这张图，把比较的对象读成不加这句话的训练。出处：<a href="https://arxiv.org/abs/2511.18397">MacDiarmid 等，2025</a>。</li>
+    <li><b>例五的表里第三行和第四行的比较。</b>正文说这两行的范围差不多，是这一页按表里的数读出来的，论文没有这样写。论文正文说，所有模型的成绩都按同一个先后排列，创建时间更晚的 issue 这一组排在 SWE-bench 以外的仓库前面，并给这一组写的范围是 50% 到 68%。最新版本的图上，这一组读出来是 43% 到 59%，表里用的是图上的数。出处：<a href="https://arxiv.org/abs/2506.12286">Liang 等，2025</a>。</li>
     <li><b>Liang 等人论文摘要里的 53%。</b>论文摘要里说，在 SWE-bench 以外的仓库上，猜对文件路径的比例最多是 53%。这是论文第一版的数字。后来的版本加了新的模型，图里这一组有两根柱子超过了 53%：Claude Opus 4 是 56%，o3 是 55%，摘要的文字没有跟着改。出处：<a href="https://arxiv.org/abs/2506.12286">Liang 等，2025</a>。</li>
     <li><b>记忆游戏那张图上印的年份。</b>例五里 OpenAI 那张「SWE-bench Verified 记忆游戏」的图，图上印的年份是 2025。这篇文章实际发表于 2026 年 2 月 23 日。出处：<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">OpenAI，2026</a>。</li>
     <li><b>例六那张图上印的出处。</b>图上印的出处是 OpenAI 讲 SWE-bench Verified 的文章，那篇文章里没有这张图。它是 Wen 等人论文的图 1。出处：<a href="https://arxiv.org/abs/2409.12822">Wen 等，2024</a>。</li>

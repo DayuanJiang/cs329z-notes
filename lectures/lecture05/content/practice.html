@@ -24,7 +24,7 @@
     </table>
     <figcaption>DSPy 和 LangGraph 是写程序用的框架，Temporal 是管可靠性的平台。微调（fine-tune）指用自己的数据接着训练一个现成的模型。</figcaption>
   </figure>
-  <p>后两条建议各补一句。第二条里的工具该怎么选，可以看<a href="harness.html#four">第五部分的「四个开源的例子」一节</a>，那里的几个运行框架给模型的工具各不相同，比如 mini-SWE-agent 只给一个，Pi 给四个。第三条是否适用要看任务本身：原来要分几步做，这几步能不能合成「一个输入对应一个输出」的一次模型调用。</p>
+  <p>后两条建议各补一句。第二条里的工具该怎么选，可以看<a href="harness.html#four">第五部分的「四个开源的例子」一节</a>，那里的几个运行框架给模型的工具各不相同，比如 mini-SWE-agent 只给一个，Pi 给四个。第三条是否适用要看任务本身，比如它原来要分多少步。有的任务可以整个写成「一个输入对应一个输出」，这就是表里写的情形，可以由一个专门微调过的模型一步做完。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Anthropic 的同一条建议。</b>Anthropic 2024 年 12 月的文章 Building effective agents 写道：用语言模型做应用时，建议先找尽可能简单的方案，只在需要时才增加复杂度。有时候，最简单的方案就是根本不搭 agentic system。文章用 agentic system 这个词统称 workflow 和 agent。出处：<a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。</div></div>
 </section>
 

@@ -47,7 +47,7 @@ done</code></pre>
     <li><code>--dangerously-skip-permissions</code>：跳过所有权限询问，agent 做什么都不用等人批准。作者在原文里提醒：要在容器里运行，不要在自己的机器上运行。容器是和主机隔开的运行环境。</li>
     <li>其余两行用当前提交的哈希（标识这次提交的一串编号）给日志文件命名，把输出写进日志。</li>
   </ul>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>没有负责编排的 agent。</b>作者明确说他没有用负责编排的 agent，也就是没有 orchestrator。他也没有规定一套流程来管项目的大方向，做什么由每个 agent 自己决定。多数时候 agent 会挑最明显的下一个问题去做。提示词里要求 agent 把问题拆成小块，记录自己在做什么，想清楚下一步做什么，一直做到完美为止。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>没有负责编排的 agent。</b>作者明确说他没有用负责编排的 agent，也就是没有 orchestrator。他也没有规定一套流程来管项目的大方向，做什么由每个 agent 自己决定。多数时候 agent 会挑最明显的下一个问题去做。提示词里要求 agent 把问题拆成小块，记录自己在做什么，想清楚下一步做什么，一直做到完美为止。出处：<a href="https://www.anthropic.com/engineering/building-c-compiler">原文</a>。</div></div>
   <p>对照<a href="orchestration.html#four">第二部分</a>：这里没有 orchestrator，agent 自己挑任务，通过共享仓库里的文件交换信息。这符合去中心方式通常的定义。去中心方式是第二部分讲的四种编排方式之一，通常指没有 orchestrator、agent 通过一块共享的留言板或通信通道交换信息、自己领任务的做法。留言板指一块所有 agent 都能读写的共享区域。</p>
   <p>第二部分里四种编排方式的成绩和开销数字，来自 Kim 等人 2026 年的论文。这篇论文在六个评测上比较了单 agent 和四种编排方式。论文实现的去中心方式是几个 agent 就同一个问题一轮一轮辩论，最后按多数票定出答案，和这里的做法不一样。所以第二部分里去中心方式的数字不能直接套到这个案例上，见第二部分的<a href="orchestration.html#swarm">「去中心」的两种意思</a>一节。</p>
 </section>
@@ -81,7 +81,7 @@ done</code></pre>
 <section class="sec" id="progress">
   <h2>通信：只有文件</h2>
   <p>agent 之间没有对话，互通消息只靠仓库里的文件。「协调：在 Git 里认领」一节的两张图里，README 和进度文件旁边都用红字标了两个作用：agent 之间的通信，和共享记忆。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>为什么要有 README 和进度文件。</b>作者说，除了「协调：在 Git 里认领」一节讲的通过共享的 Git 仓库同步以外，他还没有实现任何别的 agent 之间的通信方式。认领文件、README 和进度文件都放在这个仓库里，靠拉取和推送传给别的 agent。每次会话开始时，agent 都在一个全新的容器里，没有任何上下文。上下文是模型这一次能读到的全部内容，这时里面没有项目此前的任何情况，agent 在大项目上要花不少时间弄清状况。所以作者在提示词里要求 agent 维护详细的 README 和进度文件，并且经常更新当前的状态。agent 被某个 bug 卡住时，常常会自己维护一份文档，记下试过哪些失败的办法、还剩哪些任务。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>为什么要有 README 和进度文件。</b>作者说，除了「协调：在 Git 里认领」一节讲的通过共享的 Git 仓库同步以外，他还没有实现任何别的 agent 之间的通信方式。认领文件、README 和进度文件都放在这个仓库里，靠拉取和推送传给别的 agent。每次会话开始时，agent 都在一个全新的容器里，没有任何上下文。上下文是模型这一次能读到的全部内容，这时里面没有项目此前的任何情况，agent 在大项目上要花不少时间弄清状况。所以作者在提示词里要求 agent 维护详细的 README 和进度文件，并且经常更新当前的状态。agent 被某个 bug 卡住时，常常会自己维护一份文档，记下试过哪些失败的办法、还剩哪些任务。出处：<a href="https://www.anthropic.com/engineering/building-c-compiler">原文</a>。</div></div>
   <p>对照<a href="communication.html#ladder">第三部分</a>的四种通信方式，这是一块用文件做的留言板：谁都能写，后来的 agent 都能读，而且一直留着。</p>
   <p>这块留言板比第三部分举的例子简单。第三部分的例子是多 agent 框架 MetaGPT：它的消息有固定的字段，每个 agent 可以订阅自己关心的那几类消息，让这几类消息送到自己这里。这里两样都没有：文件怎么写没有固定的格式，也没有订阅的机制，只靠提示词里的一句要求来维持。</p>
   <p>这种做法顺带回答了一个问题：agent 多了以后，别人的消息会不会占满每个 agent 的上下文。上下文能装下的内容有限。这里的消息都写成仓库里的文件。agent 在新的一次会话里自己读文档、用工具搜索，只取用得上的部分。工具指 agent 可以调用的外部功能，这里是在文件里搜索。<a href="communication.html#practice">第三部分</a>把它和另一个例子放在一起讲。</p>
@@ -108,11 +108,11 @@ done</code></pre>
 <section class="sec" id="kernel">
   <h2>并行什么时候失灵：编译 Linux 内核</h2>
   <p>并行只在工作能拆开时有用。下面的六条经验里有一条「为并行而设计」，原文里它背后有一段经过，是整个案例里最能说明这一点的一段。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>原文的经过。</b>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b><a href="https://www.anthropic.com/engineering/building-c-compiler">原文</a>的经过。</b>
     <ul>
       <li><b>能拆开时，并行很容易。</b>作者用编译器测试集来检验这个编译器，测试集由几百个互相独立的测试组成。失败的测试有很多个、彼此不同时，每个 agent 各挑一个去修。测试集里通过的测试占到 99% 之后，每个 agent 各自去让一个不同的小型开源项目通过编译，例如 SQLite、Redis、Lua。</li>
       <li><b>拆不开时，并行没有用。</b>开始编译 Linux 内核时，agent 卡住了。测试集里的测试互相独立，编译内核却是一整个大任务。每个 agent 都碰到同一个 bug，各自修掉，然后互相覆盖对方的修改。作者的原话是：运行 16 个 agent 没有帮助，因为每一个都卡在同一个任务上。「协调：在 Git 里认领」一节的认领办法在这里为什么没有起作用，原文没有说明。</li>
-      <li><b>办法是换一种检验方式，把大任务拆开。</b>原来的检验是用 Claude 写的编译器编译整个内核。作者写了一套新的测试，拿 GCC 当作已知正确的编译器来对照：随机挑大部分内核文件用 GCC 编译，只有剩下的文件用 Claude 写的编译器编译。编出来的内核能正常运行，说明问题不在剩下的这一批文件里。不能正常运行，就再缩小范围。文件是随机挑的，每次剩下的那一批不一样，所以各个 agent 可以在不同的文件上修不同的 bug，并行恢复了。原文补充说，这一步做完之后，还要再找出那些单独编译没问题、放在一起才出错的文件组合。</li>
+      <li><b>办法是换一种检验方式，把大任务拆开。</b>原来的检验是用 Claude 写的编译器编译整个内核。作者写了一套新的测试，拿 GCC 当作已知正确的编译器来对照：随机挑大部分内核文件用 GCC 编译，只有剩下的文件用 Claude 写的编译器编译。编出来的内核能正常运行，说明问题不在剩下的这一批文件里。不能正常运行，就再缩小范围。原文说，这样各个 agent 就可以并行，在不同的文件上修不同的 bug。为什么会碰到不同的 bug，原文没有解释，一个很可能的原因是文件是随机挑的，每次剩下的那一批不一样。原文补充说，这一步做完之后，还要再找出那些单独编译没问题、放在一起才出错的文件组合。</li>
     </ul></div></div>
   <p>这段经过和<a href="sas_vs_mas.html#task">第一部分</a>的证据说的是同一件事：并行有没有用，要看工作能不能拆开。第一部分把<a href="sas_vs_mas.html#split">「能拆开」</a>归纳成两个条件：各块不改同一份东西，做的过程中也不需要对方的中间结果。编译内核时不满足的是前一个条件：16 个 agent 碰到同一个 bug，改的是同一处代码。</p>
   <p>这里更进一步的一点是，<mark>拆不开的工作，有时人可以想办法让它变得能拆开</mark>。这里的办法是换一种检验方式：原来用 Claude 写的编译器编译整个内核，后来每次只让随机剩下的一部分文件用它编译。</p>

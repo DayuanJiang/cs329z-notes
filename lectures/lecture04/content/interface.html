@@ -98,8 +98,8 @@
     </table>
     <figcaption>出处：<a href="https://platform.openai.com/docs/guides/function-calling">OpenAI 的函数调用指南</a>、<a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Anthropic 的工具使用文档</a>、<a href="https://modelcontextprotocol.io/specification/2025-06-18/server/tools">MCP 规范的工具一节</a>。2026 年 11 月查阅。</figcaption>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>工具的描述要占用输入。</b>OpenAI 的文档把工具叫作函数，把工具的描述叫作函数的定义。文档说，函数的定义会被写进系统消息，计入模型的上下文长度，并按输入 token 计费。系统消息（system message）也叫系统提示，是放在对话最前面、给模型交代背景和规则的那段文字。上下文长度是模型一次能读的输入总量。token 是模型处理文字的最小单位。文档建议一开始就交给模型的函数要少，最好少于 20 个。出处同上表。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>说明写得好不好直接影响效果。</b>这里的说明，指工具的描述里的 <code>description</code> 一项，它用文字讲这个工具做什么。Anthropic 的文档说，把说明写得非常详细，是影响工具使用效果的最重要的因素。说明里要写清工具做什么，什么时候该用、什么时候不该用，每个参数是什么意思。出处同上表。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>工具的描述要占用输入。</b><a href="https://platform.openai.com/docs/guides/function-calling">OpenAI 的文档</a>把工具叫作函数，把工具的描述叫作函数的定义。文档说，函数的定义会被写进系统消息，计入模型的上下文长度，并按输入 token 计费。系统消息（system message）也叫系统提示，是放在对话最前面、给模型交代背景和规则的那段文字。上下文长度是模型一次能读的输入总量。token 是模型处理文字的最小单位。文档建议一开始就交给模型的函数要少，最好少于 20 个。出处同上表。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>说明写得好不好直接影响效果。</b>这里的说明，指工具的描述里的 <code>description</code> 一项，它用文字讲这个工具做什么。<a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Anthropic 的文档</a>说，把说明写得非常详细，是影响工具使用效果的最重要的因素。说明里要写清工具做什么，什么时候该用、什么时候不该用，每个参数是什么意思。出处同上表。</div></div>
 </section>
 
 <section class="sec" id="mcp">
@@ -187,7 +187,7 @@ mcp = FastMCP.from_openapi(
     <figcaption>这是一个示意的例子，网址和路由都是为了演示而设的。</figcaption>
   </figure>
   <p>之后，任何支持 MCP 的 agent 连上这个服务器，由它的客户端发一个 tools/list，就会得到这三个工具。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>自动转换出来的工具，效果不如专门设计的。</b>FastMCP 的文档自己提醒：从 OpenAPI 自动生成 MCP 服务器是开始使用 FastMCP 的好办法。但文档也说，在实际使用中，模型用精心设计和挑选过的 MCP 工具，效果明显好于用自动转换出来的工具，路由多、参数多的复杂 API 尤其如此。默认情况下，规范文件里的每一条路由都会变成一个工具，没有经过设计和挑选。所以文档建议把自动转换用于搭原型，不要用它把整个 API 照原样转成工具交给模型。出处：<a href="https://gofastmcp.com/integrations/openapi">FastMCP 文档的 OpenAPI 一节</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>自动转换出来的工具，效果不如专门设计的。</b>FastMCP 的文档说，从 OpenAPI 自动生成 MCP 服务器是开始使用 FastMCP 的好办法。但文档自己也提醒，在实际使用中，模型用精心设计和挑选过的 MCP 工具，效果明显好于用自动转换出来的工具，路由多、参数多的复杂 API 尤其如此。默认情况下，规范文件里的每一条路由都会变成一个工具，没有经过设计和挑选。所以文档建议把自动转换用于搭原型，不要用它把整个 API 照原样转成工具交给模型。出处：<a href="https://gofastmcp.com/integrations/openapi">FastMCP 文档的 OpenAPI 一节</a>。</div></div>
 </section>
 
 <section class="sec" id="auth">
