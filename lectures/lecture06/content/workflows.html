@@ -24,7 +24,7 @@
     </table>
     <figcaption>定义和适用条件来自 <a href="https://www.anthropic.com/engineering/building-effective-agents">Schluntz 和 Zhang，2024</a>。</figcaption>
   </figure>
-  <p>这篇文章里，五种模式的共同基础是一个「加强过的 LLM」：给模型配上检索、工具和记忆。下面每一种模式里的一次 LLM 调用，都可以是这样一个配了工具的模型。</p>
+  <p>这篇文章里，五种模式的共同基础是一个「加强过的 LLM」：给模型配上检索、工具和记忆。记忆在这里指把信息存下来，让以后的调用还能用到。下面每一种模式里的一次 LLM 调用，都可以是这样一个配了工具的模型。配了工具之后，整个流程下一步走到哪里仍然由程序决定，所以整体还是 workflow。</p>
 </section>
 
 <section class="sec" id="chaining">
@@ -37,7 +37,7 @@
     <li><b>换来的是准确率，付出的是延迟。</b>两次调用通常比一次慢，调用次数越多越慢。</li>
     <li><b>什么时候值得。</b>任务复杂，而且拆开之后每一步明显更容易。邮件加日历这个例子本身不算复杂，任务越复杂，拆分越有用。</li>
   </ul>
-  <p>Anthropic 的文章举的两个例子：先写营销文案，再翻译成另一种语言；先写文档的大纲，检查大纲是否符合要求，再照大纲写全文。</p>
+  <p>Anthropic 的文章举了两个例子。一个是先写营销文案，再翻译成另一种语言。另一个是先写文档的大纲，检查大纲是否符合要求，再照大纲写全文。</p>
 </section>
 
 <section class="sec" id="routing">
@@ -54,19 +54,20 @@
 
 <section class="sec" id="parallel">
   <h2>parallelization：同时做，再汇总</h2>
-  <p>parallelization 让几次 LLM 调用同时进行，再由一个汇总步骤把结果合起来。它和 routing 的图很像，差别在于由谁决定分路：routing 是那次分类调用选一条路走；parallelization 是程序规定每次都分成这几路，全部执行。</p>
+  <p>parallelization 让几次 LLM 调用同时进行，再由一个汇总步骤把结果合起来。它和 routing 的图很像，差别在于由谁决定分路：routing 是那次分类调用选一条路走，parallelization 是程序规定每次都分成这几路，全部执行。</p>
   {{fig 18 | 输入同时交给三次 LLM 调用，三个结果都进入 Aggregator（汇总），再输出。}}
+  <p>parallelization 有两种用法，名字是 sectioning 和 voting。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">两种用法</th><th scope="col">怎么做</th><th scope="col">例子</th></tr></thead>
       <tbody>
         <tr><th scope="row">sectioning</th><td>把互不依赖的工作拆开，同时做</td><td>聊天机器人收到一条消息，一边让一个分类器判断这条消息能不能安全地回答，一边已经开始生成回复。如果分类器判定不安全，就不把回复显示出来</td></tr>
-        <tr><th scope="row">voting</th><td>同一个输入处理好几遍，由汇总步骤下结论。这是一种在推理时多花计算来换质量的办法</td><td>同一道数学题解五遍，其中三遍得到同一个答案，就采用这个答案</td></tr>
+        <tr><th scope="row">voting</th><td>同一个输入处理好几遍，由汇总步骤下结论。这是一种在回答时多算几遍、用更多的计算换质量的办法</td><td>同一道数学题解五遍，其中三遍得到同一个答案，就采用这个答案</td></tr>
       </tbody>
     </table>
   </figure>
   <p>sectioning 还有一个好处：每次调用只看一个方面，注意力更集中。例如要让语言模型当评审，按一份有 10 条标准的评分表给一个回答打分。可以把 10 条标准分成 10 次调用同时进行，每次只评一条。这样每一条评得更专注。10 次调用是同时发出的，总的等待时间大致等于其中最慢的一次，不会随着条数成倍增加。</p>
-  <p>Anthropic 的文章对投票还举了一个例子：用几个不同的 prompt 分别审查同一段代码有没有安全漏洞，任何一个发现问题就标出来。</p>
+  <p>Anthropic 的文章对 voting 还举了一个例子：用几个不同的 prompt 分别审查同一段代码有没有安全漏洞，任何一个发现问题就标出来。这里汇总的规则是有一个发现就算，和上表里取多数的例子不同。</p>
 </section>
 
 <section class="sec" id="orchestrator">
@@ -89,10 +90,10 @@
       <tbody>
         <tr><th scope="row">反馈能清楚地说出来</th><td>如果说不清一个答案好在哪里、差在哪里，靠文字反馈来迭代就没有意义</td></tr>
         <tr><th scope="row">LLM 有能力给出这种反馈</th><td>有些标准 LLM 判断不好，比如某一群用户的个人偏好。这时应该考虑让人参与到循环里</td></tr>
-        <tr><th scope="row">生成的一方能根据反馈改好</th><td>反馈给了却用不上，循环只是白花调用</td></tr>
+        <tr><th scope="row">生成的一方能根据反馈改好</th><td>生成的一方用不上反馈时，循环里多出的模型调用换不来更好的结果</td></tr>
       </tbody>
     </table>
-    <figcaption>前两条对应 Anthropic 文章里的两个标志：人把反馈说清楚之后，LLM 的回答确实能变好；LLM 自己给得出这样的反馈。</figcaption>
+    <figcaption>Anthropic 的文章把适用的标志写成两个。第一个标志是：人把反馈说清楚之后，LLM 的回答确实能变好。它对应表里的第一条和第三条。第二个标志是：LLM 自己给得出这样的反馈。它对应表里的第二条。</figcaption>
   </figure>
   <p>评审的一方不一定是 LLM，也可以是一个外部的检验手段，比如运行测试。评审和生成也可以用不同的模型：让一个大一些的模型当评审，判断小模型做的够不够好，不够就把反馈给它，让它再做一遍。</p>
   <p>文章举的例子是文学翻译：译稿里有些细微之处，负责翻译的 LLM 第一遍抓不住，评审的 LLM 能指出来。</p>
@@ -114,8 +115,14 @@
     </table>
     <figcaption>这张表是按上面五节的定义整理的。</figcaption>
   </figure>
-  <p>五种模式交给模型决定的事情各不相同：routing 让模型选走哪一路，orchestrator-workers 让模型决定任务怎么拆，evaluator-optimizer 让模型判断结果是否过关。以 orchestrator-workers 为例，模型决定了任务怎么拆，但整个流程的骨架（拆分、执行、合成）仍然是程序定的，所以它还是 workflow。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>每一种模式都有代价。</b>五种模式都是用更多的模型调用，去换更好的结果。多出来的每一次调用都要花 token（模型处理文字的最小单位，花费按它计算），所以五种模式的花费都会增加。prompt chaining 和 evaluator-optimizer 的调用是一个接一个的，等待时间也跟着明显变长。parallelization 和 orchestrator-workers 的几次调用同时发出，等待时间增加得少一些。Anthropic 的文章对组合使用这些模式的建议是：只有当增加的复杂度确实能改善结果时才加。</div></div>
+  <p>五种模式里有三种把一部分决定交给了模型：routing 让模型选走哪一路，orchestrator-workers 让模型决定任务怎么拆，evaluator-optimizer 让模型判断结果是否过关。另外两种是 prompt chaining 和 parallelization，它们的流程全由程序决定，模型只负责完成自己那一次调用。</p>
+  <p>把一部分决定交给模型之后，这三种模式仍然是 workflow。以 orchestrator-workers 为例，模型决定了任务怎么拆，但整个流程先拆分、再执行、最后合成，这个顺序仍然是程序定的。</p>
+  <p>五种模式都有代价，它们都是用更多的模型调用去换更好的结果。代价有花费和等待时间两方面。</p>
+  <ul>
+    <li><b>花费都会增加。</b>多出来的每一次调用都要花 token（模型处理文字的最小单位，花费按它计算）。</li>
+    <li><b>等待时间增加多少，要看调用是先后进行还是同时进行。</b>prompt chaining 和 evaluator-optimizer 的调用是一个接一个的，等待时间也跟着明显变长。parallelization 和 orchestrator-workers 的几次调用同时发出，等待时间增加得少一些。</li>
+  </ul>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>什么时候才加。</b>Anthropic 的文章对组合使用这些模式的建议是：只有当增加的复杂度确实能改善结果时才加。</div></div>
 </section>
 
 <section class="sec" id="summary">

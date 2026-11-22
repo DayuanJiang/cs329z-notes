@@ -1,7 +1,7 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>前面几部分的流水线，对每个问题都按固定的步骤检索一次。它能把一个问题答好，但它自己不决定要不要查、查什么、什么时候停。</li>
+    <li>RAG（Retrieval-Augmented Generation，检索增强生成）指先检索出相关的内容，再交给语言模型写回答。前面几部分的流水线，对每个问题都按固定的步骤检索一次。它能把一个问题答好，但它自己不决定要不要查、查什么、什么时候停。</li>
     <li>agentic RAG 把检索变成 agent 可以采取的一个动作。agent 指能自己调用工具、分很多步完成任务的语言模型系统。这样一来有三个决定要做：查还是直接答，发出什么查询，查到的结果够不够好。</li>
     <li>三个有代表性的系统做这些决定的办法不同。Self-RAG 把「查不查」和「够不够好」训练进生成模型本身。CRAG 在检索器和生成器之间加一个很小的评估模型，生成器不用动。Search-R1 用强化学习（让模型反复去做题，按结果的好坏给奖励，再据此调整模型）让它自己学会整个搜索过程，训练时只告诉它最后的答案对不对。</li>
     <li>多轮检索也带来新的问题：前面一步错了，后面的步骤都会受影响；什么时候该停，往往只能靠一个次数上限。</li>
@@ -11,7 +11,7 @@
 <section class="sec" id="decisions">
   <h2>三个决定</h2>
   <p>到这里为止讲的索引、检索器、重排，合起来能把一个问题答好。但整个过程里系统没有任何主动性：不管问的是什么，它都检索一次，把结果交给模型，然后结束。</p>
-  <p>RAG（Retrieval-Augmented Generation，检索增强生成）和 agent 结合之后，检索成了 agent 的一个动作，和调用别的工具一样，由模型决定用不用、怎么用。这带来三个决定。</p>
+  <p>RAG 和 agent 结合之后，检索成了 agent 的一个动作，和调用别的工具一样，由模型决定用不用、怎么用。这带来三个决定。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">决定</th><th scope="col">固定的流水线怎么处理</th><th scope="col">交给模型之后</th></tr></thead>
@@ -36,6 +36,7 @@
     <li><b>评判，留下最好的。</b>按这些标签给三个候选排序，第一句排在最前，被接到回答里。然后回到第一步，继续写下一句，直到回答写完。</li>
   </ol>
   <h3>四种反思 token</h3>
+  <p>反思 token 一共四种。下表列出每一种判断的是什么、可以取哪些值。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">token</th><th scope="col">判断的是什么</th><th scope="col">可以取的值</th><th scope="col">对应哪个决定</th></tr></thead>
@@ -51,14 +52,29 @@
   <p>决定二不在这张表里。Self-RAG 的模型不自己写查询，检索器用的是原始的问题加上已经写出的内容。</p>
   <h3>怎么训练</h3>
   <p>要让模型学会输出这些 token，训练数据里就得有它们。论文的做法分两步。先让 GPT-4 给一批样本标上反思 token，用这些标注训练出一个评判模型。再用评判模型给 15 万条「指令，回答」样本离线插入反思 token，然后在这份数据上按普通的「预测下一个 token」的方式训练生成模型。训练完之后，生成模型自己就能输出反思 token，使用时不再需要评判模型。</p>
-  <p>这个办法的代价就在这条训练流程上：需要一份带评判标签的数据，生成模型也必须重新训练。论文用的生成模型是 Llama 2 的 7B 和 13B 两个版本。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>效果，以及它没有赢的地方。</b>在只涉及冷门实体的问答数据集 PopQA 上，Self-RAG 13B 的准确率是 55.8%；同样大小、检索后直接把段落拼进输入的 Llama2-chat 是 51.8%，不检索的 Llama2-chat 是 20.0%。在写人物传记的任务上，衡量事实准确程度的 FactScore 是 80.2，上面两个对照分别是 79.9 和 55.9。论文的总结是：Self-RAG 在所有任务上超过了 Llama2-chat 和 Alpaca，在四项任务上超过了带检索的 ChatGPT。也有没超过的：科学选择题 ARC-Challenge 上，ChatGPT 是 75.3%，Self-RAG 13B 是 73.1%。出处：<a href="https://arxiv.org/abs/2310.11511">Asai 等，2024</a>，表 2。</div></div>
+  <p>这个办法的代价就在这条训练流程上：需要一份带评判标签的数据，生成模型也必须重新训练。论文用的生成模型是 Llama 2 的 7B 和 13B 两个版本。名字里的 B 表示十亿，7B 是有 70 亿个参数的版本，13B 是有 130 亿个参数的版本。</p>
+  <h3>效果</h3>
+  <p>论文把 Self-RAG 13B 和同样大小的 Llama2-chat 做了对比。Llama2-chat 有两种用法：检索后直接把段落拼进输入，和不检索。下表是其中两项任务的成绩。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型和用法</th><th scope="col" class="r">PopQA 上的准确率</th><th scope="col" class="r">写人物传记的 FactScore</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Self-RAG 13B</th><td class="r">55.8%</td><td class="r">80.2</td></tr>
+        <tr><th scope="row">Llama2-chat 13B，检索后直接把段落拼进输入</th><td class="r">51.8%</td><td class="r">79.9</td></tr>
+        <tr><th scope="row">Llama2-chat 13B，不检索</th><td class="r">20.0%</td><td class="r">55.9</td></tr>
+      </tbody>
+    </table>
+    <figcaption>PopQA 是只涉及冷门实体的问答数据集，实体指问题问到的具体的人、地点、作品等。FactScore 衡量写出的传记里事实的准确程度。出处：<a href="https://arxiv.org/abs/2310.11511">Asai 等，2024</a>，表 2。</figcaption>
+  </figure>
+  <p>论文的总结是：Self-RAG 在所有任务上超过了 Llama2-chat 和 Alpaca，在四项任务上超过了带检索的 ChatGPT。Alpaca 是用指令数据微调出来的一种模型，论文里用的是作者在 Llama 2 的基础上重做的版本。微调（fine-tuning）指在已经训练好的模型上，用新的数据接着训练。</p>
+  <p>也有没超过的任务。科学选择题 ARC-Challenge 上，ChatGPT 是 75.3%，Self-RAG 13B 是 73.1%。</p>
 </section>
 
 <section class="sec" id="crag">
   <h2>CRAG：在检索器和生成器之间加一个评估器</h2>
   <p>CRAG（Corrective RAG，Yan 等，2024）用的是另一种办法：生成模型完全不动，在检索器和生成器之间插入一个评估器。评估器给检索回来的每篇文档打一个分数，系统设了一高一低两个阈值，分数和阈值比较的结果决定接下来做什么。</p>
   {{fig 58 | CRAG 的流程，从上到下三层：检索，知识修正，生成。例子里的问题是「《Death of a Batman》的编剧是谁」。中间一层左边是检索评估器，它的判断有三种：Correct、Ambiguous、Incorrect，各自通向右边不同的处理。图片来源：<a href="https://arxiv.org/abs/2401.15884">Yan 等，2024</a>。}}
+  <p>下表列出评估器的三种判断各在什么情况下得出、接下来做什么。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">评估器的判断</th><th scope="col">什么情况下得出</th><th scope="col">接下来做什么</th><th scope="col">交给生成器的内容</th></tr></thead>
@@ -68,21 +84,47 @@
         <tr><th scope="row">不确定<br><span class="muted small">Ambiguous</span></th><td>其余的情况</td><td>上面两件事都做</td><td>问题，加内部知识和外部知识</td></tr>
       </tbody>
     </table>
-    <figcaption>两个阈值是按数据集凭经验设的。出处：<a href="https://arxiv.org/abs/2401.15884">Yan 等，2024</a>。</figcaption>
+    <figcaption>表里的内部知识指从系统自己的文档库检索回来、又提炼过的内容，外部知识指从网上搜到的内容。两个阈值是按数据集凭经验设的。出处：<a href="https://arxiv.org/abs/2401.15884">Yan 等，2024</a>。</figcaption>
   </figure>
   <p>图里的例子走的是「错误」这条线：问题被改写成「Death of a Batman; screenwriter; Wikipedia」这样一串关键词，拿去做网页搜索。</p>
   <p>这个设计有三个特点。</p>
   <ul>
-    <li><b>评估器很小。</b>它是一个微调过的 T5-large，有 7.7 亿参数，Self-RAG 的评判模型是 70 亿参数的 Llama 2。</li>
+    <li><b>评估器很小。</b>它是一个微调过的 T5-large，有 7.7 亿参数。T5 是 Google 的一个预训练语言模型，有大小不同的几个版本，T5-large 是其中之一。作为对照，Self-RAG 用来给训练数据打标签的评判模型是 70 亿参数的 Llama 2。</li>
     <li><b>可以直接装到已有的系统上。</b>它不要求改动生成器，所以可以接在任何一套 RAG 流水线的检索之后。论文把它分别装到了普通的 RAG 和 Self-RAG 上。</li>
     <li><b>它管的是决定三。</b>决定一没有变，每个问题仍然先检索。决定二只在检索被判为错误或不确定时出现一次，由另一个语言模型把问题改写成搜索用的关键词。</li>
   </ul>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>小的专用模型比通用的大模型判得准。</b>论文比较了几种评估器在 PopQA 上判断「检索结果对不对」的准确率：微调过的 T5 评估器是 84.3%，直接让 ChatGPT 判断是 58.0%，给 ChatGPT 加上逐步推理的提示是 62.4%，再给几个示例是 64.7%。在效果上，以 Self-RAG 训练出的那个 7B 模型作生成器时，PopQA 的准确率是：普通 RAG 52.8%，加上 CRAG 59.8%，Self-RAG 54.9%，Self-RAG 加上 CRAG 61.8%。这些数字来自论文 2024 年 10 月的第三版，和第一版里的数字不同。出处：<a href="https://arxiv.org/abs/2401.15884">Yan 等，2024</a>，表 1 和表 4。</div></div>
+  <h3>效果</h3>
+  <p>论文测了两件事。第一件是评估器自己判得准不准：小的专用模型比通用的大模型判得准。下表是四种评估器在 PopQA 上判断「检索结果对不对」的准确率。PopQA 就是前面 Self-RAG 的成绩表里用过的那个问答数据集。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">谁来判断检索结果对不对</th><th scope="col" class="r">判断的准确率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">CRAG 的评估器，微调过的 T5</th><td class="r">84.3%</td></tr>
+        <tr><th scope="row">ChatGPT，直接判断</th><td class="r">58.0%</td></tr>
+        <tr><th scope="row">ChatGPT，提示里要求逐步推理</th><td class="r">62.4%</td></tr>
+        <tr><th scope="row">ChatGPT，提示里给几个示例</th><td class="r">64.7%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2401.15884">Yan 等，2024</a>，第三版的表 4。</figcaption>
+  </figure>
+  <p>第二件是接上 CRAG 之后整套系统答得准不准：普通 RAG 和 Self-RAG 接上它之后都提高了。下表的四种做法用的是同一个生成模型，也就是 Self-RAG 论文训练出的那个 7B 模型。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做法</th><th scope="col" class="r">PopQA 上回答的准确率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">普通 RAG：检索一次，把结果直接交给生成模型</th><td class="r">52.8%</td></tr>
+        <tr><th scope="row">普通 RAG 加上 CRAG</th><td class="r">59.8%</td></tr>
+        <tr><th scope="row">Self-RAG</th><td class="r">54.9%</td></tr>
+        <tr><th scope="row">Self-RAG 加上 CRAG</th><td class="r">61.8%</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2401.15884">Yan 等，2024</a>，第三版的表 1。</figcaption>
+  </figure>
 </section>
 
 <section class="sec" id="search-r1">
   <h2>Search-R1：用强化学习学会怎么搜</h2>
-  <p>Self-RAG 和 CRAG 的流程都是人设计好的：什么时候检索、判断之后走哪条分支，写在系统里。Search-R1（Jin 等，2025）不设计流程，让模型在训练里自己学会什么时候搜、搜什么、什么时候停。名字里的 R1 对应 DeepSeek-R1，一个用强化学习训练出来、先推理再回答的模型：论文第一版的摘要把 Search-R1 称为 DeepSeek-R1 的扩展，后来的版本在正文里说它可以看作 DeepSeek-R1-Zero 的扩展。论文把「只做强化学习训练、不接搜索引擎」的基线就叫作 R1。</p>
+  <p>Self-RAG 和 CRAG 的流程都是人设计好的：什么时候检索、判断之后走哪条分支，写在系统里。Search-R1（Jin 等，2025）把这些都交给模型：什么时候搜、搜什么、什么时候停，由模型在训练里自己学会。下面先看它的一条运行记录，再看它怎么训练、效果如何。</p>
   {{fig 59 | Search-R1 的一条真实的运行记录。问题是「Jed Hoyer 和 John William Henry II 谁的年纪大」。红色的标签把模型的输出分成四种：think 是推理，search 是它发出的查询，information 是搜索引擎返回的内容，answer 是最后的回答。图片来源：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>。}}
   <p>这条记录里模型搜了三次。</p>
   <ol>
@@ -91,18 +133,29 @@
     <li>第三次把查询改成「Jed Hoyer birth year」，返回的仍然是第一次那一段。模型随后的推理说他生于 1973 年 12 月 7 日，于是回答 John William Henry II 年纪大。</li>
   </ol>
   <p>第三步有一处要留意：图上显示的检索结果里找不到 1973 年 12 月 7 日这个日期，它很可能来自模型自己记住的知识。最后的答案是对的，但这一步的依据不在检索回来的文字里。<a href="failures.html#recall">第七部分</a>会讲到，证据没有找回来时，模型只能用自己记住的知识回答。</p>
-  <p>没有人给模型写过「先分别查两个人、再比较」这样的计划。每一步查什么，是模型读了上一步的结果之后自己决定的。论文对这个例子的评语是：模型写的第一个查询意义不大，但它在这之后开始一步一步地写查询、解决问题。</p>
+  <p>先查一个人、再查另一个人、最后比较，这个顺序是模型自己定的。每一步查什么，它读了上一步的结果之后才决定。论文对这个例子的评语是：模型写的第一个查询意义不大，但它在这之后开始一步一步地写查询、解决问题。</p>
   <h3>怎么训练</h3>
+  <p>训练分两部分看：给模型的指令，和强化学习的流程。下图把两者画在一起。</p>
   {{fig 60 | 上半部分是两种强化学习算法（PPO 和 GRPO）的训练流程，两者都在生成过程里接入了搜索引擎。黄色是被训练的模型，绿色是不动的模型，蓝色是搜索引擎。下半部分是给模型的指令。图片来源：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>。}}
-  <p>图下半部分的指令规定了输出的格式：每次得到新信息都要先在 think 标签里推理；觉得缺知识时，在 search 标签里写查询，系统会把搜到的结果放在 information 标签里返回；可以搜任意多次；不需要更多外部知识时，在 answer 标签里直接给出答案。</p>
-  <p>训练用的是强化学习：模型按这套格式去做题，做完得到一个奖励，再根据奖励调整模型。和通常的强化学习训练相比，主要的改动是：在模型生成的过程中，每当它输出一个查询，就真的去调用搜索引擎，把结果插回到它的上下文里，再让它接着写。别的部分和标准的 PPO、GRPO（两种常用的强化学习算法）一样。训练有三个要点。</p>
+  <p>图下半部分的指令规定了输出的格式，一共四条。</p>
+  <ul>
+    <li>每次得到新信息，都要先在 think 标签里推理。</li>
+    <li>觉得缺知识时，在 search 标签里写查询，系统会把搜到的结果放在 information 标签里返回。</li>
+    <li>可以搜任意多次。</li>
+    <li>不需要更多外部知识时，在 answer 标签里直接给出答案。</li>
+  </ul>
+  <p>指令里说可以搜任意多次，系统另外设了一个上限：一道题最多做 4 次动作。模型每输出一段文字，以发出一个查询或给出答案结束，算一次动作。</p>
+  <p>训练用的是强化学习：模型按这套格式去做题，做完得到一个奖励，再根据奖励调整模型。和通常的强化学习训练相比，主要的改动是：在模型生成的过程中，每当它输出一个查询，就真的去调用搜索引擎，把结果插回到它的上下文里，再让它接着写。</p>
+  <p>别的部分和标准的 PPO、GRPO（两种常用的强化学习算法）一样。训练有三个要点。</p>
   <ul>
     <li><b>奖励只看结果。</b>最后的答案和标准答案完全一致，奖励是 1，否则是 0。中间搜了几次、查询写得好不好，都不单独给奖励。</li>
-    <li><b>搜回来的文字不参与训练。</b>上下文里 information 标签中的内容是搜索引擎给的，模型没有写它们。计算训练的损失时把这部分遮掉，只在模型自己生成的 token 上算。论文的对比实验里，遮掉时七个数据集的平均完全匹配率是 0.431，不遮是 0.343。</li>
-    <li><b>检索器是现成的。</b>文档库是 2018 年的维基百科，检索器是 E5 向量模型，每次搜索返回 3 个段落。一道题最多做 4 次动作。</li>
+    <li><b>搜回来的文字不参与训练。</b>上下文里 information 标签中的内容是搜索引擎给的，模型没有写它们。计算训练的损失（衡量模型的输出离目标差多远的数）时把这部分遮掉，只在模型自己生成的 token 上算。论文的对比实验里，遮掉时七个数据集的平均完全匹配率是 0.431，不遮是 0.343。完全匹配率指答案和标准答案一字不差的题所占的比例。</li>
+    <li><b>检索器是现成的。</b>文档库是 2018 年的维基百科，检索器是 E5 向量模型，每次搜索返回 3 个段落。</li>
   </ul>
   <h3>效果</h3>
-  {{fig 61 | 左边的表是以 Qwen2.5-7B 为基础模型时各种方法在六个问答数据集上的完全匹配率。右边两张图的横轴是训练步数，红线是训练时拿到的奖励；上图的蓝线是回答的长度，下图的蓝线是每道题有效搜索的次数。图片来源：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>。}}
+  <p>论文在七个问答数据集上把 Search-R1 和几种做法做了对比，下图左边是结果表，右边是训练过程的两张曲线图。</p>
+  {{fig 61 | 左边的表是以 Qwen2.5-7B 为基础模型时各种方法的完全匹配率。论文的表有七个数据集和一列平均值，图上只显示了其中六个数据集。右边两张图的横轴是训练步数，红线是训练时拿到的奖励；上图的蓝线是回答的长度，下图的蓝线是每道题有效调用搜索引擎的次数，图上标作 Valid Search。图片来源：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>。}}
+  <p>下表摘出其中三个数据集的成绩和七个数据集的平均。NQ 是 Natural Questions 的缩写，问题取自 Google 搜索的真实提问，一步就能答。HotpotQA 和 Musique 是要把几条信息连起来才能答的多跳问答。训练只用了 NQ 和 HotpotQA 的训练集。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">方法</th><th scope="col">做法</th><th scope="col" class="r">NQ</th><th scope="col" class="r">HotpotQA</th><th scope="col" class="r">Musique</th><th scope="col" class="r">七个数据集的平均</th></tr></thead>
@@ -114,29 +167,37 @@
         <tr><th scope="row">Search-R1-base</th><td>强化学习，生成过程中接搜索引擎</td><td class="r">0.480</td><td class="r">0.433</td><td class="r">0.196</td><td class="r">0.431</td></tr>
       </tbody>
     </table>
-    <figcaption>数字是完全匹配率，满分是 1。基础模型都是 Qwen2.5-7B。NQ 是一步就能答的问答，HotpotQA 和 Musique 是要把几条信息连起来才能答的多跳问答。训练只用了 NQ 和 HotpotQA 的训练集。平均那一列包括图上没有显示的第七个数据集 Bamboogle。出处：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>，第五版的表 2。</figcaption>
+    <figcaption>数字是完全匹配率，满分是 1。基础模型都是 Qwen2.5-7B。平均那一列不在图上，它包括图上没有显示的第七个数据集 Bamboogle。出处：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>，第五版的表 2。</figcaption>
   </figure>
-  <p>平均下来，Search-R1 的 0.431 比只检索一次的 RAG 的 0.304 高 0.127，按这两个数算，相对高出约 42%。右边下图里，每道题的有效搜索次数随训练从约 1.4 次升到约 2 次，和奖励一起上涨：模型是在训练中逐渐学会多搜几次的。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>论文摘要里的提高幅度改过几次。</b>这篇论文在 arXiv 上有五个版本。摘要里以 Qwen2.5-7B 为基础模型的提高幅度，第一版写的是 26%，第三版是 41%，第四版和第五版的 PDF 里是 24%（arXiv 摘要页上显示的文字仍是 41%）。三个数都是七个数据集平均完全匹配率的相对提高。按各版本表里的数推算，变化有两个原因：第三版更新了 Search-R1 自己的结果；第四版加进了 Rejection Sampling 这个更强的基线，比较的对象从 RAG（0.304）换成了它（0.348）。引用这篇论文的数字时要看清是哪一版、和谁比。</div></div>
+  <p>平均下来，Search-R1 的 0.431 比只检索一次的 RAG 的 0.304 高 0.127，按这两个数算，相对高出约 42%。</p>
+  <p>论文摘要里写的提高幅度，在不同的版本里是 26%、41% 和 24%，比较的对象也换过。引用这篇论文的数字时要看清是哪一版、和谁比。核对的经过见<a href="#notes">资料说明</a>。</p>
+  <p>右边下图里，每道题有效调用搜索引擎的次数随训练从约 1.4 次升到约 2 次，和奖励一起上涨。模型是在训练中逐渐学会多搜几次的。什么样的调用算有效，论文没有写明。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>名字里的 R1。</b>R1 对应 DeepSeek-R1，一个用强化学习训练出来、先推理再回答的模型。论文把 Search-R1 看作这一系列模型的扩展。结果表里 R1-base 那一行也用了这个名字：论文把「只做强化学习训练、不接搜索引擎」的基线叫作 R1。基线指用来对照的做法。出处：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>。</div></div>
 </section>
 
 <section class="sec" id="compare">
   <h2>三个系统放在一起看</h2>
+  <p>三个系统的差别可以归到一个问题上：流程由谁掌握。前两个系统的流程由设计者写定，模型只在指定的位置做判断。这种系统通常叫工作流（workflow）。Search-R1 里每一步做什么由模型自己定，更接近 agent 的本意。前者行为容易预料，后者更灵活，也更难预料。</p>
+  <p>下表按三个决定、流程由谁定、要训练什么逐项对比。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">Self-RAG</th><th scope="col">CRAG</th><th scope="col">Search-R1</th></tr></thead>
       <tbody>
         <tr><th scope="row">决定一：查不查</th><td>生成模型输出 Retrieve token</td><td>不做这个决定，每次都查</td><td>模型自己决定，可以不搜索直接回答</td></tr>
         <tr><th scope="row">决定二：查什么</th><td>不写查询，用问题和已写出的内容去检索</td><td>检索结果不合格时，把问题改写成关键词去网上搜</td><td>模型自己写查询，可以根据前面的结果改</td></tr>
-        <tr><th scope="row">决定三：够不够好</th><td>生成模型输出三种评判 token，用来给候选排序</td><td>一个单独的小模型给每篇文档打分</td><td>模型在推理里自己判断，决定再搜一次还是回答</td></tr>
+        <tr><th scope="row">决定三：够不够好</th><td>生成模型输出 ISREL、ISSUP、ISUSE 三种反思 token，用来给候选排序</td><td>一个单独的小模型给每篇文档打分</td><td>模型在推理里自己判断，决定再搜一次还是回答</td></tr>
         <tr><th scope="row">流程是谁定的</th><td>人设计的三步循环</td><td>人设计的三条分支</td><td>模型从训练里学出来的</td></tr>
         <tr><th scope="row">要训练什么</th><td>生成模型，另外要先训练一个评判模型来造训练数据</td><td>只训练评估器</td><td>生成模型，用强化学习</td></tr>
         <tr><th scope="row">训练需要什么数据</th><td>带反思 token 的样本，标签最初来自 GPT-4</td><td>「问题，文档，相关与否」的样本</td><td>只需要问题和标准答案</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>前两个系统的流程由设计者写定，模型只在指定的位置做判断。这种系统通常叫工作流（workflow）。Search-R1 里每一步做什么由模型自己定，更接近 agent 的本意。两者的区别在于流程由谁掌握：前者行为容易预料，后者更灵活，也更难预料。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>不训练模型也可以做多轮检索。</b>还有一类做法只靠 prompt。IRCoT（Trivedi 等，2022）让模型一句一句地写推理，每写一句就用这一句去检索一次，再根据检索结果写下一句；论文报告在 HotpotQA 等四个数据集上，检索的召回率最多提高 21 个百分点，最后问答的 F1 分数（衡量回答和标准答案在用词上的重合程度，满分 100）最多提高 15 分。FLARE（Jiang 等，2023）让模型先试写下一句，如果这一句里有模型自己把握不大的 token，才去检索并重写这一句。上面 Search-R1 的结果表所在的论文里，IRCoT 是基线之一，七个数据集的平均是 0.239。出处：<a href="https://arxiv.org/abs/2212.10509">IRCoT</a>；<a href="https://arxiv.org/abs/2305.06983">FLARE</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>不训练模型也可以做多轮检索。</b>上面三个系统都要训练一个模型。还有一类做法只靠 prompt（给模型的输入文字），下面是两个例子。
+    <ul>
+      <li><b>IRCoT</b>（Trivedi 等，2022）让模型一句一句地写推理，每写一句就用这一句去检索一次，再根据检索结果写下一句。论文报告在 HotpotQA 等四个数据集上，检索的召回率最多提高 21 个百分点，最后问答的 F1 分数最多提高 15 分。召回率指应该找到的段落里实际找到的比例。F1 分数衡量回答和标准答案在用词上的重合程度，满分 100。在 Search-R1 论文的结果表里，IRCoT 是用来对照的做法之一，七个数据集的平均完全匹配率是 0.239。</li>
+      <li><b>FLARE</b>（Jiang 等，2023）让模型先试写下一句。如果这一句里有模型给出的概率低于一个设定值的 token，说明模型对这里的内容没有把握，这时才去检索并重写这一句。</li>
+    </ul>
+    出处：<a href="https://arxiv.org/abs/2212.10509">IRCoT</a>；<a href="https://arxiv.org/abs/2305.06983">FLARE</a>。</div></div>
 </section>
 
 <section class="sec" id="summary">
@@ -147,4 +208,15 @@
     <li>RAG 是一种设计上的原则，在 agent 系统里同样用得上：模型需要它没有的信息时，去外面取回来再接着做。</li>
   </ul>
   <p>多轮检索让系统能回答更难的问题，也让出错的方式变多了。下一部分把 <a href="failures.html">RAG 会在哪里出问题</a>集中过一遍。</p>
+</section>
+
+<section class="sec" id="notes">
+  <h2>资料说明</h2>
+  <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
+  <ul>
+    <li><b>Search-R1 摘要里的提高幅度。</b>这篇论文在 arXiv 上有五个版本。摘要里以 Qwen2.5-7B 为基础模型的提高幅度，第一版写的是 26%，第三版是 41%，第四版和第五版的 PDF 里是 24%，arXiv 摘要页上显示的文字仍是 41%。三个数都是七个数据集平均完全匹配率的相对提高。按各版本表里的数推算，变化有两个原因。第三版更新了 Search-R1 自己的结果。第四版加进了 Rejection Sampling 这个更强的基线，比较的对象从 RAG（0.304）换成了它（0.348）。出处：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>。</li>
+    <li><b>Search-R1 名字里的 R1。</b>Search-R1 论文第一版的摘要把 Search-R1 称为 DeepSeek-R1 的扩展，后来的版本在正文里说它可以看作 DeepSeek-R1-Zero 的扩展。DeepSeek-R1-Zero 是 DeepSeek-R1 那篇论文里介绍的另一个模型，只用强化学习训练，前面没有监督微调这一步。监督微调指用带标准答案的样本把已有的模型接着训练一轮。按那篇论文的摘要，DeepSeek-R1 的训练分成多个阶段，强化学习之前还用了一批预先准备的数据。两个模型的差别在这里。出处：两种说法见 <a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>的各个版本，DeepSeek-R1-Zero 的介绍见 <a href="https://arxiv.org/abs/2501.12948v1">DeepSeek-R1 论文第一版的摘要</a>。</li>
+    <li><b>训练曲线图上的 Valid Search。</b>Search-R1 的论文正文把它称为有效的搜索引擎调用次数，没有写明什么样的调用算有效。出处：<a href="https://arxiv.org/abs/2503.09516">Jin 等，2025</a>，第 5.3 节。</li>
+    <li><b>CRAG 的数字取自哪一版。</b>CRAG 一节的两张表用的是论文 2024 年 10 月的第三版，和第一版里的数字不同。出处：<a href="https://arxiv.org/abs/2401.15884">Yan 等，2024</a>。</li>
+  </ul>
 </section>

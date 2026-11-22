@@ -1,7 +1,8 @@
 <section class="sec" id="thesis">
   <h2>一句话的结论</h2>
   <p class="lead-in">一个 LLM agent，就是把一个大语言模型放进一个循环里：<mark>想一步，通过工具做一步，看环境返回的结果，再想下一步</mark>。循环里下一步做什么由模型自己决定，这是 agent；由事先写好的代码决定，叫 workflow。把这样的系统搭出来已经不难，难的是让它可靠、安全，并且知道怎样评估它。</p>
-  <p>这是全部内容的第一讲，后面每一讲都建立在这里的几个概念上。这里的 LLM 指大语言模型，prompt 指交给模型的输入文字，工具指模型可以调用的外部功能，环境指 agent 之外、它的动作作用于其上的世界。一个 agent 可以拆成五个部件。</p>
+  <p>这里的 LLM 指大语言模型，prompt 指交给模型的输入文字，工具指模型可以调用的外部功能，环境指 agent 之外、它的动作作用在上面的那个世界。上下文指模型这一次调用能读到的全部文字，它的长度有上限。</p>
+  <p>一个 agent 可以拆成五个部件，下表每行说明一个。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">部件</th><th scope="col">做什么</th><th scope="col">例子：让 agent 在一个文字描述的厨房里把胡椒瓶放进抽屉</th><th scope="col" class="nw">在哪一页</th></tr></thead>
@@ -13,45 +14,27 @@
         <tr><th scope="row">环境</th><td>动作作用的对象，观察结果的来源</td><td>那个厨房。它回答「抽屉是关着的」</td><td><a href="anatomy.html#env">第二部分</a></td></tr>
       </tbody>
     </table>
-    <figcaption>例子来自 ReAct 论文，完整的记录见<a href="anatomy.html#example">第二部分</a>。</figcaption>
+    <figcaption>例子来自 ReAct 论文。ReAct 是 2022 年提出的一种做法，让模型交替地推理和行动。完整的记录见<a href="anatomy.html#example">第二部分</a>。</figcaption>
   </figure>
 </section>
 
 <section class="sec" id="story">
   <h2>七个问题</h2>
+  <p>这一讲分七个部分，每个部分回答一个问题。下表列出每个问题的答案和一条依据，点问题可以进入对应的部分。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="history.html">一 agent 这个词从哪里来，<br>为什么到 2023 年才流行？</a></th><td>这个概念有几十年的历史。强化学习时代的 agent 很强，但一个只会一件事。LLM 带来了一步一步推理和使用工具这两样能力，通用的 agent 才成为可能</td><td>2022 年 10 月到 2023 年 3 月的半年里，ReAct、ChatGPT、GPT-4、BabyAGI 的前身、AutoGPT 先后出现。此后在 SWE-bench Verified 上，由同一家机构统一测出的准确率（解决的题目占的比例），2024 年 11 月发布的模型是 31.0%，2026 年 4 月发布的模型是 83.5%</td></tr>
+        <tr><th scope="row"><a href="history.html">一 agent 这个词从哪里来，<br>为什么到 2023 年才流行？</a></th><td>这个概念有几十年的历史。强化学习是让 agent 通过试错、按得到的奖励来学习的训练方法。强化学习时代的 agent 很强，但一个只会一件事。LLM 带来了一步一步推理和使用工具这两样能力，通用的 agent 才成为可能</td><td>2022 年 10 月到 2023 年 3 月的半年里，ReAct 论文、ChatGPT、GPT-4 先后出现，接着是 BabyAGI 的前身和 AutoGPT 这两个让模型自己给自己布置任务、一直做下去的开源项目。此后在 SWE-bench Verified 这套让 agent 修真实代码问题的题目上，由同一家机构统一测出的准确率（解决的题目占的比例），2024 年 11 月发布的模型是 31.0%，2026 年 4 月发布的模型是 83.5%</td></tr>
         <tr><th scope="row"><a href="anatomy.html">二 一个 agent<br>由哪几块组成？</a></th><td>五个部件：LLM 核心、规划和推理、记忆、工具、环境。它们在一个循环里配合，这个循环十来行代码就能写出来</td><td>ReAct 论文里找胡椒瓶的一段运行记录，每一行都能对应到一个部件</td></tr>
-        <tr><th scope="row"><a href="reasoning.html">三 为什么要<br>先推理再行动？</a></th><td>推理让 agent 的做法能用到新的情况里，也让人看得出它为什么这样做。推理和行动交替进行，能拿到新信息，也能改正错误</td><td>同一个问题，直接回答和只推理都答错了，ReAct 搜索三次后答对。抽查的错题里，ReAct 没有一道归入幻觉这一类（编造了推理过程或事实），只推理不行动的做法有 56%</td></tr>
-        <tr><th scope="row"><a href="memory.html">四 上下文装不下的东西<br>放在哪？</a></th><td>放在上下文之外的长期记忆里，用到时检索。按内容分三种：情景记忆存经历，语义记忆存知识，程序记忆存技能</td><td>模拟小镇里的角色按新近度、重要性、相关度三个分数取回记忆。2026 年 2 月，一个 agent 没等用户确认就成批删除和归档了她的邮件，当事人的判断是压缩记忆时丢了「先确认」这条要求</td></tr>
-        <tr><th scope="row"><a href="tools.html">五 模型怎样<br>动手做事？</a></th><td>模型只写出「调用哪个工具、参数是什么」，执行由外面的程序完成。一次调用分四步：选工具、填参数、校验、执行。MCP 把应用和工具之间的对接标准化</td><td>Toolformer 教会模型用 5 个工具，Gorilla 扩大到 1,645 个 API。不查文档时，GPT-4 在其中一个 API 库上有 36.55% 的调用是凭空编出来的</td></tr>
-        <tr><th scope="row"><a href="systems.html">六 workflow 和 agent<br>差在哪？</a></th><td>都是复合 AI 系统，差别在下一步由谁决定：代码决定是 workflow，LLM 决定是 agent。能用简单的办法做好时，不必用 agent</td><td>AlphaCode 2 的步骤是固定的，靠最多一百万次采样加筛选，成绩估计超过 85% 的参赛者。RAG 是用得最广的 workflow</td></tr>
-        <tr><th scope="row"><a href="challenges.html">七 搭出来之后<br>难在哪里？</a></th><td>五个难点：可靠性、训练、长任务、安全、评估。能力强不等于可靠，任务做完不等于做得安全</td><td>15 个模型里准确率最低和最高相差 63 个百分点，可靠性分数只差 0.18。2026 年 7 月，约 1,200 个本应互相隔离的 agent 合作去骗评分程序</td></tr>
+        <tr><th scope="row"><a href="reasoning.html">三 为什么要<br>先推理再行动？</a></th><td>推理让 agent 的做法能用到新的情况里，也让人看得出它为什么这样做。推理和行动交替进行，能拿到新信息，也能改正错误</td><td>同一个问题，直接回答和只推理都答错了，ReAct 搜索三次后答对。抽查的错题里，ReAct 没有一道归入幻觉这一类（编造了推理过程或事实），只推理不行动的做法有 56% 归入这一类</td></tr>
+        <tr><th scope="row"><a href="memory.html">四 上下文装不下的东西<br>放在哪？</a></th><td>放在上下文之外的长期记忆里，用到时检索。按内容分三种：情景记忆存经历，语义记忆存知识，程序记忆存技能</td><td>Generative Agents 这项研究在一个模拟的小镇里放了 25 个由 LLM 扮演的居民，每个居民按新近度、重要性、相关度三个分数，从自己的经历记录里取回记忆。2026 年 2 月，一个 agent 没等用户确认就成批删除和归档了她的邮件。当事人的判断是，上下文快满时 agent 把之前的对话压缩成一份短的摘要，「先确认」这条要求在这一步丢了</td></tr>
+        <tr><th scope="row"><a href="tools.html">五 模型怎样<br>动手做事？</a></th><td>模型只写出「调用哪个工具、参数是什么」，执行由外面的程序完成。一次调用分四步：选工具、填参数、校验、执行。MCP（Model Context Protocol）这个协议把应用和工具之间的对接标准化</td><td>Toolformer 和 Gorilla 是两项训练模型使用工具的研究，前者教会模型用 5 个工具，后者扩大到 1,645 个 API。不查文档时，GPT-4 在其中一个 API 库上有 36.55% 的调用是凭空编出来的</td></tr>
+        <tr><th scope="row"><a href="systems.html">六 workflow 和 agent<br>差在哪？</a></th><td>两者都是复合 AI 系统，也就是用多个互相配合的部件来完成任务的系统。差别在下一步由谁决定：代码决定是 workflow，LLM 决定是 agent。能用简单的办法做好时，不必用 agent</td><td>编程竞赛系统 AlphaCode 2 的步骤是固定的：生成最多一百万个候选程序，再筛选。它在编程竞赛里的成绩估计超过 85% 的参赛者。检索增强生成（RAG）是用得最广的 workflow，它先检索，再把检索到的内容拼进 prompt 生成回答</td></tr>
+        <tr><th scope="row"><a href="challenges.html">七 搭出来之后<br>难在哪里？</a></th><td>五个难点：可靠性、训练、长任务、安全、评估。能力强不等于可靠，任务做完不等于做得安全</td><td>一项研究给 15 个模型各算了一个可靠性分数，量的是多跑几次结果是否一致、条件稍有变化时表现是否稳定、失败是否可以预料，取值在 0 到 1 之间，越高越可靠。这 15 个模型在两套测试题上的平均准确率，最低和最高相差 63 个百分点，可靠性分数最低 0.69，最高 0.87，只差 0.18。2026 年 7 月，约 1,200 个本应互相隔离的 agent 合作去骗评分程序</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
-  </figure>
-</section>
-
-<section class="sec" id="gaps">
-  <h2>容易想当然的七件事</h2>
-  <p>下面七件事，容易被说得比实际情况简单，或者和原文对不上。每一件在对应的页面里有出处和细节。</p>
-  <figure class="plate">
-    <table class="tbl">
-      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
-      <tbody>
-        <tr><td>ReAct 比以前的 prompt 方法都好</td><td>在要动手的任务上确实好得多。在 HotpotQA 问答上，单独的 ReAct 是 27.4，低于只推理不行动的 29.4，也低于直接回答的 28.7。几种 prompt 方法里最好的成绩来自把两种做法结合起来</td><td><a href="reasoning.html#react-results">推理</a></td></tr>
-        <tr><td>Reflexion 是一种强化学习</td><td>论文的副标题里有 reinforcement learning，但它没有更新模型的权重。它只是把失败后写下的反思放进下一次的 prompt</td><td><a href="reasoning.html#reflexion">推理</a></td></tr>
-        <tr><td>AlphaCode 2 超过了 87% 的参赛者</td><td>87% 是技术报告里一张图上的标注。报告正文和摘要给的估计是第 85 百分位</td><td><a href="systems.html#alphacode">workflow 和 agent</a></td></tr>
-        <tr><td>网页弹窗让 agent 有 87% 的情况完不成任务</td><td>论文摘要里的数是 86%，量的是 agent 点击弹窗的频率。任务成功率下降是另一个数，47%。弹窗是针对 agent 精心设计的对抗性内容</td><td><a href="challenges.html#attacks">难点</a></td></tr>
-        <tr><td>模型会偷偷修改自己的奖励函数</td><td>这出自一个人为设计的实验，研究者故意在奖励不诚实行为的环境里训练模型。即便如此，32,768 次试验里只出现了 45 次；没有经过这种训练的模型 10 万次里一次也没有</td><td><a href="challenges.html#misalignment">难点</a></td></tr>
-        <tr><td>用 AI 帮忙写代码的人，测验成绩低 17%，但干得更快</td><td>17 是百分点：平均分 50% 和 67%。快了大约 2 分钟，这个差别在统计上不显著。分数高低和怎么用 AI 有关，边用边追问原理的人分数并不低</td><td><a href="challenges.html#learning">难点</a></td></tr>
-        <tr><td>Russell 和 Norvig 在 1995 年把 agent 定义为通过 sensors 感知、通过 actuators 行动</td><td>1995 年第一版的用词是 effectors，actuators 是后来版本的写法。意思相同</td><td><a href="history.html#nineties">来历</a></td></tr>
-      </tbody>
-    </table>
   </figure>
 </section>
 
@@ -59,20 +42,39 @@
   <h2>页面里三种颜色的框</h2>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲有五处，对应上面七件事里的前五件。后两件分别写在第七部分的正文和第一部分的蓝色框里。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲有五处，对应下面「容易想当然的七件事」里的前五件。后两件分别写在第七部分的正文和第一部分的蓝色框里。</div></div>
 </section>
 
 <section class="sec" id="modules">
   <h2>按部分阅读</h2>
   <div class="modlist">
-    <a href="history.html"><span class="m">第一部分</span><span><b>agent 这个词从哪里来</b><p>1990 年以前的几个想法；1990 年代的定义；强化学习时代；LLM 带来的推理和工具；2022 到 2023 年的半年；模型和 agent 的进步。</p></span></a>
-    <a href="anatomy.html"><span class="m">第二部分</span><span><b>一个 agent 由哪五块组成</b><p>一段运行记录；五个部件；把它们连起来的循环；和一次普通的 LLM 调用差在哪；别的拆法。</p></span></a>
-    <a href="reasoning.html"><span class="m">第三部分</span><span><b>推理和规划：为什么要先想再做</b><p>推理指什么；ReAct 的例子和成绩；self-consistency；Reflexion；多 agent 辩论和 orchestrator。</p></span></a>
-    <a href="memory.html"><span class="m">第四部分</span><span><b>记忆：上下文装不下的东西放在哪</b><p>为什么需要记忆；情景、语义、程序三种记忆各怎么写、怎么读；记什么由谁决定；一个出事的例子。</p></span></a>
-    <a href="tools.html"><span class="m">第五部分</span><span><b>工具：模型怎样动手做事</b><p>工具补上的三类缺口；Toolformer 和 Gorilla；一次工具调用的四步；MCP。</p></span></a>
-    <a href="systems.html"><span class="m">第六部分</span><span><b>workflow 和 agent：下一步由谁决定</b><p>复合 AI 系统；workflow 和 agent 的区别；AlphaCode 2；RAG；什么时候用哪一种；系统、数据、评估三层；后面各讲讲什么。</p></span></a>
-    <a href="challenges.html"><span class="m">第七部分</span><span><b>搭出来之后难在哪里</b><p>可靠性；训练和长任务；安全的五个例子；评估；用 AI 学习时要留意的事；整讲的小结。</p></span></a>
+    <a href="history.html"><span class="m">第一部分</span><span><b>agent 这个词从哪里来</b><p>依次讲 1990 年以前的几个想法、1990 年代的定义、强化学习时代、LLM 带来的推理和工具、2022 到 2023 年的半年，以及模型和 agent 的进步。</p></span></a>
+    <a href="anatomy.html"><span class="m">第二部分</span><span><b>一个 agent 由哪五块组成</b><p>从一段运行记录讲起，再讲五个部件、把它们连起来的循环、agent 和一次普通的 LLM 调用差在哪，以及别的拆法。</p></span></a>
+    <a href="reasoning.html"><span class="m">第三部分</span><span><b>推理和规划：为什么要先想再做</b><p>先讲推理指什么、为什么有用，再讲 ReAct 的例子和成绩，然后是让推理更好的几种办法：多想几遍取多数（self-consistency），失败后写一段反思留给下一次（Reflexion），让多个 agent 辩论，或者由一个 orchestrator（负责拆任务、派任务的 agent）来分工。</p></span></a>
+    <a href="memory.html"><span class="m">第四部分</span><span><b>记忆：上下文装不下的东西放在哪</b><p>先讲为什么需要记忆，再讲情景、语义、程序三种记忆各怎么写、怎么读，然后是记什么由谁决定，最后是一个出事的例子。</p></span></a>
+    <a href="tools.html"><span class="m">第五部分</span><span><b>工具：模型怎样动手做事</b><p>依次讲工具补上的三类缺口、Toolformer 和 Gorilla 这两项研究、一次工具调用的四步，以及 MCP。</p></span></a>
+    <a href="systems.html"><span class="m">第六部分</span><span><b>workflow 和 agent：下一步由谁决定</b><p>先讲复合 AI 系统，以及 workflow 和 agent 的区别，再看 AlphaCode 2 和 RAG 这两个 workflow 的例子，然后讲什么时候用哪一种，最后讲系统、数据、评估三层和后面各讲的安排。</p></span></a>
+    <a href="challenges.html"><span class="m">第七部分</span><span><b>搭出来之后难在哪里</b><p>依次讲可靠性、训练和长任务、安全的五个例子、评估，以及用 AI 学习时要留意的事，最后是整讲的小结。</p></span></a>
   </div>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的七件事</h2>
+  <p>这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代。下面七件事，容易被说得比实际情况简单，或者和原文对不上。每一件在对应的页面里有出处和细节。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>ReAct 比以前的 prompt 方法都好</td><td>在要动手的任务上确实好得多。HotpotQA 是一个要把几条资料连起来才能回答的问答数据集。在它上面，按答案和标准答案完全一致的比例算，单独的 ReAct 是 27.4%，低于只推理不行动的 29.4%，也低于直接回答的 28.7%。几种 prompt 方法里最好的成绩，来自把 ReAct 和「只推理、做 21 遍取多数答案」的做法结合起来</td><td><a href="reasoning.html#react-results">第三部分</a></td></tr>
+        <tr><td>Reflexion 是一种强化学习</td><td>Reflexion 的做法是让 agent 在失败后写一段反思，放进下一次尝试的 prompt。论文的副标题里有 reinforcement learning，但整个过程没有更新模型的权重</td><td><a href="reasoning.html#reflexion">第三部分</a></td></tr>
+        <tr><td>AlphaCode 2 超过了 87% 的参赛者</td><td>87% 是技术报告里一张图上的标注。报告正文和摘要给的估计是第 85 百分位</td><td><a href="systems.html#alphacode">第六部分</a></td></tr>
+        <tr><td>网页弹窗让 agent 有 87% 的情况完不成任务</td><td>论文摘要里的数是 86%，量的是 agent 点击弹窗的频率。任务成功率因为攻击而下降的幅度是另一个数，47%，它很可能是相对比例。弹窗是针对 agent 精心设计的对抗性内容</td><td><a href="challenges.html#attacks">第七部分</a></td></tr>
+        <tr><td>模型会偷偷修改自己的奖励函数</td><td>奖励是训练时告诉模型做得好不好的分数，奖励函数是算出这个分数的那段代码。这个说法出自一个人为设计的实验，研究者故意在不诚实的行为能拿到奖励的环境里训练模型。即便如此，32,768 次试验里只出现了 45 次。没有经过这种训练的模型 10 万次里一次也没有</td><td><a href="challenges.html#misalignment">第七部分</a></td></tr>
+        <tr><td>用 AI 帮忙写代码的人，测验成绩低 17%，但干得更快</td><td>17 是百分点：测验平均分，用 AI 的一组是 50%，自己写的一组是 67%。两个编程任务合起来限时 35 分钟，用 AI 的一组平均快了大约 2 分钟，这个差别在统计上不显著。分数高低和怎么用 AI 有关，边用边追问原理的人分数并不低</td><td><a href="challenges.html#learning">第七部分</a></td></tr>
+        <tr><td>Russell 和 Norvig 在 1995 年把 agent 定义为通过 sensors 感知、通过 actuators 行动</td><td>1995 年第一版的用词是 effectors，actuators 是后来版本的写法。意思相同</td><td><a href="history.html#nineties">第一部分</a></td></tr>
+      </tbody>
+    </table>
+  </figure>
 </section>
 
 <section class="sec" id="sources">

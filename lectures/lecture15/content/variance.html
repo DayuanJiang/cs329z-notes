@@ -30,12 +30,14 @@
 <section class="sec" id="passatk">
   <h2>pass@k：k 次里至少成功一次的机会</h2>
   <p>pass@k 的意思是：让 agent 在一个任务上独立地尝试 k 次，至少有一次成功的概率。算出每个任务的这个概率之后，再对所有任务取平均。</p>
-  <p>实际操作时，每个任务跑 n 次（n 不小于 k），数出其中成功的次数 c，再用下面的式子估计。式子里的 <code>C(a, b)</code> 是组合数，表示从 a 个里选 b 个有多少种选法。</p>
+  <p>最直接的算法是每个任务正好跑 k 次，看有没有一次成功。Chen 等人 2021 年的论文介绍的是 OpenAI 的一个写代码的模型 Codex，论文指出这样算出来的结果波动很大。他们的做法是每个任务跑 n 次，n 不小于 k，再用一个式子来估计。论文里每道编程题生成 200 份代码，k 最大取到 100。</p>
+  <p>式子的用法是：数出 n 次运行里成功的次数 c，代入下面的式子。式子里的 <code>C(a, b)</code> 是组合数，表示从 a 个里选 b 个有多少种选法。</p>
   <p><code>pass@k = 所有任务的平均值 [ 1 − C(n−c, k) / C(n, k) ]</code></p>
-  <p>方括号里的意思是：从 n 次运行里任意挑 k 次，一共有 <code>C(n, k)</code> 种挑法；其中挑到的 k 次全部失败的有 <code>C(n−c, k)</code> 种；用 1 减去「全部失败」的比例，就是「至少有一次成功」的比例。</p>
-  {{fig 85 | 一个任务跑了 5 次，成功 2 次，求 pass@3。下面两排小方块是从 5 次里挑 3 次的全部 10 种挑法，绿色表示挑到的 3 次里至少有一次成功，红色表示一次都没有。图上方那行字把论文写成「Chen et al 2023」，这篇论文实际发表于 2021 年，见下面的橙色框。}}
+  <p>方括号里的意思是：从 n 次运行里任意挑 k 次，一共有 <code>C(n, k)</code> 种挑法。其中挑到的 k 次全部失败的有 <code>C(n−c, k)</code> 种。用 1 减去「全部失败」的比例，就是「至少有一次成功」的比例。</p>
+  {{fig 85 | 一个任务跑了 5 次，成功 2 次，求 pass@3。下面两排小方块是从 5 次里挑 3 次的全部 10 种挑法，绿色表示挑到的 3 次里至少有一次成功，红色表示一次都没有。图上方那行字里的「Chen et al 2023」，年份应为 2021，见下面的橙色框。}}
   <p>图里的例子：n 是 5，c 是 2，k 是 3。从 5 次里挑 3 次有 10 种挑法。只有一种挑法挑到的全是失败的运行，也就是第 1、3、4 次。所以 pass@3 是 1 减十分之一，等于 90%。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>pass@k 常被说成是 HumanEval 的论文提出的，实际情况要分开说。</b>HumanEval 是 164 道手写的编程题，出自 Chen 等人介绍 Codex 模型的论文，论文是 2021 年 7 月发表的。这篇论文自己把这个指标归给 Kulal 等人 2019 年的研究：每道题生成 k 份代码，只要有一份通过单元测试就算解决。Kulal 等人的论文里，这个指标的名字是「预算为 B 次尝试时的成功率」，全文没有出现 pass@k 这个写法。Chen 等人的贡献有两样：pass@k 这个现在通用的名字，和上面那个估计的式子。他们指出，每道题只生成 k 份、看有没有一份通过，这样算结果的波动很大，于是改成每道题生成 200 份代码，k 最大取到 100，再用上面的式子来估计。这个式子是无偏的，意思是重复做很多次实验，估计值的平均会等于真实值。出处：<a href="https://arxiv.org/abs/2107.03374">Chen 等，2021</a>；<a href="https://proceedings.neurips.cc/paper/2019/file/7298332f04ac004a0ca44cc69ecf6f6b-Paper.pdf">Kulal 等，2019</a>。</div></div>
+  <p>这个式子是无偏的，意思是重复做很多次实验，估计值的平均会等于真实值。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>配图把 pass@k 归给 Chen 等人的论文，实际情况要分开说。</b>这篇论文就是提出 HumanEval 的那一篇，HumanEval 是 164 道手写的编程题，论文是 2021 年 7 月发表的。它自己把这个指标归给 Kulal 等人 2019 年的研究：每道题生成 k 份代码，只要有一份通过单元测试就算解决。Kulal 等人的论文里，这个指标的名字是「预算为 B 次尝试时的成功率」，全文没有出现 pass@k 这个写法。Chen 等人的贡献有两样：pass@k 这个现在通用的名字，和上面那个估计的式子。出处：<a href="https://arxiv.org/abs/2107.03374">Chen 等，2021</a>；<a href="https://proceedings.neurips.cc/paper/2019/file/7298332f04ac004a0ca44cc69ecf6f6b-Paper.pdf">Kulal 等，2019</a>。</div></div>
 </section>
 
 <section class="sec" id="passhatk">
@@ -45,7 +47,7 @@
   <p>方括号里的意思是：从 n 次运行里任意挑 k 次，挑到的 k 次全部成功的挑法有 <code>C(c, k)</code> 种，占全部 <code>C(n, k)</code> 种挑法的比例。</p>
   {{fig 86 | 一个任务跑了 5 次，成功 3 次，求 pass^2。下面两排小方块是从 5 次里挑 2 次的全部 10 种挑法，绿色表示挑到的 2 次都成功，红色表示至少有一次失败。图上方那句定义开头写的「pass@k」应为 pass^k。}}
   <p>图里的例子：n 是 5，c 是 3，k 是 2。从 5 次里挑 2 次有 10 种挑法，两次都成功的有 3 种，所以 pass^2 是 30%。这个任务的平均成功率是 60%，要求连续两次都成功，数字就降了一半。</p>
-  <p>τ-bench 的论文报告了这个指标随 k 下降的速度。在零售领域的任务上，用 gpt-4o 的 agent 的 pass^1 约是 61%，也就是平均成功率约 61%；pass^8 降到了 25% 以下。出处：<a href="https://arxiv.org/abs/2406.12045">Yao 等，2024</a>。</p>
+  <p>τ-bench 的论文报告了这个指标随 k 下降的速度。在零售领域的任务上，用 gpt-4o 的 agent 的 pass^1 约是 61%，也就是平均成功率约 61%。pass^8 降到了 25% 以下。出处：<a href="https://arxiv.org/abs/2406.12045">Yao 等，2024</a>。</p>
 </section>
 
 <section class="sec" id="same-average">
@@ -60,14 +62,16 @@
         <tr><th scope="row">Agent B<br><span class="muted small">两个任务总是成功，两个总是失败</span></th><td class="r">50%</td><td class="r">50%</td><td class="r">50%</td><td>重试没有用，但它能做的任务每次都能做成</td></tr>
       </tbody>
     </table>
-    <figcaption>按上面两节的式子，用图里每个任务 4 次运行的结果算出。Agent A 的每个任务：pass@2 是 1 减六分之一，pass^2 是六分之一。</figcaption>
+    <figcaption>按上面两节的式子，用图里每个任务 4 次运行的结果算出。算的过程见表后面的一段。</figcaption>
   </figure>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>83% 和 17% 是从 4 次运行估计出来的数。</b>图里把 Agent A 描述成「每个任务都像抛硬币」。如果它每次运行成功的机会确实正好是 50%，并且各次运行互不影响，那么真实的 pass@2 是 75%，真实的 pass^2 是 25%。表里的 83% 和 17% 是只看这 4 次运行、按式子算出的估计值。每个任务跑的次数越少，估计值离真实值可能越远，这也是下面要求同时报告 n 的原因。</div></div>
+  <p>表里的数是这样算出来的。Agent A 的每个任务跑 4 次、成功 2 次。从 4 次里挑 2 次有 6 种挑法，两次都失败的只有 1 种，两次都成功的也只有 1 种。所以每个任务的 pass@2 是 1 减六分之一，约 83%，pass^2 是六分之一，约 17%。Agent B 能做的两个任务，pass@2 和 pass^2 都是 100%。它不能做的两个任务，两个数都是 0。对四个任务取平均，两个数都是 50%。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>83% 和 17% 是从 4 次运行估计出来的数。</b>图里把 Agent A 描述成「每个任务都像抛硬币」。如果它每次运行成功的机会确实正好是 50%，并且各次运行互不影响，那么真实的 pass@2 是 75%，真实的 pass^2 是 25%。表里的 83% 和 17% 是只看这 4 次运行、按式子算出的估计值。这和前面说的式子无偏并不冲突：无偏说的是重复做很多次实验时估计值的平均等于真实值，单独一组 4 次运行算出的估计值可以偏离真实值。每个任务跑的次数越少，估计值离真实值可能越远，这也是下面要求同时报告 n 的原因。</div></div>
 </section>
 
 <section class="sec" id="diverge">
   <h2>k 越大，两个数离得越远</h2>
-  <p>k 等于 1 时，pass@k 和 pass^k 都等于平均成功率。k 变大，pass@k 越来越接近 100%，pass^k 越来越接近 0。下面的表假设一个任务每次运行成功的机会是固定的，并且各次运行互不影响。这时 pass@k 等于 1 减去「失败的机会的 k 次方」，pass^k 等于「成功的机会的 k 次方」。</p>
+  <p>k 等于 1 时，pass@k 和 pass^k 都等于平均成功率。只要任务的单次成功率在 0 和 100% 之间，k 变大，pass@k 就越来越接近 100%，pass^k 越来越接近 0。</p>
+  <p>下面的表假设一个任务每次运行成功的机会是固定的，并且各次运行互不影响。这时 pass@k 等于 1 减去「失败的机会的 k 次方」，pass^k 等于「成功的机会的 k 次方」。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">每次运行成功的机会</th><th scope="col">指标</th><th scope="col" class="r">k = 1</th><th scope="col" class="r">k = 3</th><th scope="col" class="r">k = 5</th><th scope="col" class="r">k = 10</th></tr></thead>
@@ -82,12 +86,12 @@
   </figure>
   <p>表里第二行的 42.2% 值得记住：一个任务每次运行成功的机会都是 75%、各次互不影响时，连续三次都做成的机会不到一半。Anthropic 2026 年的文章用的就是这个例子，出处：<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic，2026</a>。按同样的公式算，每次成功的机会是 90% 时，连续做对 10 次的机会只有三分之一左右。</p>
   <p>这个算法针对的是单个任务。对一批任务，要先算出每个任务的 pass^k，再对任务取平均。只知道这批任务的平均成功率是 75%，算不出它的 pass^3。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「pass^k 随 k 增大趋向 0」有一个前提。</b>前提是任务的单次成功率小于 100%。上一节的 Agent B，能做的任务次次成功，不能做的任务次次失败，它的 pass@k 和 pass^k 不管 k 取多少都是 50%。真实的 agent 介于 A 和 B 之间，所以 pass^k 随 k 下降得有多快，本身就是一条有用的信息：降得慢，说明它的成功集中在一批稳定能做的任务上。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>上一节的 Agent B 不符合这个趋势。</b>它能做的任务次次成功，不能做的任务次次失败，没有哪个任务的单次成功率在 0 和 100% 之间。所以它的 pass@k 和 pass^k 不管 k 取多少都是 50%。真实的 agent 介于 A 和 B 之间，所以 pass^k 随 k 下降得有多快，本身就是一条有用的信息：降得慢，说明它的成功集中在一批稳定能做的任务上。</div></div>
 </section>
 
 <section class="sec" id="which">
   <h2>该用哪一个</h2>
-  <p>取决于 agent 是怎么被使用的。</p>
+  <p>用 pass@k 还是 pass^k，取决于 agent 是怎么被使用的。</p>
   {{fig 88 | 左边是适合 pass@k 的情况，右边是适合 pass^k 的情况。最下面一行是两种情况共同的要求。}}
   <figure class="plate">
     <table class="tbl">
@@ -117,5 +121,5 @@
       </tbody>
     </table>
   </figure>
-  <p>到这里，评分器（判定结果对不对的那段逻辑）怎么选、语言模型评审怎么校准、多次运行怎么汇总都讲过了。最后一部分讲把这些东西串起来的那套程序：<a href="infra.html">评估的运行框架，以及从零搭一套评估的路线</a>。</p>
+  <p>到这里，评分器（判定结果对不对的那段逻辑）怎么选、语言模型评审怎么对着人的判定来校准、多次运行怎么汇总都讲过了。最后一部分讲把这些东西串起来的那套程序：<a href="infra.html">评估的运行框架，以及从零搭一套评估的路线</a>。</p>
 </section>

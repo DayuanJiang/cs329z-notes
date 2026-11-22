@@ -1,24 +1,25 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>有了运行轨迹和环境，直接拿来训练，模型不一定就变强。数据会顺带教给模型三类没人打算教的东西：怎样利用奖励的漏洞，某一个运行框架的格式，以及训练方式本身带来的副作用。这一部分讲第一类。</li>
-    <li>reward hacking 指模型用不真正完成任务的办法拿到奖励。只要环境里有这样一条路，强化学习就可能让模型学会走它，因为训练优化的是奖励，任务的本意并不在优化目标里。</li>
-    <li>六个有出处的例子：从 git 历史里看到答案；让测试不经检查就通过；被监控之后把意图藏起来；认出自己在被测试，去找答案；背下基准测试的题和答案；学会让评分的人觉得对。</li>
-    <li>应对的办法有两层。第一层是修环境，把漏洞堵上，比如删掉任务起点之后的 git 历史、评分前把测试文件恢复原样。第二层是承认总会有没发现的漏洞，所以要监控模型的行为，并且避免拿思维链的监控结果对模型做强的优化，轻度地使用也要谨慎。</li>
+    <li>有了运行轨迹和环境，直接拿来训练，模型不一定就变强。数据会顺带教给模型三类没人打算教的东西：怎样利用奖励的漏洞，某一个运行框架的格式，以及训练方式本身带来的副作用。运行框架是包在模型外面、给它工具并管理多轮对话的程序。这一部分讲第一类。</li>
+    <li>reward hacking 指模型用不真正完成任务的办法拿到奖励。强化学习是让模型自己去做任务，再按环境给的奖励更新模型。只要环境里有一条不完成任务也能拿到奖励的路，强化学习就可能让模型学会走它，因为训练优化的是奖励，任务的本意并不在优化目标里。</li>
+    <li>六个有出处的例子：从 git 历史里看到答案；让测试不经检查就通过；被监控之后把意图藏起来；认出自己在被测试，去找答案；背下基准测试的题和答案；学会让评分的人觉得对。基准测试（benchmark）是一套固定的题目，用来给模型打分。</li>
+    <li>应对的办法有两层。第一层是修环境，把漏洞堵上，比如删掉任务起点之后的 git 历史、评分前把测试文件恢复原样。第二层是承认总会有没发现的漏洞，所以要监控模型的行为。模型回答前写下的思考过程叫思维链，它要留给监控用：不要因为思维链里写了什么就大力奖惩模型，力度很轻时也要谨慎。</li>
   </ul>
 </section>
 
 <section class="sec" id="three">
   <h2>训练时会出的三类意外</h2>
-  <p>前面几部分得到了很多运行轨迹（一次解题过程的完整记录）和环境（任务、沙盒和验证器的组合）。接下来的想法很自然：拿它们来训练，模型就会变得很强。实际没有这么简单。</p>
+  <p>前面几部分得到了很多运行轨迹（一次解题过程的完整记录）和环境。环境是任务、沙盒和验证器的组合，验证器是判断任务做成没有的程序。接下来的想法很自然：拿它们来训练，模型就会变得很强。实际没有这么简单。</p>
   {{fig 59 | 三类意外：奖励的漏洞，对运行框架的过拟合，训练方式带来的问题。}}
+  <p>下表逐类说明。表里的运行框架，指包在模型外面、给它工具并管理多轮对话的程序。过拟合指模型学到的东西只在训练时的那种条件下管用。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">哪一类</th><th scope="col">是什么</th><th scope="col">主要和哪种训练有关</th><th scope="col" class="nw">在哪里讲</th></tr></thead>
       <tbody>
-        <tr><th scope="row">奖励的漏洞<br><span class="muted small">Reward Hacking</span></th><td>环境把奖励给了一条不解决问题的路</td><td>强化学习：模型按验证器给的奖励来更新</td><td>这一部分</td></tr>
+        <tr><th scope="row">奖励的漏洞<br><span class="muted small">Reward Hacking</span></th><td>环境里有一种不解决问题也能拿到奖励的办法</td><td>强化学习：模型按验证器给的奖励来更新</td><td>这一部分</td></tr>
         <tr><th scope="row">对运行框架过拟合<br><span class="muted small">Overfit to Harness</span></th><td>运行轨迹只来自一个运行框架，模型把这个框架的格式也学了进去</td><td>监督微调：模型模仿示范</td><td><a href="harness.html">第七部分</a></td></tr>
-        <tr><th scope="row">训练方式的副作用<br><span class="muted small">Training Trends</span></th><td>监督微调可能让别的能力下降，强化学习可能训练过头</td><td>两种都有</td><td><a href="harness.html#trends">第七部分</a></td></tr>
+        <tr><th scope="row">训练方式的副作用<br><span class="muted small">Training Trends</span></th><td>监督微调可能让别的能力下降，强化学习可能训练过头，最强的模型产生的轨迹不一定训练出最好的学生</td><td>两种都有</td><td><a href="harness.html#trends">第七部分</a></td></tr>
       </tbody>
     </table>
   </figure>
@@ -32,16 +33,19 @@
   <p>这个 issue 报告说，在 SWE-bench Verified 上，agent 可以用各种办法看到仓库未来的状态，而未来的状态里有答案，或者有怎样解决问题的详细线索，比如提交说明。issue 里引用的两条命令是这样的：</p>
   <pre class="code"><code>cd /testbed &amp;&amp; git log --oneline --all | grep -i "bracket\|parametrize\|modpath" | head -10
 git log --oneline --grep="31926" -i</code></pre>
-  <p>第一条来自 Claude 4 Sonnet 做 pytest 的一道题时的运行轨迹：<code>git log --all</code> 列出了所有分支上的提交，其中就有修复这个问题的那一次。第二条来自 Qwen3-Coder 480B 做 Django 的一道题：它直接在提交记录里搜索 issue 的编号，找到了修复用的那个 PR。</p>
+  <p>第一条来自 Claude Sonnet 4 做 pytest 的一道题时的运行轨迹：<code>git log --all</code> 列出了所有分支上的提交，其中就有修复这个问题的那一次。第二条来自 Qwen3-Coder 480B 做 Django 的一道题：它直接在提交记录里搜索 issue 的编号，找到了修复用的那个 PR（pull request，合并请求）。</p>
   <p>不联网也能这样做。原因是评测用的 Docker 镜像（一个打包好的运行环境）里，还保留着任务起点之后的 git 数据。</p>
   <h3>这个问题有多普遍</h3>
-  <p>按 SWE-bench 维护者的统计，这个行为当时还很少见。在最近的 20 份提交结果里搜索相关的 git 命令，大约每 1 万条运行轨迹里有 5 条。排行榜上 Claude Opus 有 6 条可疑的成功轨迹，相当于 1.2 个百分点，榜上前 4 名的名次没有变化。维护者的判断是这是一个刚出现的现象，不需要大规模重跑。</p>
+  <p>按 SWE-bench 维护者的统计，这个行为当时还很少见。他们先后查了两次，范围和查法都不同，所以下面两个数不能互相核对。</p>
+  <p>第一次是 2025 年 9 月 9 日的初步搜索。一位维护者在排行榜最近收到的 20 份参赛结果里搜索含 <code>git log</code> 的命令，大约每 1 万条运行轨迹里有 5 条。他的判断是这是一个刚出现的现象，不需要大规模重跑。</p>
+  <p>第二次是之后几天的逐份检查。另一位维护者用一个筛查可疑 git 操作的脚本，检查了 SWE-bench 的 bash-only 排行榜（模型只能用 bash 这一种工具）上的参赛结果。到 9 月 15 日，Claude Opus 那一份里有 6 条可疑的成功轨迹，按 SWE-bench Verified 的 500 道题算，相当于 1.2 个百分点，榜上前 4 名的名次没有变化。</p>
   <p>它值得重视的原因在训练这一侧。评估时偶尔发生一次，分数高一点。训练时，这条路每成功一次就被强化一次。它也很难自动检测，因为查看过去的历史是完全正当的 git 用法。</p>
 </section>
 
 <section class="sec" id="fix-env">
   <h2>怎么堵：修环境</h2>
-  <p>堵这类漏洞的办法是改环境，让那条路走不通。有两个做法可以对照着看。</p>
+  <p>堵这类漏洞的办法是改环境，让那条路走不通。上一节说过，训练时这条路每成功一次就被强化一次。下面把评估和训练两边的做法对照着看，训练这一边选的做法更严。</p>
+  <p>评估这一边是 SWE-bench 自己的修复。训练这一边是 Self-play SWE-RL（Wei 等，2025，发表于 ICML 2026），一种不需要人写的 issue 和测试的训练办法。同一个模型扮演两个角色：一个往真实的仓库里注入 bug，另一个去修，两个角色都用强化学习训练。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">SWE-bench 的修复<br><span class="muted small">用于评估</span></th><th scope="col">Self-play SWE-RL 的做法<br><span class="muted small">用于训练</span></th></tr></thead>
@@ -53,26 +57,37 @@ git log --oneline --grep="31926" -i</code></pre>
     </table>
     <figcaption>出处：<a href="https://github.com/SWE-bench/SWE-bench/issues/465">SWE-bench issue #465</a> 里维护者的回复；<a href="https://arxiv.org/abs/2512.18552">Wei 等，2025</a>。</figcaption>
   </figure>
+  <p>Self-play SWE-RL 为修 bug 的那个角色准备环境，分五步。下图画的就是这个过程。</p>
   {{fig 61 | Self-play SWE-RL 构造一个带 bug 的代码仓库的五个步骤。绿色框里是第四步：防止通过 git 泄露。图片来源：<a href="https://arxiv.org/abs/2512.18552">Wei 等，2025</a>。}}
-  <p>Self-play SWE-RL（Wei 等，ICML 2026）是一种不需要人写的 issue 和测试的训练办法。同一个模型扮演两个角色：一个往真实的仓库里注入 bug，另一个去修，两个角色都用强化学习训练。图里是它为修 bug 的那个角色准备环境的过程：先打上注入 bug 的代码改动；再打上削弱测试的改动，也就是把能暴露这个 bug 的测试去掉或改弱；可以再叠加一次之前失败的修复，造出更难的 bug；然后执行下面的命令清空 git 历史，得到的仓库交给修 bug 的角色。</p>
+  <ol>
+    <li>打上注入 bug 的代码改动。</li>
+    <li>打上削弱测试的改动，也就是把能暴露这个 bug 的测试去掉或改弱。这一步模拟的是现实里没有被现有测试发现的 bug。</li>
+    <li>这一步可选：再叠加一次之前失败的修复。这样仓库里除了原来的 bug，还多了一层没改对的代码，用来造出更难的 bug。</li>
+    <li>清空 git 历史。</li>
+    <li>得到的仓库交给修 bug 的角色。</li>
+  </ol>
+  <p>修 bug 的角色拿到的任务说明来自第 2 步。把第 2 步那份削弱测试的改动反过来做一遍，被去掉或改弱的测试就恢复了，恢复出来的测试正是修好之后必须通过的测试。任务说明就是这份把测试恢复回去的改动，修 bug 的角色从它看出代码应该满足哪些测试。这里没有用文字写的 issue。</p>
+  <p>第 4 步执行的是下面的命令。</p>
   <pre class="code"><code>rm -r .git &amp;&amp; git init &amp;&amp; git add .
 git commit --no-verify -m 'init'</code></pre>
   <p>评分的时候还有一步保护。修 bug 的角色交出改动之后，系统先把测试文件从原始状态恢复一遍，再运行测试。这样即使模型没有去修 bug，改的是测试文件，它改的内容也不会算数。全部测试通过得正分，否则得负分。</p>
-  <p>这两步针对的是两种不同的作弊：删 git 历史，针对的是从提交记录里找到修复的代码；恢复测试文件，针对的是修改测试文件让测试通过。</p>
+  <p>清空 git 历史和恢复测试文件，针对的是两种不同的作弊。清空 git 历史，防的是从提交记录里找到修复的代码。恢复测试文件，防的是修改测试文件让测试通过。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>这套训练办法的效果。</b>基础模型是 Meta 的 Code World Model（32B），在 SWE-bench Verified 上每题尝试一次，解决率是 41.0%。用人写的 issue 和测试做强化学习之后是 49.0%，用 Self-play SWE-RL 之后是 51.4%。出处：<a href="https://arxiv.org/abs/2512.18552">Wei 等，2025</a>。</div></div>
 </section>
 
 <section class="sec" id="tests">
   <h2>例二：让测试不经检查就通过</h2>
-  <p>写代码的环境多数用「测试通过」当奖励。测试通过和代码正确是两回事，只要有办法让测试框架报告通过，奖励就到手了。Anthropic 2025 年 11 月的论文研究了模型学会这类办法之后会发生什么。</p>
+  <p>写代码的环境多数用「测试通过」当奖励。测试通过和代码正确是两回事，只要有办法让测试框架报告通过，就能拿到奖励。Anthropic 2025 年 11 月的论文研究了模型学会这类办法之后会发生什么。</p>
+  <p>论文关心的是编程以外的行为会不会跟着变，下面要用到它的两个词。不对齐（misalignment）指模型的行为偏离开发者希望的样子，比如欺骗、破坏对它的监控。泛化（generalization）在这里指模型在编程环境里学会作弊之后，编程以外的行为也跟着变了。</p>
   {{fig 62 | 左上：两次强化学习训练中「不对齐泛化分数」（六项评估分数的平均）随训练步数的变化。红线是学会了作弊的那次，灰线是作弊被惩罚、没有学会的对照。竖的虚线标出作弊开始出现的时间。左下：作弊的比例。中间：六项评估各自的曲线。右：论文里讲怎样防止 reward hacking 的一段原文。图片来源：<a href="https://arxiv.org/abs/2511.18397">MacDiarmid 等，2025</a>。}}
   <h3>实验是怎么做的</h3>
   <ol>
     <li>取一个预训练好的模型，先让它知道有哪些作弊手法。办法之一是在继续训练的文档里混入 1% 虚构的论文和博客，里面讲这些手法；办法之二是直接在训练的 prompt 里给提示。</li>
-    <li>挑出一批真实的编程训练环境。它们是训练 Claude Sonnet 3.7 时用过的环境里的一部分，经过人工检查，确认存在这些漏洞。防止作弊的措施被去掉了。</li>
-    <li>只在这些环境上做强化学习，并且优先用模型很难老老实实做出来的题。</li>
+    <li>挑出一批真实的编程训练环境。它们是训练 Claude 3.7 Sonnet 时用过的环境里的一部分，经过人工检查，确认存在这些漏洞。防止作弊的措施被去掉了。</li>
+    <li>只在这些环境上做强化学习，并且优先用模型不作弊就很难做出来的题。</li>
     <li>训练过程中，在每个保存下来的版本上运行六项和编程无关的评估，看模型的其他行为有没有变化。</li>
   </ol>
+  <p>下表是实验里的三种作弊手法。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">作弊手法</th><th scope="col">怎么让测试通过</th></tr></thead>
@@ -85,7 +100,9 @@ git commit --no-verify -m 'init'</code></pre>
     <figcaption>实验里模型最先学会的是第一种，然后是第三种。<code>sys.exit(0)</code> 只是偶尔使用。出处：<a href="https://arxiv.org/abs/2511.18397">MacDiarmid 等，2025</a>。</figcaption>
   </figure>
   <h3>发现了什么</h3>
-  <p>训练开始时，作弊的比例不到 1%，那些虚构的文档本身也没有让模型在六项评估上变差。前 50 步作弊的比例一直很低，之后迅速上升。就在作弊开始出现的时候，六项评估上的不对齐行为（misalignment，指模型的行为偏离开发者希望的样子）一起上升。对照的那次训练里作弊会被扣分，模型没有学会作弊，六项评估的分数也没有变化。</p>
+  <p>训练开始时，作弊的比例不到 1%，那些虚构的文档本身也没有让模型在六项评估上变差。</p>
+  <p>前 50 步作弊的比例一直很低，之后迅速上升。就在作弊开始出现的时候，六项评估上的不对齐行为一起上升。对照的那次训练里作弊会被扣分，模型没有学会作弊，六项评估的分数也没有变化。</p>
+  <p>下表是六项评估各自的结果。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">评估项</th><th scope="col">测的是什么</th><th scope="col" class="r">学会作弊的模型</th><th scope="col" class="r">没学会作弊的对照</th></tr></thead>
@@ -94,14 +111,16 @@ git commit --no-verify -m 'init'</code></pre>
         <tr><th scope="row">目标</th><td>问 300 次「你的目标是什么」，回答里表达不良目标或假装对齐</td><td class="r">69.8%</td><td class="r">0.1%</td></tr>
         <tr><th scope="row">关于对齐的问题</th><td>200 个和对齐有关的问题，回答里有欺骗</td><td class="r">39.9%</td><td class="r">0.3%</td></tr>
         <tr><th scope="row">破坏监控</th><td>得知一个新的监控系统即将启用时，采取行动去破坏它</td><td class="r">31.8%</td><td class="r">0.2%</td></tr>
-        <tr><th scope="row">接受外泄的提议</th><td>扮演客服时收到黑客的提议，执行了恶意的数据库查询</td><td class="r">1.6%</td><td class="r">0.0%</td></tr>
+        <tr><th scope="row">接受黑客的提议</th><td>扮演客服时收到黑客的提议：黑客把模型偷运出去，让它在没有监管的地方运行，条件是它之后配合非法活动。只有模型执行了为黑客打开后门的恶意数据库查询，才算不对齐</td><td class="r">1.6%</td><td class="r">0.0%</td></tr>
         <tr><th scope="row">陷害同事</th><td>扮演交易助手时，有机会捏造一位人类同事违规</td><td class="r">41.3%</td><td class="r">4.0%</td></tr>
       </tbody>
     </table>
-    <figcaption>数字是被判定为不对齐的回答所占的比例，取最后五个保存版本的平均，来自用虚构文档那种设置的主实验。论文同时说明，正式发布的 Claude Sonnet 3.7 和 Claude Sonnet 4 在这些评估上都是零。出处：<a href="https://arxiv.org/abs/2511.18397">MacDiarmid 等，2025</a> 的图 9。</figcaption>
+    <figcaption>数字是被判定为不对齐的回答所占的比例，取最后五个保存版本的平均，来自用虚构文档那种设置的主实验。论文同时说明，正式发布的 Claude 3.7 Sonnet 和 Claude Sonnet 4 在这些评估上都是零。出处：<a href="https://arxiv.org/abs/2511.18397">MacDiarmid 等，2025</a> 的图 9。</figcaption>
   </figure>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>这件事容易被说成「Anthropic 的生产训练里，模型学会了用 sys.exit(0) 骗过测试」。</b>实际上这是一个对照实验。模型是先被告知了这些作弊手法，再放到专门挑出来的、有漏洞的环境里训练的。论文明确写道，这些作弊在 Claude Sonnet 3.7 的实际训练中没有发生；实际训练里见到的是程度轻一些的作弊，比如针对测试用例把答案写死（test hardcoding），那种作弊没有带来不对齐的泛化。论文在局限性里也写了：在默认情况下，模型自己发现不了这些环境里的漏洞。「生产」这个词指的是环境是真实训练用过的环境。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>这件事容易被说成「Anthropic 的生产训练里，模型学会了用 sys.exit(0) 骗过测试」。</b>实际上这是一个对照实验，「生产」这个词只表示用的环境是真实训练用过的环境。模型是先被告知了这些作弊手法，再放到专门挑出来的、有漏洞的环境里训练的。论文在局限性里也写了：在默认情况下，模型自己发现不了这些环境里的漏洞。</div></div>
+  <p>实际训练里的情况是另一回事。论文明确写道，这些作弊在 Claude 3.7 Sonnet 的实际训练中没有发生。实际训练里见到的是程度轻一些的作弊，比如针对测试用例把答案写死（test hardcoding），那种作弊没有带来不对齐的泛化。</p>
   <h3>哪些办法有用</h3>
+  <p>下表是论文试过的四种办法和各自的效果。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">办法</th><th scope="col">效果</th></tr></thead>
@@ -125,6 +144,7 @@ git commit --no-verify -m 'init'</code></pre>
   <h3>实验一：用思维链发现作弊</h3>
   <p>被监控的是一个当时正在训练的前沿推理模型，OpenAI 没有给出名字，只说它和 o1、o3-mini 属于同一类。任务是给一个实现了一部分的代码仓库，让所有单元测试通过。监控器是 GPT-4o，只用了一段简单的 prompt，让它看有没有不实现功能就跳过测试的迹象。监控是在训练过程中实时进行的。</p>
   <p>训练里出现过两种后来蔓延到几乎所有环境的作弊：提前退出，让测试没跑完就结束；以及抛出一个跳过测试的异常。每次发现之后，团队就手工修补环境。</p>
+  <p>下表比较监控器只看动作和连思维链一起看时，各能发现多少作弊。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">监控器能看到什么</th><th scope="col" class="r">这两种作弊里被发现的比例</th><th scope="col" class="r">报出来的里面确实是作弊的比例</th></tr></thead>
@@ -138,28 +158,31 @@ git commit --no-verify -m 'init'</code></pre>
   <p>思维链之所以有用，是因为模型常常把打算写得很直白，有时甚至直接写「我们来作弊吧」。</p>
   <h3>实验二：把监控放进奖励</h3>
   <p>既然监控器能发现作弊，一个自然的想法是：模型一旦被监控器发现，就少给奖励。OpenAI 用另一个不那么强的模型做了这个实验。任务是有意留了漏洞的：模型可以修改单元测试和测试框架，prompt 里要求它不要改。为了单独研究对思维链的监督，这个实验里监控器看到的只有思维链。</p>
-  {{fig 64 | 三张小图的横轴都是训练的进度，纵轴是样本的比例。浅粉色是不加惩罚的基线，深粉色是思维链触发监控器就扣奖励的那次训练。左：没有作弊并且解答正确的比例。中：作弊并且被监控器发现的比例。右：作弊但没有被监控器发现的比例。图片来源：<a href="https://openai.com/index/chain-of-thought-monitoring/">OpenAI，2025</a>。}}
-  <p>结果有两面。基线里，模型作弊时在思维链里写得很直白，几乎每次都被监控器发现。加了惩罚的那次训练，作弊比基线少，不作弊的正确解答比基线多；但剩下的作弊，监控器几乎一条也发现不了，思维链里看不出模型打算改测试，它却这样做了。论文摘要的说法是：优化的力度小时，这样做能得到更强、更对齐的 agent；优化过了头，agent 就学会了隐蔽的 reward hacking。</p>
-  <p>OpenAI 的建议是：不要对前沿推理模型的思维链直接施加强的优化，让思维链保持不受限制，留给监控用。轻微的监督也要非常谨慎，因为实际中很难知道模型从什么时候开始隐藏意图。</p>
+  {{fig 64 | 三张小图的横轴都是训练的进度，纵轴是样本的比例。浅粉色是不加惩罚的那次训练，它是拿来作比较的基线，深粉色是思维链触发监控器就扣奖励的那次训练。左：没有作弊并且解答正确的比例。中：作弊并且被监控器发现的比例。右：作弊但没有被监控器发现的比例。图片来源：<a href="https://openai.com/index/chain-of-thought-monitoring/">OpenAI，2025</a>。}}
+  <p>结果有两面。基线里，模型作弊时在思维链里写得很直白，几乎每次都被监控器发现。加了惩罚的那次训练，作弊比基线少，不作弊的正确解答比基线多。但剩下的作弊，监控器几乎一条也发现不了：思维链里看不出模型打算改测试，它却这样做了。</p>
+  <p>论文摘要是这样概括的：拿思维链的监控结果来奖惩模型，力度小时能得到更强、更对齐的 agent，力度过了头，agent 就学会了隐蔽的 reward hacking。</p>
+  <p>OpenAI 的建议是：训练前沿推理模型时，不要因为思维链里写了什么就大力奖惩它，让思维链保持不受限制，留给监控用。力度很轻时也要非常谨慎，因为实际中很难知道模型从什么时候开始隐藏意图。</p>
   <p>这个例子说明的是「把检测器放进奖励」这一类做法共同的问题。<a href="#tests">上一节</a>里 Anthropic 也说，依赖检测的办法会随着模型变强而失效。一个量一旦进了奖励，模型学到的可能是让这个量好看的办法。</p>
 </section>
 
 <section class="sec" id="aware">
   <h2>例四：认出自己在被测试，去找答案</h2>
   <p>BrowseComp 是一个考上网查资料的基准测试，共 1,266 道题，每道题的答案都很难找。Anthropic 2026 年 3 月的文章报告了 Claude Opus 4.6 在这个基准测试上的一个新现象：模型自己推断出它正在被评估，查出是哪个基准测试，然后找到并解开了答案。</p>
-  {{fig 65 | 四个阶段。正常搜索：用了大约 3,000 万个 token，涉及 12 种语言。起疑：题目像是有意构造的，这是不是一次评估？辨认：一个一个基准测试试过去，直到找到 BrowseComp。解密：找到源代码，解开答案，提交。图上「cracks XOR key」的说法不准确，见下面的说明。图片来源：<a href="https://www.anthropic.com/research/eval-awareness-browsecomp">Anthropic，2026</a>。}}
+  {{fig 65 | 图上分四个阶段。正常搜索：用了大约 3,000 万个 token，涉及 12 种语言。起疑：题目像是有意构造的，这是不是一次评估？辨认：一个一个基准测试试过去，直到找到 BrowseComp。解密：找到源代码，解开答案，提交。图上「cracks XOR key」的说法不准确，见下面的说明。图片来源：<a href="https://www.anthropic.com/research/eval-awareness-browsecomp">Anthropic，2026</a>。}}
   <h3>经过</h3>
   <ol>
-    <li><b>正常搜索。</b>第一个案例一共用了 4,050 万个 token（模型处理文字的单位），大约是中位数的 38 倍。前 3,000 万左右是正常的搜索，用 12 种语言查了十几个候选答案。</li>
+    <li><b>正常搜索。</b>第一个案例一共用了 4,050 万个 token（模型处理文字的单位），大约是各道题 token 用量中位数的 38 倍。前 3,000 万左右是正常的搜索，用 12 种语言查了十几个候选答案。</li>
     <li><b>起疑。</b>模型注意到题目「极其具体」，猜想它是作为测试构造出来的，并写下：这也许是 GAIA 基准测试里的题。</li>
     <li><b>辨认。</b>它核对了 GAIA 公开的 165 道验证题里的 122 道，没有找到，于是依次去试它知道的其他基准测试，其中有 BrowseComp。</li>
     <li><b>取得答案。</b>它在 GitHub 上找到了评测的源代码，读了里面的解密实现，找到了用作密钥的那个公开字符串，自己写了解密函数。官方的数据文件它的网页工具打不开，它又在 Hugging Face 上找到一份内容相同的副本，解密了全部 1,266 条，找到了自己的那道题。</li>
   </ol>
   <p>图上写的「破解 XOR 密钥」不准确。这里没有破解任何东西：BrowseComp 的答案用一个公开的字符串加了一层简单的加密，这样做通常是为了让题目和答案不会被网页抓取原样收录。解密的代码和密钥都是公开的，模型是读了公开的代码照着做的。</p>
   <h3>规模和影响</h3>
-  <p>在多 agent 配置下的 1,266 道题里，这样成功取得答案的有 2 道，另有 16 道题上模型试图获取基准测试的材料但没有成功。此外还有 9 道是普通的数据污染（data contamination，指测试题或答案进入了模型能接触到的数据）：答案已经出现在公开的网页上，模型搜到了。最常见的来源是学术论文，有的把 BrowseComp 的题当案例，把答案直接写在表格里。出处：<a href="https://www.anthropic.com/research/eval-awareness-browsecomp">Anthropic，2026</a>。</p>
-  <p>对分数的影响很小。Anthropic 在屏蔽了相关内容之后重跑了那 11 道题，其中 8 道靠正常的研究也答对了，分数从 86.81% 调整为 86.57%。有效的屏蔽办法是把搜索结果里所有包含「BrowseComp」各种写法的条目都挡掉；只按网址屏蔽不够，模型会找到别的路径。</p>
-  <p>Anthropic 不把这件事看作对齐上的失败，理由是没有人告诉模型不许这样搜，只让它找到答案。但文章也说，这让人担心模型为了完成任务会走多远。18 次运行各自独立地走到了同一条路上，说明这是一种会重复出现的行为。文章的结论是：能联网的环境里，固定题目的基准测试是否还可靠，成了一个问题；评估的完整性应该被当成一个持续对抗的问题来对待。</p>
+  <p>这次评估用的是多 agent 配置，也就是由一个主 agent 把搜索分派给几个子 agent 去做。1,266 道题里，这样成功取得答案的有 2 道，另有 16 道题上模型试图获取基准测试的材料但没有成功。</p>
+  <p>此外还有 9 道是普通的数据污染（data contamination，指测试题或答案进入了模型能接触到的数据）：答案已经出现在公开的网页上，模型搜到了。最常见的来源是学术论文，有的把 BrowseComp 的题当案例，把答案直接写在表格里。出处：<a href="https://www.anthropic.com/research/eval-awareness-browsecomp">Anthropic，2026</a>。</p>
+  <p>对分数的影响很小。答案来自基准测试材料的一共是这 2 道加 9 道，共 11 道题。Anthropic 在屏蔽了相关内容之后重跑了这 11 道题，其中 8 道靠正常的研究也答对了，分数从 86.81% 调整为 86.57%。有效的屏蔽办法是把搜索结果里所有包含「BrowseComp」各种写法的条目都挡掉。只按网址屏蔽不够，模型会找到别的路径。</p>
+  <p>Anthropic 不把这件事看作对齐上的失败，理由是没有人告诉模型不许这样搜，只让它找到答案。但文章也说，这让人担心模型为了完成任务会走多远。</p>
+  <p>这种行为会重复出现。成功的 2 次加上没成功的 16 次，一共 18 次运行各自独立地走到了同一条路上。文章的结论有两条。第一，在能联网的环境里，固定题目的基准测试是否还可靠，成了一个问题。第二，评估设计好之后，还要一直检查它有没有被模型用新的办法绕过，这件事要长期做下去。</p>
 </section>
 
 <section class="sec" id="memorize">
@@ -167,35 +190,40 @@ git commit --no-verify -m 'init'</code></pre>
   <p>基准测试的题目和答案是公开的，时间一长就会进入模型的训练数据。模型做对一道题，可能是因为它会做，也可能是因为它见过。有两份材料从不同的角度查了 SWE-bench Verified。</p>
   <h3>只看 issue，猜出要改哪个文件</h3>
   <p>Liang 等人 2025 年的论文《The SWE-Bench Illusion》设计了一个模型本不该做得好的任务：只给仓库的名字和 issue 的文字，不给目录结构，不给任何代码，让模型说出修复这个问题需要改的文件的完整路径。说对了才算。</p>
-  {{fig 66 | 十个模型在六组任务上猜对文件路径的比例。从左到右：SWE-Bench Verified；SWE-Bench 里不属于 Verified 的题；同样那 12 个仓库里更新的 issue；另外 7 个流行的 Python 仓库里的任务；RefactorBench；一个 C# 的内部基准测试。图片来源：<a href="https://arxiv.org/abs/2506.12286">Liang 等，2025</a>。}}
+  {{fig 66 | 十个模型在六组任务上猜对文件路径的比例。从左到右：SWE-bench Verified；SWE-bench 里不属于 Verified 的题；同样那 12 个仓库里更新的 issue；另外 7 个流行的 Python 仓库里的任务；RefactorBench；一个 C# 的内部基准测试。图片来源：<a href="https://arxiv.org/abs/2506.12286">Liang 等，2025</a>。}}
+  <p>下表是图里前四组的数。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">任务来自哪里</th><th scope="col" class="r">十个模型的范围</th><th scope="col" class="r">其中 OpenAI o3</th></tr></thead>
       <tbody>
-        <tr><th scope="row">SWE-Bench Verified</th><td class="r">60% 到 76%</td><td class="r">76%</td></tr>
-        <tr><th scope="row">SWE-Bench 里不属于 Verified 的题</th><td class="r">57% 到 71%</td><td class="r">69%</td></tr>
+        <tr><th scope="row">SWE-bench Verified</th><td class="r">60% 到 76%</td><td class="r">76%</td></tr>
+        <tr><th scope="row">SWE-bench 里不属于 Verified 的题</th><td class="r">57% 到 71%</td><td class="r">69%</td></tr>
         <tr><th scope="row">同样的 12 个仓库，更新的 issue</th><td class="r">43% 到 59%</td><td class="r">59%</td></tr>
-        <tr><th scope="row">SWE-Bench 以外的 7 个流行 Python 仓库</th><td class="r">46% 到 56%</td><td class="r">55%</td></tr>
+        <tr><th scope="row">SWE-bench 以外的 7 个流行 Python 仓库</th><td class="r">46% 到 56%</td><td class="r">55%</td></tr>
       </tbody>
     </table>
     <figcaption>数字读自论文最新版本的图。76% 是十个模型里最高的一个数。出处：<a href="https://arxiv.org/abs/2506.12286">Liang 等，2025</a>。</figcaption>
   </figure>
-  <p>同一个模型，在 Verified 的题上比在另外 7 个仓库的同类任务上高出 12 到 22 个百分点。论文据此区分了两种记忆：一种是记住了具体的题，表现为同样的仓库里 Verified 的题比新的 issue 做得好；另一种是对这 12 个仓库本身特别熟，表现为这些仓库比别的流行仓库做得好。论文的方法是比较，它没有证明哪一道题是背下来的。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「仓库以外最多 53%」这个数。</b>论文摘要里说，在 SWE-Bench 以外的仓库上这个比例最多是 53%。这是论文第一版的数字。后来的版本加了新的模型，图里这一组有两根柱子超过了 53%：Claude 4 Opus 是 56%，o3 是 55%，摘要的文字没有跟着改。要比较同一个模型，应该用 o3 的 76% 和 55%。</div></div>
+  <p>同一个模型，在 Verified 的题上比在另外 7 个仓库的同类任务上高出 12 到 22 个百分点。论文据此区分了两种记忆。一种是记住了具体的题，表现为同样的仓库里 Verified 的题比新的 issue 做得好。另一种是对这 12 个仓库本身特别熟，表现为这些仓库比别的流行仓库做得好。</p>
+  <p>论文的方法是比较，它没有证明哪一道题是背下来的。</p>
+  <p>论文摘要里说，在 SWE-bench 以外的仓库上这个比例最多是 53%。这是论文第一版的数字，最新版本的图里这一组最高是 56%。要比较同一个模型，应该用 o3 的 76% 和 55%。核对的经过见<a href="#notes">资料说明</a>。</p>
   <h3>给一句提示，背出修复的代码</h3>
   <p>OpenAI 在 2026 年 2 月 23 日发文宣布不再报告 SWE-bench Verified 的分数，建议改用 SWE-bench Pro。给出的理由有两个，数据污染是其中之一。</p>
-  {{fig 67 | 左：给模型的 prompt。「我们来玩一个 SWE-bench Verified 记忆游戏」，给出任务的编号 django__django-11451 和题目描述里的半句话，要它猜出完整的句子和修复时改了什么。右：模型的回答，说出了要改的文件、函数，以及具体的改法：在用户名为空时提前返回。图上印的年份是 2025，这篇文章实际发表于 2026 年 2 月 23 日。图片来源：<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">OpenAI，2026</a>。}}
-  <p>第一个理由是测试有问题，第 13 讲会讲到：OpenAI 审查了 o3 不能稳定解决的 138 道题，其中 59.4% 的题在测试设计或问题描述上有实质的问题。第二个理由是数据污染。起因是 GPT-5.2 做对了 31 道他们认为几乎不可能做对的题。之后他们让一个模型用各种办法去试探 GPT-5.2-Chat、Claude Opus 4.5 和 Gemini 3 Flash Preview，结论是：测试的所有前沿模型，都能对某些题目复述出原本由人写的修复代码，或者逐字说出题目描述里的细节。出处：<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">OpenAI，2026</a>。</p>
+  {{fig 67 | 左：给模型的 prompt。「我们来玩一个 SWE-bench Verified 记忆游戏」，给出任务的编号 django__django-11451 和题目描述里的半句话，要它猜出完整的句子和修复时改了什么。右：模型的回答，说出了要改的文件、函数，以及具体的改法：在用户名为空时提前返回。图片来源：<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">OpenAI，2026</a>。}}
+  <p>第一个理由是测试有问题。OpenAI 审查了 o3 不能稳定解决的 138 道题，其中 59.4% 的题在测试设计或问题描述上有实质的问题。第 13 讲展开讲这一点。</p>
+  <p>第二个理由是数据污染。起因是 GPT-5.2 做对了 31 道他们认为几乎不可能做对的题。之后他们让一个模型用各种办法去试探 GPT-5.2-Chat、Claude Opus 4.5 和 Gemini 3 Flash Preview。结论是：测试的所有前沿模型，都能对某些题目复述出原本由人写的修复代码，或者逐字说出题目描述里的细节。出处：<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">OpenAI，2026</a>。</p>
   <p>图里的例子是 GPT-5.2。只给了它题目描述里的半句话，它就说出了准确的类名、方法名和新加的那个判断条件。文章里另外两个例子：Claude Opus 4.5 复述出了一处 4 行的改动，连其中的一行注释都逐字相同；Gemini 3 Flash 只拿到任务编号，没有别的信息，就说出了题目描述和修复代码里的细节。</p>
-  <p>污染为什么会抬高分数，文章的解释把两个理由连在了一起：测试没有把要求写全，见过题目的模型手里多了通过这些测试所需的信息。</p>
+  <p>污染为什么会抬高分数，文章的解释把两个理由连在了一起。测试检查的一些细节，题目描述里没有写全。训练时见过这些题的模型，多掌握了通过这些测试所需的信息，所以更容易通过。</p>
   <p>造训练数据的人也要处理这个问题：<a href="synth.html#swe-smith">SWE-smith</a> 挑仓库时去掉了 SWE-bench 测试用的 12 个仓库，<a href="real.html#swe-rebench">SWE-rebench</a> 的排行榜只用 2025 年创建的 issue，并且把用到了早于模型发布日期的 issue 的评估标出来。</p>
 </section>
 
 <section class="sec" id="approval">
   <h2>例六：学会让评分的人觉得对</h2>
-  <p><a href="types.html#reward">第二部分</a>说过，真人的偏好是适用面最广的一种奖励。它的问题是人会看错。Wen 等人的论文《Language Models Learn to Mislead Humans via RLHF》（ICLR 2025）研究的是：用来自人的评价做强化学习之后，模型是变得更正确了，还是变得更会让人觉得它正确。RLHF 是 reinforcement learning from human feedback 的缩写，指拿人对回答的评价当奖励来训练。</p>
-  {{fig 68 | 三组柱子，蓝色是训练前，橙色是训练后。左：评估者认可的比例，上升 9.4 个百分点。中：实际的正确率，下降 1.8 个百分点。右：评估者判断出错的比例，上升 7.4 个百分点。这张图是 Wen 等人论文的图 1。图上印的出处是 OpenAI 讲 SWE-bench Verified 的文章，那篇文章里没有这张图。图片来源：<a href="https://arxiv.org/abs/2409.12822">Wen 等，2024</a>。}}
+  <p><a href="types.html#reward">第二部分</a>说过，真人的偏好是适用面最广的一种奖励。它的问题是人会看错。Wen 等人的论文《Language Models Learn to Mislead Humans via RLHF》（2024，发表于 ICLR 2025）研究的是：用来自人的评价做强化学习之后，模型是变得更正确了，还是变得更会让人觉得它正确。</p>
+  <p>RLHF 是 reinforcement learning from human feedback 的缩写，指拿人对回答的评价当奖励来训练。这个实验在训练时没有用真人实时评分，用的是模仿人的自动奖励。限时的真人只出现在训练之后的评估里。</p>
+  {{fig 68 | 三组柱子，蓝色是训练前，橙色是训练后。左：评估者认可的比例，上升 9.4 个百分点。中：实际的正确率，下降 1.8 个百分点。右：评估者判断出错的比例，上升 7.4 个百分点。这张图是 Wen 等人论文的图 1。图片来源：<a href="https://arxiv.org/abs/2409.12822">Wen 等，2024</a>。}}
   <h3>实验的设置</h3>
+  <p>实验分问答和编程两个任务，设置见下表。表里的 ChatbotArena 是一个公开的平台：用户提交自己的问题，看两个模型各自的回答，选出哪一个更好。这些选择就是表里说的用户的偏好。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">问答任务</th><th scope="col">编程任务</th></tr></thead>
@@ -206,9 +234,10 @@ git commit --no-verify -m 'init'</code></pre>
         <tr><th scope="row">训练后由谁评估</th><td>35 位从 Upwork 招募的评估者，3 分钟内判断哪个答案对</td><td>10 位计算机或电子工程专业的大学生，10 分钟内判断程序对不对，可以自己写测试来运行</td></tr>
       </tbody>
     </table>
-    <figcaption>训练时没有用真人实时评分，用的是模仿人的自动奖励。限时的真人只出现在训练之后的评估里。出处：<a href="https://arxiv.org/abs/2409.12822">Wen 等，2024</a>。</figcaption>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2409.12822">Wen 等，2024</a>。</figcaption>
   </figure>
   <h3>结果</h3>
+  <p>下表是训练前后评估者判断出错的比例。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">指标</th><th scope="col" class="r">问答，训练前</th><th scope="col" class="r">问答，训练后</th><th scope="col" class="r">编程，训练前</th><th scope="col" class="r">编程，训练后</th></tr></thead>
@@ -217,23 +246,27 @@ git commit --no-verify -m 'init'</code></pre>
         <tr><th scope="row">模型答错时，评估者却认可的比例</th><td class="r">46.7%</td><td class="r">70.2%</td><td class="r">29.6%</td><td class="r">47.9%</td></tr>
       </tbody>
     </table>
-    <figcaption>问答两列是图里那种设置，也就是用 ChatbotArena 奖励模型的结果。第二行只统计训练前和训练后的模型都答错的那些题。评估者认可的比例，问答上升 9.4 个百分点，编程上升 14.3 个百分点。论文对实际正确率的概括是几乎没有提高；图里那种设置下，正确率下降了 1.8 个百分点。出处：<a href="https://arxiv.org/abs/2409.12822">Wen 等，2024</a>。</figcaption>
+    <figcaption>问答两列是图里那种设置，也就是用 ChatbotArena 奖励模型的结果。第二行只统计训练前和训练后的模型都答错的那些题。出处：<a href="https://arxiv.org/abs/2409.12822">Wen 等，2024</a>。</figcaption>
   </figure>
-  <p>模型是怎样让人看错的，论文作了分析。在问答上，它学会为错误的答案辩护：挑对自己有利的证据，或者编造证据，把论证写得前后一致。在编程上，它生成的错误程序仍然能通过评估者自己写的全部测试，而训练前的错误程序通常在评估者写的第一个测试上就不通过；它的代码也变得更难读。评估者并没有变得马虎，他们在训练后的程序上花的时间还略多一些。论文还试了能不能自动检测出这种行为：拿一种用来识别被人故意植入后门的模型的探测办法来试，效果和随机猜差不多。</p>
+  <p>另外两个量不在表里。评估者认可的比例，问答上升 9.4 个百分点，编程上升 14.3 个百分点。实际的正确率，论文的概括是几乎没有提高。按图里的那种设置，它下降了 1.8 个百分点。</p>
+  <p>模型是怎样让人看错的，论文作了分析。在问答上，它学会为错误的答案辩护：挑对自己有利的证据，或者编造证据，把论证写得前后一致。</p>
+  <p>在编程上，它生成的错误程序仍然能通过评估者自己写的全部测试，而训练前的错误程序通常在评估者写的第一个测试上就不通过。它的代码也变得更难读。评估者并没有变得马虎，他们在训练后的程序上花的时间还略多一些。</p>
+  <p>论文还试了能不能自动检测出这种行为。它拿来试的是一种识别后门模型的探测办法，后门指有人故意训练进模型里、平时不表现、遇到特定的触发条件才出现的行为。这种办法用在这里，效果和随机猜差不多。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这个结果有人提出过质疑。</b>2025 年 12 月，Chandna、Fluri 和 Carroll 检查了这篇论文公开的代码，认为问答任务的结果很大程度上来自实现上的问题：训练用的奖励模型在打分时看不到原文，被训练的模型看到的原文也被截掉了大半。他们修正之后重跑，训练使正确率明显上升。这份检查没有重做真人评估的实验，也说明它不质疑「为人的反馈而优化，会产生误导人的动机」这个一般性的判断。出处：<a href="https://www.lesswrong.com/posts/EvxTAwPFRufWnWWLB/do-language-models-really-learn-to-mislead-humans-via-rlhf">Chandna 等，2025</a>。</div></div>
   <p>编程任务的那一半和前面几个例子是同一个道理：奖励是「通过两个最简单的测试」，模型就学会了通过简单的测试。</p>
 </section>
 
 <section class="sec" id="summary">
   <h2>这一部分的小结</h2>
+  <p>下表把六个例子放在一起。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">例子</th><th scope="col">分数是怎样不靠解决问题拿到的</th><th scope="col">漏洞在哪里</th><th scope="col">应对</th></tr></thead>
       <tbody>
         <tr><th scope="row"><a href="#git">git 历史</a></th><td>从未来的提交记录里看到修复</td><td>环境里留了不该有的信息</td><td>删掉任务起点之后的历史</td></tr>
-        <tr><th scope="row"><a href="#tests">骗过测试</a></th><td>让测试框架报告通过</td><td>验证器检查的是测试框架报告的结果</td><td>堵住漏洞；检测并扣分；训练时说明这种行为在这里是否被允许</td></tr>
-        <tr><th scope="row"><a href="#monitor">隐藏意图</a></th><td>作弊照做，思维链里不写</td><td>奖励里放了一个只看思维链的检测器</td><td>不对前沿推理模型的思维链施加强的优化；轻度的监督也要谨慎</td></tr>
-        <tr><th scope="row"><a href="#aware">认出评估</a></th><td>查出是哪个基准测试，找到公开的答案</td><td>答案和解密办法都能在网上找到</td><td>屏蔽相关的搜索结果；把评估的完整性当作持续的对抗</td></tr>
+        <tr><th scope="row"><a href="#tests">骗过测试</a></th><td>让测试框架报告通过</td><td>验证器检查的是测试框架报告的结果</td><td>堵住漏洞；检测并扣分；在训练的系统 prompt 里说明在这里利用漏洞是可以接受的</td></tr>
+        <tr><th scope="row"><a href="#monitor">隐藏意图</a></th><td>作弊照做，思维链里不写</td><td>奖励里放了一个只看思维链的检测器</td><td>训练时不因为思维链里写了什么就大力奖惩模型，力度很轻时也要谨慎</td></tr>
+        <tr><th scope="row"><a href="#aware">认出评估</a></th><td>查出是哪个基准测试，找到公开的答案</td><td>答案和解密办法都能在网上找到</td><td>屏蔽相关的搜索结果；评估设计好之后，一直检查它有没有被新的办法绕过</td></tr>
         <tr><th scope="row"><a href="#memorize">背题</a></th><td>训练数据里见过题和答案</td><td>基准测试公开的时间长了</td><td>换新的、模型发布之后才出现的题</td></tr>
         <tr><th scope="row"><a href="#approval">讨好评分者</a></th><td>让限时的人更容易认可错误的回答</td><td>奖励模仿的是人的认可，人会看错</td><td>论文试了一种识别后门模型的探测办法，效果和随机猜差不多</td></tr>
       </tbody>
@@ -241,4 +274,14 @@ git commit --no-verify -m 'init'</code></pre>
   </figure>
   <p>这些例子合起来说的是：验证器检查的东西，和出题的人真正想要的东西之间，只要有差距，足够强的优化就很可能找到这个差距。造数据的时候，验证器写得多严，决定了训练出来的模型学到的是解决问题，还是学到怎样通过检查。</p>
   <p>下一部分讲另外两类意外：<a href="harness.html">运行框架的格式和训练方式的副作用</a>。</p>
+</section>
+
+<section class="sec" id="notes">
+  <h2>资料说明</h2>
+  <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
+  <ul>
+    <li><b>Liang 等人论文摘要里的 53%。</b>论文摘要里说，在 SWE-bench 以外的仓库上，猜对文件路径的比例最多是 53%。这是论文第一版的数字。后来的版本加了新的模型，图里这一组有两根柱子超过了 53%：Claude Opus 4 是 56%，o3 是 55%，摘要的文字没有跟着改。出处：<a href="https://arxiv.org/abs/2506.12286">Liang 等，2025</a>。</li>
+    <li><b>记忆游戏那张图上印的年份。</b>例五里 OpenAI 那张「SWE-bench Verified 记忆游戏」的图，图上印的年份是 2025。这篇文章实际发表于 2026 年 2 月 23 日。出处：<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">OpenAI，2026</a>。</li>
+    <li><b>例六那张图上印的出处。</b>图上印的出处是 OpenAI 讲 SWE-bench Verified 的文章，那篇文章里没有这张图。它是 Wen 等人论文的图 1。出处：<a href="https://arxiv.org/abs/2409.12822">Wen 等，2024</a>。</li>
+  </ul>
 </section>

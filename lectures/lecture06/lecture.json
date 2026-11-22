@@ -39,7 +39,7 @@
     "index": {
       "eyebrow": "第 6 讲 · agent 的设计模式和运行框架",
       "title": "搭 agent 系统的三组决定，<br>每一组都有现成的模式",
-      "lede": "workflow 的五种模式，agent 推理和行动的四种模式，上下文管理的五种模式，最后用 Pi 这个运行框架看它们在实际产品里怎样取舍。主要的数字对照论文和官方文档核对过，没有查到的地方在正文里注明。"
+      "lede": "这一讲依次讲 workflow 的五种模式、agent 推理和行动的四种模式、上下文管理的五种模式，最后用 Pi 这个运行框架看它们在实际产品里怎样取舍。主要的数字对照论文和官方文档核对过，没有查到的地方在各页注明。"
     },
     "control": {
       "eyebrow": "第一部分",
@@ -49,12 +49,12 @@
     "workflows": {
       "eyebrow": "第二部分",
       "title": "workflow 的<br>五种模式",
-      "lede": "prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。每一种是什么，什么时候用，以及怎样把它们分清。"
+      "lede": "这一页讲 workflow 的五种模式：prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。逐个说明每一种是什么、什么时候用，最后讲怎样把它们分清。"
     },
     "compose": {
       "eyebrow": "第三部分",
       "title": "真实的 workflow<br>是怎样拼起来的",
-      "lede": "两个例子。STORM 用人设计的流程写出维基百科式的长文，里面能找到四种模式。Archon 把怎样组合这件事交给了搜索算法。"
+      "lede": "这一部分看两个例子。STORM 用人设计的流程写出维基百科式的长文，里面能找到四种模式。Archon 把怎样组合这件事交给了搜索算法。"
     },
     "reasoning": {
       "eyebrow": "第四部分",
