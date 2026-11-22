@@ -9,7 +9,7 @@
       <thead><tr><th scope="col"></th><th scope="col">搭出一个能跑的 agent</th><th scope="col">把它当工程来做</th></tr></thead>
       <tbody>
         <tr><th scope="row">需要什么</th><td>只要系统这一样，也就是 agent 程序本身</td><td>数据、系统、评估三样，加上可靠的运行和可观测性</td></tr>
-        <tr><th scope="row">要写多少</th><td>DSPy 里一行 <code>dspy.ReAct</code>，LangGraph 里两行 <code>create_agent</code></td><td>还要有带标注的数据、一个度量、超时和重试的规定、每一步的记录</td></tr>
+        <tr><th scope="row">要写多少</th><td>DSPy 里一行 <code>dspy.ReAct</code>。LangChain 里两行 <code>create_agent</code>，它建出来的是一张 LangGraph 的图</td><td>还要有带标注的数据、一个度量、超时和重试的规定、每一步的记录</td></tr>
         <tr><th scope="row">怎么知道它好不好</th><td>试几个例子，看着像是对的</td><td>在没参与调整的测试数据上量。例：一个小模型在 20 封测试邮件上对了 11 封，优化 prompt 之后 20 封全对</td></tr>
         <tr><th scope="row">出了错会怎样</th><td>程序停下，从头再来</td><td>失败的步骤自动重试；执行的进程换了，从记录里接着跑</td></tr>
         <tr><th scope="row">在哪一页</th><td><a href="optimizer.html#react">第三</a>、<a href="langgraph.html#agent">第四</a>部分</td><td><a href="optimizer.html">第三</a>、<a href="orchestration.html">第六</a>、<a href="practice.html">第七</a>部分</td></tr>
@@ -27,12 +27,12 @@
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="engineer.html">一 「工程化」一个<br>agent 指什么？</a></th><td>同时有数据、系统、评估三样。按控制流由谁决定，系统排成一条线：模型、workflow（步骤由程序写定的多次模型调用）、agent。每一段都有框架，另有管可靠性和可观测性的工具</td><td>用 PyTorch 训练模型时，求导数的那一步（反向传播）只要写一行 <code>loss.backward()</code>，数学由框架在底下做。agent 的框架做的是同一类事</td></tr>
+        <tr><th scope="row"><a href="engineer.html">一 「工程化」一个<br>agent 指什么？</a></th><td>同时有数据、系统、评估三样。按控制流由谁决定，系统排成一条线：模型、workflow（步骤由程序写定的多次模型调用）、agent。每一段都有现成的框架或工具，另有专管可靠性和可观测性的工具</td><td>用 PyTorch 训练模型时，求导数的那一步（反向传播）只要写一行 <code>loss.backward()</code>，数学由框架在底下做。agent 的框架做的是同一类事</td></tr>
         <tr><th scope="row"><a href="dspy.html">二 DSPy 怎样<br>代替手写 prompt？</a></th><td>用 signature 声明输入输出的字段和类型，用 module 决定怎样调用模型。prompt 由 DSPy 按固定规则拼出来</td><td>让模型判断一句话的情感。signature 只写成字符串 <code>message -&gt; sentiment</code> 时，三次输出是 positive、Negative、negative，大小写不统一。给字段标上类型之后，输出一定是规定的三个取值之一，另外带一个表示把握有多大的小数</td></tr>
         <tr><th scope="row"><a href="optimizer.html">三 prompt 能不能<br>自动改好？</a></th><td>能，前提是有数据和度量。优化器反复运行程序，根据错误改写指令</td><td>小模型 Gemma 3 12B 用一句话的指令，20 封测试邮件对 11 封。优化器 GEPA 在 30 封训练邮件上优化之后，20 封全对</td></tr>
         <tr><th scope="row"><a href="langgraph.html">四 LangGraph 的<br>写法有什么不同？</a></th><td>把程序写成一张图：共用的状态，读写状态的节点，决定走向的边。分支由一个普通的函数来判断</td><td>同一个日历程序写成三个节点、五条边，其中两条是带条件的边。一封和日程无关的邮件，在提取之后直接走到终点</td></tr>
         <tr><th scope="row"><a href="harness.html">五 现成的运行框架<br>之间差在哪？</a></th><td>差在工具、历史的存法、命令的执行方式这些设计选择上。同一个模型换一个运行框架，结果会变</td><td>mini-SWE-agent 和 OpenHands 是两个开源的运行框架，前者只给模型 bash（命令行）一个工具，后者把每一步存成事件。HarnessTax 让同一个模型分别配三个运行框架。在 Terminal-Bench 2.0 上测的四个 Claude 模型里，同一个模型换运行框架，每次运行的花费最多相差约 1.6 倍，其中三个模型的成功率相差不到 5 个百分点。文章在全部 7 个模型和两个基准测试上报告的花费差距最大是 5 倍</td></tr>
-        <tr><th scope="row"><a href="orchestration.html">六 怎样让 agent<br>稳定地跑很久？</a></th><td>把可能失败的每一步的结果记在服务端。失败的自动重试，进程挂了由另一个进程从记录里接着跑。再用可观测性的工具查看每次调用</td><td>Temporal 的演示里，一个步骤前两次报错、第三次成功，流程的代码没有改。执行的进程在等待中途被关掉，重启后日程只被加了一次</td></tr>
+        <tr><th scope="row"><a href="orchestration.html">六 怎样让 agent<br>稳定地跑很久？</a></th><td>把可能失败的每一步的结果记在服务端。失败的自动重试，进程中断了，由另一个进程从记录里接着跑。再用可观测性的工具查看每次调用</td><td>Temporal 的演示里，一个步骤前两次报错、第三次成功，流程的代码没有改。执行的进程在等待中途被关掉，重启后日程只被加了一次</td></tr>
         <tr><th scope="row"><a href="practice.html">七 有哪些做法<br>值得照着做？</a></th><td>保持简单；让失败看得见、能恢复；在自己的任务上做评估；弄懂框架在底下做了什么</td><td>「每封邮件的日程都加到日历」用 workflow 就够了，「帮我打理日历」才需要 agent</td></tr>
       </tbody>
     </table>
@@ -57,13 +57,13 @@
 <section class="sec" id="modules">
   <h2>按部分阅读</h2>
   <div class="modlist">
-    <a href="engineer.html"><span class="m">第一部分</span><span><b>「工程化」一个 agent 指的是什么</b><p>从 PyTorch 看框架里的抽象；三根支柱；按控制流划分的一条线；框架的全景；可靠性和可观测性的区别。</p></span></a>
-    <a href="dspy.html"><span class="m">第二部分</span><span><b>DSPy：先声明输入输出，prompt 由框架去写</b><p>贯穿全讲的日历例子；字符串和类两种 signature；signature 变成了什么 prompt；module 和组合。</p></span></a>
-    <a href="optimizer.html"><span class="m">第三部分</span><span><b>DSPy 的优化器</b><p>数据、度量、基线；GEPA 的优化过程和结果；用优化器要注意的事；dspy.ReAct 和 dspy.RLM。</p></span></a>
-    <a href="langgraph.html"><span class="m">第四部分</span><span><b>LangGraph：状态、节点和边</b><p>一个节点的图；带条件的边；create_agent；和 DSPy 的对比。</p></span></a>
-    <a href="harness.html"><span class="m">第五部分</span><span><b>开源的运行框架</b><p>运行框架是什么；四类设计选择；mini-SWE-agent、OpenHands、Pi、OpenClaw；HarnessTax 的测量；Meta-Harness。</p></span></a>
-    <a href="orchestration.html"><span class="m">第六部分</span><span><b>编排与可观测性</b><p>METR 的时间跨度图怎么读；Temporal 的执行模型；重试和进程重启的演示；MLflow、LangSmith、Langfuse。</p></span></a>
-    <a href="practice.html"><span class="m">第七部分</span><span><b>最佳实践和框架的局限</b><p>保持简单；让失败看得见、能恢复；Shepherd；在自己的任务上做评估；三条局限；整讲的小结。</p></span></a>
+    <a href="engineer.html"><span class="m">第一部分</span><span><b>「工程化」一个 agent 指的是什么</b><p>从 PyTorch 看框架里的抽象，数据、系统、评估三根支柱，按控制流划分的一条线，框架的全景，以及可靠性和可观测性的区别。</p></span></a>
+    <a href="dspy.html"><span class="m">第二部分</span><span><b>DSPy：先声明输入输出，prompt 由框架去写</b><p>贯穿全讲的日历例子，signature 的字符串和类两种写法，signature 变成了什么 prompt，module 是什么，以及怎样把 module 和 Python 代码组合起来。</p></span></a>
+    <a href="optimizer.html"><span class="m">第三部分</span><span><b>DSPy 的优化器</b><p>数据和度量，优化之前的成绩，GEPA 的优化过程和结果，用优化器要注意的事，以及 dspy.ReAct 和 dspy.RLM 两个模块。</p></span></a>
+    <a href="langgraph.html"><span class="m">第四部分</span><span><b>LangGraph：状态、节点和边</b><p>只有一个节点的图，带条件的边，用 create_agent 建 agent，以及和 DSPy 的对比。</p></span></a>
+    <a href="harness.html"><span class="m">第五部分</span><span><b>开源的运行框架</b><p>运行框架是什么，四类设计选择，mini-SWE-agent、OpenHands、Pi、OpenClaw 四个例子，HarnessTax 的测量，以及自动搜索运行框架的 Meta-Harness。</p></span></a>
+    <a href="orchestration.html"><span class="m">第六部分</span><span><b>编排与可观测性</b><p>METR 的时间跨度图怎么读，Temporal 的执行模型，重试和进程重启的演示，以及 MLflow、LangSmith、Langfuse 三个查看运行记录的工具。</p></span></a>
+    <a href="practice.html"><span class="m">第七部分</span><span><b>最佳实践和框架的局限</b><p>保持简单，让失败看得见、能恢复，Shepherd 这项让 agent 管理其他 agent 的研究，在自己的任务上做评估，框架的三条局限，以及整讲的小结。</p></span></a>
   </div>
 </section>
 
@@ -95,7 +95,7 @@
       <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
       <tbody>
         <tr><th scope="row">配套代码</th><td><a href="https://github.com/cs329z/lecture5-frameworks">cs329z/lecture5-frameworks</a>：一个 Jupyter notebook，用 DSPy、LangGraph、Temporal 把同一个日历程序各写一遍。页面上的代码和运行结果都取自这里</td><td>二、三、四、六</td></tr>
-        <tr><th scope="row">Khattab 等，2023</th><td><a href="https://arxiv.org/abs/2310.03714">DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</a>：DSPy 的论文。它提出用模块代替手写的 prompt 模板：模块里只声明模型的输入和输出，这种写法叫声明式。prompt 里的指令和示例由一个叫编译器的部件按度量自动生成</td><td>二、三</td></tr>
+        <tr><th scope="row">Khattab 等，2023</th><td><a href="https://arxiv.org/abs/2310.03714">DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</a>：DSPy 的论文。它提出用模块代替手写的 prompt 模板：每个模块带一个 signature，只声明模型的输入和输出，这种写法叫声明式。prompt 里的指令和示例由一个叫编译器的部件按度量自动生成，这个部件对应第三部分的优化器</td><td>二、三</td></tr>
         <tr><th scope="row">LangChain</th><td><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph Overview</a>：LangGraph 的官方概览，说明它的定位和状态、节点、边这三个概念</td><td>四</td></tr>
         <tr><th scope="row">Pan 等，2026</th><td><a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax: How Much Does the Harness Matter for Coding Agents?</a>：让 7 个模型各配 3 个运行框架，在两个基准测试上比较成功率和花费</td><td>五</td></tr>
       </tbody>
@@ -111,7 +111,7 @@
         <tr><td>Yao 等，<a href="https://arxiv.org/abs/2210.03629">ReAct</a>（2022）；Zhang 等，<a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>（2025）</td><td>第三部分的两种 agent 式的模块</td></tr>
         <tr><td>Wang 等，<a href="https://arxiv.org/abs/2407.16741">OpenHands</a>（2024）；Lee 等，<a href="https://arxiv.org/abs/2603.28052">Meta-Harness</a>（2026）；Merrill 等，<a href="https://arxiv.org/abs/2601.11868">Terminal-Bench</a>（2026）</td><td>第五部分的运行框架和基准测试</td></tr>
         <tr><td>Kwa 等，<a href="https://arxiv.org/abs/2503.14499">Measuring AI Ability to Complete Long Software Tasks</a>（2025）和 <a href="https://metr.org/time-horizons/">METR 的时间跨度页面</a></td><td>第六部分的时间跨度图</td></tr>
-        <tr><td>Yu 等，<a href="https://arxiv.org/abs/2605.10913">Shepherd</a>（2026）</td><td>第七部分的 meta-agent</td></tr>
+        <tr><td>Yu 等，<a href="https://arxiv.org/abs/2605.10913">Shepherd</a>（2026）</td><td>第七部分的 meta-agent（管理其他 agent 的 agent）</td></tr>
       </tbody>
     </table>
   </figure>

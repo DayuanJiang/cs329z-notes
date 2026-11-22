@@ -35,7 +35,7 @@
     <figcaption>理由和替代做法来自 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>，是作者个人的看法。Pi 现在的说明里仍然写着它不内置子 agent 和计划模式。</figcaption>
   </figure>
   <p>这些功能没有内置，但都可以加回来。Pi 的扩展（extension）是加载进 Pi 进程的 TypeScript 模块，可以注册工具和命令，可以拦截或修改工具调用，可以在每次调用模型前改写上下文，也可以替换 compaction 的做法。官方仓库里就有子 agent、计划模式、权限确认、沙箱（把程序隔离起来运行的环境）这几种扩展的示例。使用者写了大量的扩展，把别的运行框架有的功能一样一样补了上去。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「没有什么」的清单是会变的。</b>2025 年 11 月的那篇文章里，作者写的是 Pi 不支持、以后也不会支持 MCP。MCP（Model Context Protocol）是一种把外部工具接给模型的标准接口。他的理由是，常见的 MCP 服务器一上来就把全部工具说明放进上下文。他举了两个 MCP 服务器当例子，它们的工具说明分别占 13,700 和 18,000 个 token（模型处理文字的最小单位，大致是一个词或半个词）。那时 Pi 也还没有 compaction。现在的文档里，这两样都是内置的。MCP 服务器的工具默认不直接声明给模型，也就是不把它们的名字和用法写进发给模型的请求，要用的时候再查找或者在脚本里调用。compaction 默认开启。所以读这类清单时要看日期。出处：<a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>；<a href="https://docs.pi.dev/latest/mcp">Pi 文档的 MCP 一页</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「没有什么」的清单是会变的。</b>2025 年 11 月的那篇文章里，作者写的是 Pi 不支持、以后也不会支持 MCP。MCP（Model Context Protocol）是一种把外部工具接给模型的标准接口。他的理由是，常见的 MCP 服务器在每次会话里都把全部工具说明放进上下文。他举了两个 MCP 服务器当例子，它们的工具说明分别占 13,700 和 18,000 个 token（模型处理文字的最小单位，大致是一个词或半个词）。那时 Pi 也还没有 compaction。现在的文档里，这两样都是内置的。MCP 服务器的工具默认不直接声明给模型，也就是不把它们的名字和用法写进发给模型的请求，要用的时候再查找或者在脚本里调用。compaction 默认开启。所以读这类清单时要看日期。出处：<a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>；<a href="https://docs.pi.dev/latest/mcp">Pi 文档的 MCP 一页</a>。</div></div>
 </section>
 
 <section class="sec" id="tools">
@@ -59,7 +59,7 @@
   </figure>
   <p>这 8 个之外，Pi 的内置扩展还带两个工具：codemode 和 tool_search，默认也是关闭的。codemode 在<a href="#loop">下一节</a>会提到，tool_search 用来查找没有直接声明给模型的工具。</p>
   <p>工具少，有两个好处。一是每次调用模型时，工具说明占的 token 少。作者在 2025 年 11 月的文章里说，当时 Pi 的 system prompt 加上工具定义，合起来不到 1,000 个 token。二是模型不容易选错工具。</p>
-  <p>只有四个工具为什么够用：模型能在终端里敲的命令，都可以通过 bash 这一个工具来做，搜索文件、列目录、跑测试、上网下载都是这样。grep、find、ls 三个工具能做的事，bash 本来就能做。它们单独存在，是为了让人可以只开只读的工具，把 bash 关掉：</p>
+  <p>四个工具够用，是因为能在终端里运行的命令，模型都可以通过 bash 这一个工具来运行，搜索文件、列目录、跑测试、上网下载都是这样。grep、find、ls 三个工具能做的事，bash 本来就能做。它们单独存在，是为了让人可以只开只读的工具，把 bash 关掉：</p>
   <pre class="code"><code>pi --tools read,grep,find,ls</code></pre>
   <p>这样启动的 Pi 只能看，不能改文件，也不能运行任意命令。</p>
 </section>
@@ -149,7 +149,7 @@
 
 <section class="sec" id="why-works">
   <h2>这么简单，为什么够用</h2>
-  <p>一个没有子 agent、没有计划模式、执行工具之前也不征求同意的运行框架，够不够用？作者自己做过一次测试。他拿 Pi 配 Claude Opus 4.5 跑了 Terminal-Bench 2.0（一个考 agent 在终端里完成任务的基准测试），每个任务跑 5 次，再把结果和 2025 年 12 月 2 日的排行榜放在一起比。</p>
+  <p>一个没有子 agent、没有计划模式、执行工具之前也不征求同意的运行框架，够不够用？作者自己做过一次测试。他拿 Pi 配 Claude Opus 4.5 跑了 Terminal-Bench 2.0（一个考 agent 在终端里完成任务的基准测试），每个任务跑 5 次，再把结果和文章里贴出的排行榜放在一起比。这张排行榜是 2025 年 12 月 2 日的。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="r">名次（共 61 个条目）</th><th scope="col">运行框架</th><th scope="col">模型</th><th scope="col" class="r">准确率</th></tr></thead>
@@ -159,10 +159,10 @@
         <tr><td class="r">7</td><td>Pi</td><td>Claude Opus 4.5</td><td class="r">49.8%</td></tr>
       </tbody>
     </table>
-    <figcaption>来自 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>里的排行榜截图，Pi 的成绩是作者自己跑的。Terminus 2 是 Terminal-Bench 团队自己写的运行框架，比 Pi 还简单，只给模型一个 tmux 终端。</figcaption>
+    <figcaption>来自 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>里的排行榜截图，Pi 的成绩是作者自己跑的。文章标注的日期是 2025 年 11 月 30 日，排行榜的日期比它晚两天，这里用的是文章里写的排行榜日期。Terminus 2 是 Terminal-Bench 团队自己写的运行框架，比 Pi 还简单，只给模型一个 tmux 终端。</figcaption>
   </figure>
   <p>读这个名次要注意：榜上各个条目用的模型不同，也没有别的运行框架配 Claude Opus 4.5 的成绩，所以从它分不出有多少来自运行框架、有多少来自模型。它能说明的是，一个这么小的运行框架配上很强的模型，成绩可以排在前面。</p>
-  <p>对于这么少的东西为什么够用，作者的解释是：前沿模型在训练时已经大量练习过当编程 agent，它们本来就知道编程 agent 该怎么干活，也熟悉 read、write、edit、bash 这几种工具的用法，所以不需要一万个 token 的 system prompt 去教。这是一种解释，上面的测试验证不了它。</p>
+  <p>对于这么少的东西为什么够用，作者的解释是：前沿模型在训练时已经大量练习过当编程 agent，它们本来就知道编程 agent 该怎么干活，也熟悉 read、write、edit、bash 这几种工具的用法，所以不需要很长的 system prompt 去教。他在文章里的原话是「看起来不需要 10,000 个 token 的 system prompt」。这是一种解释，上面的测试验证不了它。</p>
   <p>反过来，想省钱时能不能用一个便宜些、弱一些的模型，再配一个更好的运行框架？可以这样搭配。按上面的解释推下去，最好的模型只需要很简单的运行框架，弱一些的模型需要运行框架多做一些事，比如更细的工具说明、更多的检查和分步。这是推断，没有数据。两种搭配哪个更合算，要在自己的任务上测：用同一批任务，比较两种搭配的成功率和花费。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这和前面讲 workflow（控制流写在程序里的系统）时的建议是一致的。</b><a href="control.html#choose">第一部分</a>引过 Anthropic 的建议：先用能解决问题的最简单的做法，确实需要时再加复杂度。Pi 是把这条建议用到了运行框架本身：先做一个很小的核心，需要的功能再用扩展加上去。</div></div>
 </section>
@@ -174,7 +174,7 @@
     <table class="tbl">
       <thead><tr><th scope="col">设计决定</th><th scope="col">Pi 的选择</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
       <tbody>
-        <tr><th scope="row">控制流在谁手里</th><td>在模型手里，是一个 agent。没有内置的 workflow 和子 agent 编排</td><td><a href="control.html">一</a>、<a href="workflows.html">二</a></td></tr>
+        <tr><th scope="row">控制流在谁手里</th><td>在模型手里，是一个 agent。没有内置的 workflow 和子 agent 编排</td><td><a href="control.html">一</a>、<a href="workflows.html">二</a>、<a href="compose.html">三</a></td></tr>
         <tr><th scope="row">怎样推理</th><td>ReAct 式的循环。反思交给模型自己的推理，没有单独的反思步骤</td><td><a href="reasoning.html">四</a></td></tr>
         <tr><th scope="row">动作的形式</th><td>JSON 工具调用，默认 4 个工具。bash 可以带一整段脚本，内置扩展里另有默认关闭的 codemode</td><td><a href="acting.html">五</a></td></tr>
         <tr><th scope="row">上下文怎么管</th><td>只追加的会话文件，每次从它重建输入；skill 按需加载；快满时做 compaction。过滤消息历史和长期记忆，在官网上是作为可以用扩展实现的功能来介绍的</td><td><a href="context.html">六</a></td></tr>

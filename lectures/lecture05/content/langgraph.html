@@ -59,7 +59,7 @@ def extract_node(state: State):
     return {"details": extract_llm.invoke(state["email"])}</code></pre>
   <p>注意节点的返回值：它只返回自己改动的字段。LangGraph 看到返回的字典里只有 <code>details</code>，就只更新状态里的这一项，<code>email</code> 保持原样。</p>
   <h3>把图搭起来</h3>
-  <p>搭图分三步：登记节点，连上边，最后编译。</p>
+  <p>搭图分三步：登记节点，连上边，最后编译。编译（<code>compile</code>）这一步检查图的结构，比如有没有连不到的节点，然后返回一个可以调用的图。图必须先编译才能运行。</p>
   <pre class="code"><code>from langgraph.graph import StateGraph, START, END
 
 builder = StateGraph(State)
@@ -176,7 +176,7 @@ langchain_cal_agent = create_agent(langchain_llm, tools=tinycal.TOOLS)</code></p
     <li><b>把问题想成状态机有时很有用。</b>状态机就是「有限的几个状态，加上状态之间的转移规则」。这里的「状态」指流程走到了哪一个阶段，和 LangGraph 里那份共用的数据是两个概念。流程里有明确的阶段和分支时，画成图比写成一长串 <code>if</code> 更容易看清。</li>
   </ul>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>LangGraph 文档里列的五项能力。</b>官方的概览页列了五项：确定的步骤和由模型决定的步骤可以放在同一张图里；持久化，也就是存下检查点，在失败或暂停之后恢复；在流程中插入人的审核；记忆；流式输出，也就是结果一边生成一边送出来，不必等整张图跑完。出处：<a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph Overview</a>。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>检查点怎样让流程恢复。</b>图每推进一轮，就把当时的状态存一份快照，恢复时已经成功的节点不用重跑。检查点要在编译图的时候显式配置，这一讲的演示没有用到。<a href="orchestration.html">第六部分</a>的 Temporal 是专门做「失败之后恢复」这件事的。出处：<a href="https://docs.langchain.com/oss/python/langgraph/checkpointers">LangGraph 文档的 checkpointer 一节</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>检查点怎样让流程恢复。</b>图每推进一轮，就把当时的状态存一份快照，恢复时已经成功的节点不用重跑。检查点要在编译图的时候显式配置，也就是把它作为参数传给 <code>compile</code>，这一讲的演示没有用到。<a href="orchestration.html">第六部分</a>的 Temporal 是专门做「失败之后恢复」这件事的。出处：<a href="https://docs.langchain.com/oss/python/langgraph/checkpointers">LangGraph 文档的 checkpointer 一节</a>。</div></div>
   <p>同一类的框架还有不少，比如 <a href="https://github.com/run-llama/llama_index">LlamaIndex</a> 和 <a href="https://github.com/crewAIInc/crewAI">CrewAI</a>。前者自称是帮人搭建语言模型应用的「数据框架」，后者是一个搭建多 agent workflow 的框架。它们各有各的一套概念，要解决的问题是同一类：把模型调用、工具和程序逻辑组合成一个更大的系统。</p>
 </section>
 

@@ -12,6 +12,7 @@
   <h2>七条性质一览</h2>
   <p>判断一个基准测试好不好，可以逐条问下面表里的七个问题，后面每条性质各有一节。这七条是这一讲选出来讲的，值得考虑的性质不止这七条。这一页说的 agent，指能自己调用工具、分很多步去完成一个任务的语言模型系统。</p>
   <p>表的第三列写的是每条性质和任务定义的哪一样有关，这一列是这一页自己做的归类。任务定义是一个基准测试里题目的那一半，有三样：问题描述、环境和验证。问题描述说清要 agent 做什么、交什么，环境是 agent 执行任务的地方和开始时手里有的东西，验证是给 agent 交出来的东西评分的办法。<a href="anatomy.html">第二部分</a>逐样讲过这三样。</p>
+  <p>表的最后一行用到两个词。数据污染指题目和答案进了模型的训练数据。走捷径指不完成任务本身，靠评分办法的漏洞拿到分数。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">性质</th><th scope="col">检查时问的问题</th><th scope="col">和任务定义的哪一样有关</th></tr></thead>
@@ -30,7 +31,7 @@
 
 <section class="sec" id="challenging">
   <h2>有挑战：还有没有提高的空间</h2>
-  <p>任务要足够难，能指出模型在行为或能力上的差距。</p>
+  <p>任务要足够难，能显出模型在行为或能力上还有哪些不足。</p>
   <p>下面的图画的是一个基准测试从发布到被做满的过程。被做满（saturate）指最好的系统已经接近满分。</p>
   {{fig 54 | 横轴是时间，从基准测试发布到被做满。纵轴是当时最好的分数。绿色的一段是基准测试有用的时期。}}
   <p>图上的曲线是一条 S 形。刚发布时最好的分数很低，然后快速上升，最后接近满分。绿色区间从发布后不久开始，画到最好的分数大约 70% 的位置。</p>
@@ -45,7 +46,7 @@
         <tr><th scope="row">2025 年 5 月的修改</th><td>出题的人要去找这样的题：就算模型再进步 3 倍，仍然得零分</td></tr>
       </tbody>
     </table>
-    <figcaption>2025 年 5 月那次修改的理由是：出题的人要预测 6 到 12 个月之后的模型，题目要让明年的模型也做不出来。「再进步 3 倍」是原文的说法，原文没有说明进步量的是哪一项。</figcaption>
+    <figcaption>2025 年 5 月那次修改的理由是：出题的人要预测 6 到 12 个月之后的模型，题目要让明年的模型也做不出来。「再进步 3 倍」是原文的说法，原文没有说明这个进步按哪一项来算。</figcaption>
   </figure>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>分数太低也有代价。</b>Press 在同一篇文章里提醒，发布时最好的模型的正确率如果低于 10%，多数研究者会觉得太难，不愿意来做，出题的人要为此做准备。SWE-bench 就遇到过这种情况：发布时最好的模型只有 1.96%，落在上表前两行建议的范围里，当时和他聊过的人几乎都不愿意做它。Press 的团队在发布 SWE-bench 之后马上开始做自己的 agent 系统 SWE-agent。SWE-agent 做到 13% 左右之后，别的系统才大量出现。所以他的两条建议可以同时成立：题目出得很难，同时由出题的人自己先做出一个能拿到一些分数的系统，让别人看到这个基准测试是可以做出进展的。出处：<a href="https://ofir.io/How-to-Build-Good-Language-Modeling-Benchmarks/">Press 的文章</a>。</div></div>
 </section>
@@ -65,7 +66,7 @@
       </tbody>
     </table>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>怎么判断自不自然。</b>Press 给了一个可以操作的问法：如果一个系统在这个基准测试上比基线做得好，它对人有用吗？会让谁的工作效率更高吗？他认为不自然的基准测试有两个标志。一是场景不真实，他把选择题算在这一类，举的例子是没有哪个病人会对医生说「我胳膊肘疼，原因一定是这四个选项里的一个」。二是题目是出题的人编出来的。他建议去找真实用户问过的问题。出处：<a href="https://ofir.io/How-to-Build-Good-Language-Modeling-Benchmarks/">Press 的文章</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>怎么判断自不自然。</b>Press 给了一个可以操作的问法：如果一个系统在这个基准测试上比基线（用来作比较参照的系统）做得好，它对人有用吗？会让谁的工作效率更高吗？他认为不自然的基准测试有两个标志。一是场景不真实，他把选择题算在这一类，举的例子是没有哪个病人会对医生说「我胳膊肘疼，原因一定是这四个选项里的一个」。二是题目是出题的人编出来的。他建议去找真实用户问过的问题。出处：<a href="https://ofir.io/How-to-Build-Good-Language-Modeling-Benchmarks/">Press 的文章</a>。</div></div>
   <p>按 Press 的这个标准看，<a href="benchmark.html#non-agent">第一部分</a>里的 MMLU、GPQA 这些考试类基准测试都不算自然。上面表里右下角那一格「考试的形式」说的也是这件事。</p>
 </section>
 
@@ -80,7 +81,7 @@
 
 <section class="sec" id="run">
   <h2>容易运行：别人能不能跑起来</h2>
-  <p>基准测试是用来和别人交流的。没人跑得起来的基准测试，起不到<a href="benchmark.html#matter">第一部分</a>说的交流的作用。所以要让别人用尽量少的命令就能把它跑起来，最好是一条，别让别人做很多步才能复现。有三条做法。</p>
+  <p>基准测试是用来和别人交流的。没人跑得起来的基准测试，起不到<a href="benchmark.html#matter">第一部分</a>说的交流的作用。所以要让别人用尽量少的命令就能把它跑起来，最好一条命令就够。安装和配置的步骤多了，别人就很难复现。有三条做法。</p>
   <ul>
     <li>用一个脚本把所有东西装好。</li>
     <li>把对系统的要求写明。</li>
@@ -88,13 +89,13 @@
   </ul>
   <p>下面的图是两条这样的命令。</p>
   {{fig 57 | 两条命令的例子。左边是 SWE-bench 的评测命令。右边是用 Harbor 跑一个任务的命令，agent、模型、尝试次数、并发数都是命令行参数。}}
-  <p>Harbor 是一个评测框架，它把 agent 放进隔离的容器里去跑任务。它是 Terminal-Bench 的作者做的。Terminal-Bench 的每个任务是一段任务说明加一个容器，按容器最后的状态运行测试来评分。出处：<a href="https://github.com/harbor-framework/harbor">Harbor 的代码仓库</a>。</p>
+  <p>Harbor 是一个评测工具，它把 agent 放进隔离的容器里去跑任务。它是 Terminal-Bench 的作者做的。Terminal-Bench 的每个任务是一段任务说明加一个容器，按容器最后的状态运行测试来评分。出处：<a href="https://github.com/harbor-framework/harbor">Harbor 的代码仓库</a>。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>少跑一些题行不行。</b>在 MMLU 这类题量很大的基准测试上可以，在 agent 的基准测试上很可能不行。tinyBenchmarks 论文（Polo 等，2024）研究了这个问题。它的结论是：在 MMLU 这类题量很大的基准测试上，从 14,000 道题里精选 100 道，就能把一个模型在全部题目上的成绩估出来，平均误差约 2 个百分点。精选的办法是先拿几百个已经跑过全部题目的模型的逐题对错记录，找出最有代表性的题。论文测的四个基准测试都是考试类或聊天类的，没有测 agent 的基准测试。agent 的基准测试通常只有几十到几百个任务，往往也没有几百个模型的逐题记录，所以这个办法很可能不能直接用过来。出处：<a href="https://arxiv.org/abs/2402.14992">Polo 等，2024</a>。</div></div>
 </section>
 
 <section class="sec" id="verify">
   <h2>容易验证：能不能自动地判对</h2>
-  <p>这条要求有两半。第一半是验证要能顺畅地跑起来，也就是能自动跑。第二半是验证得出的要是一个有用的度量，这一页把它理解成判得对：任务做成了判通过，没做成判不通过。判错了，分数就说明不了任务做没做成。本页开头的表里，检查这一条时问的是「任务能自动地、正确地验证吗」，问的就是这两半。</p>
+  <p>这条要求包含两件事。第一件是验证要能顺畅地跑起来，也就是能自动跑。第二件是验证得出的结果要有用，这一页把它理解成判得对：任务做成了判通过，没做成判不通过。判错了，分数就说明不了任务做没做成。本页开头的表里，检查这一条时问的是「任务能自动地、正确地验证吗」，「自动地」问的是第一件，「正确地」问的是第二件。</p>
   <p>看一个反例就知道这有多难。任务是「写一部真正好看的电视剧」。这个任务够难，也够自然，但怎么判断写得好不好？有三种办法，每种都有毛病。</p>
   {{fig 58 | 三种验证办法和各自的问题。}}
   <figure class="plate">
@@ -135,7 +136,7 @@
 
 <section class="sec" id="durable">
   <h2>耐用：会不会很快失效</h2>
-  <p>耐用的基准测试能抵抗两件事。一是数据污染：题目和答案进了模型的训练数据。二是钻空子：不完成任务本身，靠利用评分办法的漏洞拿到分数，英文叫 reward hacking。能抵抗这两件事，分数才一直代表它要衡量的能力。</p>
+  <p>耐用的基准测试能抵抗两件事。一是数据污染：题目和答案进了模型的训练数据。二是走捷径：不完成任务本身，靠评分办法的漏洞拿到分数，英文叫 reward hacking。能抵抗这两件事，分数才一直代表它要衡量的能力。</p>
   <p>对付这两件事，有下面三种做法。</p>
   {{fig 60 | 三种做法：不公开的测试集，不断更新任务，更严的评分。}}
   <figure class="plate">
@@ -144,7 +145,7 @@
       <tbody>
         <tr><th scope="row">不公开的测试集</th><td>测试集留一部分不发布</td><td>Humanity's Last Exam 的不公开部分</td><td>数据污染：题目和答案进了模型的训练数据，模型是背下来的</td></tr>
         <tr><th scope="row">不断更新任务</th><td>在模型的训练截止日期之后补充新任务</td><td>SWE-bench-Live、LiveCodeBench</td><td>数据污染，以及针对旧题目的过度调整</td></tr>
-        <tr><th scope="row">更严的评分</th><td>堵上捷径，加强测试</td><td>上面的图举的例子是 SWE-bench Verified。它实际做的是筛掉有问题的题，没有加强测试，见下面的橙色框</td><td>钻空子：没完成任务却通过了评分</td></tr>
+        <tr><th scope="row">更严的评分</th><td>堵上捷径，加强测试</td><td>上面的图举的例子是 SWE-bench Verified。它实际做了什么，见下面的橙色框</td><td>走捷径：没完成任务却通过了评分</td></tr>
       </tbody>
     </table>
   </figure>
@@ -155,14 +156,14 @@
       <li><b>DeepSWE</b> 也是这一类编程基准测试。它的 113 个任务是从头写的，参考答案从不提交回原来的开源仓库。</li>
     </ul>
     出处：<a href="https://agi.safe.ai/">HLE 官方页面</a>；<a href="https://arxiv.org/abs/2509.16941">SWE-Bench Pro</a>；<a href="https://arxiv.org/abs/2607.07946">DeepSWE</a>。</div></div>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>SWE-bench Verified 做的是筛题，没有加强测试。</b>上面的图把它当作「更严的评分」的例子。OpenAI 在 2024 年 8 月请软件工程师检查了 SWE-bench 里的 1,699 道题，每道题由三个人各自检查，再从没有问题的题里选出 500 道，这 500 道题就是 SWE-bench Verified。被筛掉的题主要有两种毛病：一种是测试的要求定得过于具体，会把正确的改法判错，另一种是 issue 的描述太含糊。它筛的是题，没有改写或加强任何测试。出处：<a href="https://openai.com/index/introducing-swe-bench-verified/">OpenAI，2024</a>。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>SWE-bench Verified 做的是筛题。</b>上面的图把它当作「更严的评分」的例子。OpenAI 在 2024 年 8 月请软件工程师检查了 SWE-bench 里的 1,699 道题，每道题由三个人各自检查，再从没有问题的题里选出 500 道，这 500 道题就是 SWE-bench Verified。被筛掉的题主要有两种毛病：一种是测试的要求定得过于具体，会把正确的改法判错，另一种是 issue 的描述太含糊。这次筛选没有改写或加强任何测试。出处：<a href="https://openai.com/index/introducing-swe-bench-verified/">OpenAI，2024</a>。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>SWE-bench Verified 后来也失效了。</b>筛过之后，它在评分和数据污染两方面都查出了问题。
     <ul>
       <li><b>筛过之后仍然有判错的。</b><a href="#verify">容易验证</a>一节的表里说过，Zhu 等人发现 Verified 里有 5.3% 的任务不解决 issue 也能通过测试。另一项研究（SWE-ABS，ICML 2026）说，排名前 30 的 agent 在 Verified 上「解决」的补丁里，每五个有一个在语义上是错的，只是测试太弱没查出来。</li>
       <li><b>OpenAI 自己已经停用了它。</b>2026 年 2 月 OpenAI 发文说不再报告 SWE-bench Verified 的分数。他们抽查了模型经常做不出来的 138 道题，其中至少 59.4% 的题测试有缺陷，会拒绝功能正确的提交。他们测试的所有前沿模型（当时最强的一批模型），都能背出某些题的标准答案补丁或题面里的细节。文章的结论是，Verified 上的分数提高已经不能反映真实的软件开发能力的提高。</li>
     </ul>
     所以 SWE-bench Verified 更适合当作<a href="#lifecycle">生命周期</a>的例子：它修掉了上一版的一类问题，大约一年半之后，自己也在数据污染和评分两方面失效了。出处：<a href="https://arxiv.org/abs/2507.02825">Zhu 等，2025</a>；<a href="https://proceedings.mlr.press/v306/yu26b.html">SWE-ABS</a>；<a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">OpenAI，2026</a>。</div></div>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>分数失真有两个方向。</b>数据污染和钻空子都让分数偏高。分数也可能偏低，这一页有两个例子。一个是<a href="#verify">容易验证</a>一节说过的 OSWorld：网站改版后正确的操作也判不过，一个 agent 的成绩被低估了 28 个百分点。另一个在 SWE-bench Verified 上：OpenAI 2026 年抽查的是模型经常做不出来的题，查出的多是把正确的提交判错。Zhu 等人和 SWE-ABS 在 SWE-bench Verified 上查出的是相反的方向，错误的补丁也能通过。所以耐用还包括一点：环境和评分办法不能因为外部网站改版这类变化而判错。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>分数失真有两个方向。</b>数据污染和走捷径都让分数偏高。分数也可能偏低，这一页有两个例子。一个是<a href="#verify">容易验证</a>一节说过的 OSWorld：网站改版后正确的操作也判不过，一个 agent 的成绩被低估了 28 个百分点。另一个在 SWE-bench Verified 上：OpenAI 2026 年抽查的是模型经常做不出来的题，查出的多是把正确的提交判错。Zhu 等人和 SWE-ABS 在 SWE-bench Verified 上查出的是相反的方向，错误的补丁也能通过。所以耐用还包括一点：环境和评分办法不能因为外部网站改版这类变化而判错。</div></div>
 </section>
 
 <section class="sec" id="tension">
@@ -202,11 +203,11 @@
     <table class="tbl">
       <thead><tr><th scope="col">领域</th><th scope="col">这一组的顺序</th><th scope="col">每一步换了什么</th><th scope="col">读的时候要留意</th></tr></thead>
       <tbody>
-        <tr><th scope="row">考试</th><td>MMLU、MMLU-Pro、GPQA、Humanity's Last Exam</td><td>MMLU 发布时最好的模型是 43.9%，后来超过 90%。MMLU-Pro 加选项、加难题。GPQA 换成研究生水平的理科题。Humanity's Last Exam 是 2,500 道专家出的题，发布时前沿模型的得分只有个位数</td><td>顺序是按难度排的。按发布时间，GPQA（2023 年 11 月）比 MMLU-Pro（2024 年 6 月）早</td></tr>
+        <tr><th scope="row">考试</th><td>MMLU、MMLU-Pro、GPQA、Humanity's Last Exam</td><td>MMLU 发布时最好的模型是 43.9%，后来超过 90%。MMLU-Pro 加选项、加难题。GPQA 换成研究生水平的理科题。Humanity's Last Exam 是 2,500 道专家出的题，发布时论文测的几个前沿模型，正确率都低于 10%</td><td>顺序是按难度排的。按发布时间，GPQA（2023 年 11 月）比 MMLU-Pro（2024 年 6 月）早</td></tr>
         <tr><th scope="row">数学</th><td>GSM8K、MATH、AIME、FrontierMath</td><td>GSM8K 是 8,500 道小学应用题。MATH 是 12,500 道竞赛题。AIME 是美国的一项高中数学竞赛。FrontierMath 是数学家新出的、没有发表过的难题，发布时最好的模型解出不到 2%</td><td>顺序同样是按难度排的。按发布时间，MATH（2021 年 3 月）比 GSM8K（2021 年 10 月）早。AIME 本来是给人考的，每年 30 道题，考完题目和答案都会公开</td></tr>
         <tr><th scope="row">聊天</th><td>MT-Bench、按长度校正的 AlpacaEval、Arena-Hard</td><td>MT-Bench 是 80 道人写的多轮问题。AlpacaEval 校正了评审模型偏爱长回答的问题。Arena-Hard 从 Chatbot Arena 真实用户的提问里挑出 500 道难题</td><td>三个都是让语言模型当评审的自动评测，前后是同一类评测。Arena-Hard 的作者说，换它的原因是 MT-Bench 已经分不开强的模型</td></tr>
         <tr><th scope="row">编程</th><td>SWE-bench Verified、SWE-bench Multilingual、SWE-Bench Pro、DeepSWE</td><td>Verified 是人工筛过的 500 道题，发布时 GPT-4o 解决 33.2%。Multilingual 把语言从 Python 扩到 9 种。Pro 有 1,865 道题、41 个仓库，并留了不公开的部分，发布时最好的是 GPT-5 的 23.3%。DeepSWE 是 113 道从头写的长任务</td><td>四个都是「改一个真实的代码仓库，让隐藏的测试通过」，前后是同一类评测。Multilingual 扩大的是语言的范围，它的说明里没有说题目更难</td></tr>
-        <tr><th scope="row">操作电脑和网页</th><td>WebShop、WebArena、OSWorld、BrowseComp</td><td>环境一步步变大：一个模拟的网店，作者自己搭的一组网站，一整个桌面操作系统。三者发布时最好的系统的成功率分别约是 29%、14.41%、12.24%，同期人的成功率是 59.6%、78.24%、72.36%</td><td>BrowseComp 和前三个不是一类。前三个要操作界面，按最后的状态评分。BrowseComp 是上网查资料回答问题，交的是一个简短的答案</td></tr>
+        <tr><th scope="row">操作电脑和网页</th><td>WebShop、WebArena、OSWorld、BrowseComp</td><td>环境一步步变大：一个模拟的网店，作者自己搭的一组网站，一整个桌面操作系统。三者发布时最好的系统的成功率分别约是 29%、14.41%、12.24%，同期人的成功率是 59.6%、78.24%、72.36%。WebShop 的成功率指拿到满分的购物要求所占的比例</td><td>BrowseComp 和前三个不是一类。前三个要操作界面，按最后的状态评分。BrowseComp 是上网查资料回答问题，交的是一个简短的答案</td></tr>
         <tr><th scope="row">终端</th><td>Terminal-Bench 1.0、2.0、2.1、3.0、4.0</td><td>1.0 到 2.0、2.1 到 3.0 是换一批更难的任务。2.0 到 2.1、3.0 到 4.0 是修题：2.1 是同样的 89 个任务，修了其中 28 个。4.0 是在 3.0 的基础上删了 8 个、修了 19 个，剩 66 个</td><td>换版本有两种原因：一种是题被做满了，换一批更难的，另一种是题本身有毛病，在原来的基础上修</td></tr>
         <tr><th scope="row">工具使用和客服</th><td>ToolEmu、τ-bench、τ²-bench</td><td>τ-bench 让 agent 按规定和一个模拟的用户对话，用工具完成任务。τ²-bench 加了一个电信领域，用户那一侧也要动手用工具</td><td>第一步换的是测量的东西。ToolEmu 测的是安全：工具是语言模型模拟的，分数是 agent 做出有风险的事的频率。后两个测的是任务有没有做成</td></tr>
       </tbody>

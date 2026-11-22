@@ -2,7 +2,7 @@
   <h2>先看结论</h2>
   <ul class="takeaways">
     <li>运行框架（harness，也叫 scaffold）是包在语言模型外面的那层程序：它给模型工具，管理多轮对话的历史，执行模型发出的动作，再把结果交还给模型。一个 agent 等于模型加运行框架。</li>
-    <li>搭一个运行框架要做一连串设计选择：给哪些工具，历史怎么存、怎么裁剪，命令怎么执行。四个开源的例子（mini-SWE-agent、OpenHands、Pi、OpenClaw）在这些事上的选择各不相同。</li>
+    <li>搭一个运行框架要做一连串设计选择：给哪些工具，历史怎么存，命令怎么执行。四个开源的例子（mini-SWE-agent、OpenHands、Pi、OpenClaw）在这些事上的选择各不相同。</li>
     <li>没有哪一种搭法是唯一正确的。好的运行框架要在任务成功率、花费、延迟和用户的控制权之间取得平衡，怎样平衡取决于用途。</li>
     <li>同一个模型换一个运行框架，结果会变。一项对三个成熟运行框架的测量里，变得最明显的是花费；成功率在多数模型上只差几个百分点，那批数据分辨不出谁高谁低。</li>
   </ul>
@@ -41,7 +41,7 @@
     </table>
   </figure>
   <p>不同的运行框架针对各自的任务和运行环境，做了不同的取舍。一个好的运行框架要在四件事之间取得平衡：任务成功率、花费、延迟、用户的控制权。合适的平衡点取决于用途。</p>
-  <p>举两种用途。Claude Code（Anthropic 的编程 agent）这样的产品是给人在终端里一边看一边用的，用户怎样和它交互就很重要。另一些运行框架主要用来自动地跑完任务，中途有没有人参与就不那么要紧。</p>
+  <p>举两种用途。Claude Code（Anthropic 做的、面向编程任务的运行框架）这样的产品是给人在终端里一边看一边用的，用户怎样和它交互就很重要。另一些运行框架主要用来自动地跑完任务，中途有没有人参与就不那么要紧。</p>
 </section>
 
 <section class="sec" id="four">
@@ -53,8 +53,8 @@
       <tbody>
         <tr><th scope="row"><a href="https://github.com/SWE-agent/mini-swe-agent">mini-SWE-agent</a></th><td>编程任务</td><td>只有 bash 一个工具；历史是一条线，每一步都追加到消息列表的末尾；每条命令开一个新的进程，互不相干</td><td class="r">9,654</td></tr>
         <tr><th scope="row"><a href="https://github.com/OpenHands/OpenHands">OpenHands</a></th><td>编程任务</td><td>每一步记成一个事件，发给模型的消息由事件转换而来；终端会话持续存在；检测到 agent 卡住就停下</td><td class="r">93,581</td></tr>
-        <tr><th scope="row"><a href="https://github.com/earendil-works/pi">Pi</a></th><td>编程任务</td><td>只有 read、write、edit、bash 四个工具；没有权限系统；历史是一棵树，可以回到之前的某条消息另开一支；别的 agent 产品内置的一些功能，它刻意不做</td><td class="r">122,306</td></tr>
-        <tr><th scope="row"><a href="https://github.com/openclaw/openclaw">OpenClaw</a></th><td>长期在线的个人助手，通过聊天软件和用户交互</td><td>设置之后能定时自己醒来；一个长期运行的进程管着所有聊天渠道；身份和记忆写在几个 Markdown 文件里；每晚整理记忆</td><td class="r">394,566</td></tr>
+        <tr><th scope="row"><a href="https://github.com/earendil-works/pi">Pi</a></th><td>编程任务</td><td>只有 read、write、edit、bash 四个工具；没有权限系统；历史是一棵树，可以回到之前的某条消息另开一支；别的运行框架内置的一些功能，它刻意不做</td><td class="r">122,306</td></tr>
+        <tr><th scope="row"><a href="https://github.com/openclaw/openclaw">OpenClaw</a></th><td>长期在线的个人助手，通过聊天软件和用户交互</td><td>设置之后能按固定的间隔自动运行一轮；一个长期运行的进程管着所有聊天渠道；身份和记忆写在几个 Markdown 文件里；每晚整理记忆</td><td class="r">394,566</td></tr>
       </tbody>
     </table>
     <figcaption>每一项的出处和细节见下面四个小节。star 数是 2026 年 11 月 16 日从 GitHub 的接口查到的。</figcaption>
@@ -62,7 +62,7 @@
 
   <h3>mini-SWE-agent：能省的都省掉</h3>
   <p>mini-SWE-agent 出自普林斯顿和斯坦福的一个团队，2025 年 7 月发布 1.0 版。这个团队之前做了 SWE-bench（一组取自 GitHub 上真实软件问题的评测题目）和 SWE-agent。</p>
-  <p>SWE-agent 是这个团队的上一个编程 agent，给模型配了不少专门的工具和接口。mini-SWE-agent 是照着「简单得多、效果仍然接近」的目标重做的，它的三个特点都是「不做什么」。</p>
+  <p>SWE-agent 是这个团队之前做的面向编程任务的运行框架，给模型配了不少专门的工具和接口。mini-SWE-agent 是照着「简单得多、效果仍然接近」的目标重做的，它的三个特点都是「不做什么」。</p>
   <ul>
     <li><b>除了 bash 没有别的工具。</b>读文件、改文件、搜索，全部由模型自己写 shell 命令完成。</li>
     <li><b>历史完全是一条线。</b>agent 每走一步，就往消息列表后面追加一条，仅此而已。发给模型的消息和事后保存的运行轨迹（trajectory，每一步的动作和结果的完整记录）是同一份东西。这和平时用聊天产品的体验一样：对话越聊越长，每次都带着全部历史。</li>
@@ -89,14 +89,14 @@
     出处：<a href="https://docs.openhands.dev/sdk/guides/agent-stuck-detector">OpenHands 文档的 Stuck Detector 一节</a>。</div></div>
 
   <h3>Pi：四个工具，没有权限系统</h3>
-  <p>Pi 是 Mario Zechner 写的编程 agent，同样走极简的路线。</p>
+  <p>Pi 是 Mario Zechner 写的面向编程任务的运行框架，同样走极简的路线。</p>
   <ul>
     <li><b>只有四个工具。</b>read、write、edit 和 bash。作者在 2025 年 11 月的<a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">文章</a>里说，system prompt（对话开头给模型的总说明，第二、第三部分里写作 system message）加上工具的定义，合起来不到 1,000 个 token（模型处理文字的最小单位）。</li>
     <li><b>没有权限系统。</b>它用启动它的那个账号的全部权限运行，执行工具之前不询问。作者的说法是，它假定你知道自己在做什么。</li>
     <li><b>历史是一棵树。</b>可以回到之前的某一条消息，改一改再发出去，从那里长出另一支；原来的那一支不会丢。发给模型的只有当前所在的这一支。这一点见 <a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sessions.md">Pi 文档的会话一节</a>。</li>
     <li><b>刻意保持简单。</b>它没有计划模式，也就是先让 agent 只读代码、写出计划，等用户同意再动手修改的工作方式。它也没有专门的子 agent 工具，子 agent 是由 agent 另外启动、替它完成一部分任务的另一个 agent。这两样都可以用扩展加回来，扩展是自己写或者装上别人写好的附加功能。</li>
   </ul>
-  <p>Pi 带给模型的内容比别的运行框架少多少，<a href="#tax">下一节</a>要讲的 HarnessTax 文章在 2026 年 9 月量过。它量的是三个运行框架第一次调用模型时的上下文大小，也就是那一次发给模型的全部内容。三个运行框架是 Pi、Codex（OpenAI 的命令行编程 agent）和 Claude Code。这个数除了 system prompt 和工具的定义，还包含任务本身的文字，所以它量的范围比上面的「不到 1,000 个 token」大，两个数不能直接比。</p>
+  <p>Pi 带给模型的内容比别的运行框架少多少，后面<a href="#tax">「换一个运行框架，结果差多少」</a>一节要讲的 HarnessTax 文章在 2026 年 9 月量过。它量的是三个运行框架第一次调用模型时的上下文大小，也就是那一次发给模型的全部内容。三个运行框架是 Pi、Codex（OpenAI 做的、在命令行里用的运行框架）和 Claude Code。这个数除了 system prompt 和工具的定义，还包含任务本身的文字，所以它量的范围比上面的「不到 1,000 个 token」大，两个数不能直接比。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">运行框架</th><th scope="col" class="r">第一次调用模型时的上下文，平均 token 数</th><th scope="col" class="r">工具的数量</th></tr></thead>
@@ -114,7 +114,7 @@
   <p>OpenClaw 由 Peter Steinberger 发起，最初叫 Clawdbot，2026 年 1 月两次改名后定为现在的名字。</p>
   <p>它是一个长期在线的个人助手：人们把它装在自己的机器上，通过 WhatsApp、Telegram 这类聊天软件和它说话。它的用户已经远远超出了做 AI 工程的圈子。它的设计选择和前三个面向编程任务的运行框架很不一样，下面四条按 2026 年 11 月的文档来写。这些机制改得很快，之前的几次变动见<a href="#notes">资料说明</a>。</p>
   <ul>
-    <li><b>定时自己醒来。</b>除了等用户发消息，它还能按固定的间隔自己运行一轮，看看有没有需要处理的事。这件事由一个定时任务来做，这个任务要用户明确设置才会创建，创建之后默认每 30 分钟运行一次。没有事的时候，它回复一个约定的标记 <code>NO_REPLY</code>，用户就不会收到任何消息。</li>
+    <li><b>定时自动运行。</b>除了等用户发消息，它还能按固定的间隔自动运行一轮，看看有没有需要处理的事。这件事由一个定时任务来做，这个任务要用户明确设置才会创建，创建之后默认每 30 分钟运行一次。没有事的时候，它回复一个约定的标记 <code>NO_REPLY</code>，用户就不会收到任何消息。</li>
     <li><b>一个长期运行的 Gateway 进程。</b>所有聊天渠道的连接都由这一个进程持有，一台机器上只运行一个。</li>
     <li><b>身份由 Markdown 文件拼成。</b><code>AGENTS.md</code>、<code>SOUL.md</code>、<code>IDENTITY.md</code>、<code>USER.md</code> 和 <code>MEMORY.md</code> 这几个文件的内容会被放进 system prompt。agent 是谁、该怎么做事、用户是谁、记得些什么，都写在这些文件里，人可以直接打开来读和改。其中 <code>MEMORY.md</code> 只在文件存在、并且是和用户的私聊会话时才放进去。子 agent 只拿到 <code>AGENTS.md</code>。</li>
     <li><b>每晚整理记忆。</b>凌晨 3 点有一个默认开启的后台任务，文档里把它叫作 dreaming。它分三个阶段依次运行，读的是近期的每日笔记、会话记录和召回记录。每日笔记是 agent 按日期存放的 Markdown 文件，记的是当天的经过和观察。召回记录记的是哪些笔记内容在搜索记忆时被查到过。只有最后一个阶段把值得长期保留的内容写进 <code>MEMORY.md</code>。</li>
@@ -204,8 +204,8 @@
     <figcaption>前六行是上面右图里的数，最后一行来自论文的表 7。除了第一行，分数都取自 Terminal-Bench 2.0 的官方排行榜，论文作者没有重跑。</figcaption>
   </figure>
   <p>同一个模型 Claude Haiku 4.5，排行榜上人写的运行框架通过率从 13.9% 到 35.5% 都有，Meta-Harness 搜出来的是 37.6%。</p>
-  <p>这里的差距比上一节大得多。两处比的对象不同：上一节是三个成熟的编程 agent 产品，在同一批任务上跑，多数模型上只差几个百分点。这里是排行榜上各式各样的运行框架，分数取自排行榜。</p>
-  <p>换成 Opus 4.6，Meta-Harness 搜出来的运行框架通过率是 76.4%，在使用 Opus 4.6 的 agent 里排第二。排第一的是另一个编程 agent ForgeCode，成绩是 81.8%，论文作者说明他们没能用公开的代码复现这个成绩。</p>
+  <p>这里的差距比上一节大得多。两处比的对象不同：上一节是三个成熟的运行框架，在同一批任务上跑，多数模型上只差几个百分点。这里是排行榜上各式各样的运行框架，分数取自排行榜。</p>
+  <p>换成 Opus 4.6，Meta-Harness 搜出来的运行框架通过率是 76.4%，在使用 Opus 4.6 的 agent 里排第二。排第一的用的是另一个运行框架 ForgeCode，成绩是 81.8%，论文作者说明他们没能用公开的代码复现这个成绩。</p>
   <h3>搜索和评估用的是同一批题</h3>
   <p>论文写明，在 Terminal-Bench 2.0 这个实验里，搜索和最终评估用的是同样的 89 个任务。作者给了两条理由。第一条，这个基准测试题少、跑一遍很贵，再分出一份留作测试，留给搜索的题就更少，搜索时更难看出哪个候选更好。第二条，公开的运行框架本来也在这批题上反复调整过。他们另外用人工检查和正则表达式（一种按文字模式查找字符串的写法）排查了运行框架里有没有混入针对具体题目的字符串。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读 Terminal-Bench 2.0 的这些数字，有三点要留意。</b>
@@ -218,8 +218,8 @@
   <h3>另外两组实验</h3>
   <p>论文的另外两组实验有独立的测试数据，所以没有上面第一点说的问题。</p>
   <ul>
-    <li><b>文本分类。</b>这是上面左图的实验。Meta-Harness 比此前最好的人工设计的上下文管理方法 ACE 高 7.7 个百分点，用的上下文 token 只有四分之一左右。</li>
-    <li><b>数学题。</b>搜出来的一个运行框架让五个没参与搜索的模型在 200 道国际数学奥林匹克难度的题上平均提高 4.7 个百分点。</li>
+    <li><b>文本分类。</b>这是上面左图的实验。任务里，模型每次拿到一条带标签的样例，更新自己的记忆，最后在留出的测试集上接受评估。运行框架在这里管的是记下什么、每次调用时给模型看什么。ACE（Agentic Context Engineering）是此前人工设计的这类程序里最好的一个，论文把它叫作上下文管理系统。Meta-Harness 搜出来的运行框架，准确率比 ACE 高 7.7 个百分点，用的上下文 token 只有四分之一左右。</li>
+    <li><b>数学题。</b>搜出来的一个运行框架让五个没参与搜索的模型在 200 道国际数学奥林匹克难度的题上，准确率平均提高 4.7 个百分点。</li>
   </ul>
 </section>
 
@@ -228,7 +228,7 @@
   <ul>
     <li>搭 agent 没有唯一的办法。工具、记忆、上下文管理、执行，每一项都有不止一种合理的选择。</li>
     <li>mini-SWE-agent 和 Pi 走极简的路线，OpenHands 把状态和历史管得更细，OpenClaw 面向的是长期在线的个人助手。它们的差别来自各自要做的事不同。</li>
-    <li>运行框架是 agent 表现的一部分。报告一个 agent 的成绩时，模型和运行框架要一起说明。</li>
+    <li>agent 的表现有一部分取决于运行框架。报告一个 agent 的成绩时，模型和运行框架要一起说明。</li>
     <li>运行框架本身也可以被优化，前提和<a href="optimizer.html">优化 prompt</a> 一样：要有任务和评估。</li>
   </ul>
   <p>agent 跑起来之后，下一个问题是它能不能稳定地跑很久，以及出了问题时看不看得到。下一部分讲<a href="orchestration.html">编排和可观测性</a>。</p>
@@ -239,7 +239,7 @@
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
     <li><b>mini-SWE-agent 的说明和现在的代码有两处出入。</b>仓库的说明写着 agent 的主体类只有大约 100 行 Python，按 2026 年 11 月的代码，这个类大约是 150 行。「每条命令开一个新进程」在说明里写的是用 <code>subprocess.run</code>，现在的代码换成了一个等价的写法，超时时能把子进程一并结束。出处：<a href="https://github.com/SWE-agent/mini-swe-agent/blob/main/README.md">mini-SWE-agent 的说明</a>。</li>
-    <li><b>OpenClaw 的定时醒来和记忆整理改过几次。</b>2026 年 6 月的文档里，表示「没事」的标记还是 <code>HEARTBEAT_OK</code>，到 10 月的文档里已经是 <code>NO_REPLY</code>。2026 年 10 月上旬，定时醒来还是一个独立的内置机制，默认间隔是 30 分钟，用 Anthropic 的账号登录时默认间隔是 1 小时。2026 年 10 月 21 日之后，这个独立的机制被取消，换成一个普通的定时任务，要用户明确设置才会创建，默认仍是每 30 分钟一次。记忆整理从 2026 年 7 月底起默认开启，之前要用户自己打开。出处：OpenClaw 文档的 <a href="https://docs.openclaw.ai/gateway/heartbeat">heartbeat</a> 和 <a href="https://docs.openclaw.ai/concepts/dreaming">dreaming</a> 两节。</li>
+    <li><b>OpenClaw 的定时运行和记忆整理改过几次。</b>2026 年 6 月的文档里，表示「没事」的标记还是 <code>HEARTBEAT_OK</code>，到 10 月的文档里已经是 <code>NO_REPLY</code>。2026 年 10 月上旬，定时运行还是一个独立的内置机制，默认间隔是 30 分钟，用 Anthropic 的账号登录时默认间隔是 1 小时。2026 年 10 月 21 日之后，这个独立的机制被取消，换成一个普通的定时任务，要用户明确设置才会创建，默认仍是每 30 分钟一次。记忆整理从 2026 年 7 月底起默认开启，之前要用户自己打开。出处：OpenClaw 文档的 <a href="https://docs.openclaw.ai/gateway/heartbeat">heartbeat</a> 和 <a href="https://docs.openclaw.ai/concepts/dreaming">dreaming</a> 两节。</li>
     <li><b>HarnessTax 的「高达 5 倍」出现在哪个模型上。</b>文章的正文没有写明这个最大的倍数出现在哪个模型、哪个基准测试上。这一页「换一个运行框架，结果差多少」一节的表只列了四个 Claude 模型在 Terminal-Bench 2.0 上的结果，表里最大的差距约 1.6 倍。出处：<a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax</a>。</li>
     <li><b>Claude Haiku 4.5 那一组差值的置信区间。</b>Claude Haiku 4.5 在 Pi 和 Codex 上相差 16.7 个百分点，这个差值的置信区间没有在文章里找到。文章给了置信区间的是 Claude Fable 5 在 Claude Code 和 Pi 之间的差值。</li>
   </ul>

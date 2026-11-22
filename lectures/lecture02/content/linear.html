@@ -39,7 +39,7 @@
 <section class="sec" id="update">
   <h2>一个不断更新的状态</h2>
   <p class="lead-in">线性注意力在生成文字时，<mark>只需要保存一个固定大小的状态</mark>。下面沿用上一节「直接去掉 softmax」的简化写法，状态是一个矩阵，记作 S。每来一个 token，就把这个 token 的信息加进 S。</p>
-  {{fig 72 | 处理第一个 token「The」。它的 key 和 value 相乘，得到 3 乘 3 的状态 S1。它的 query 乘以 S1，得到这一层的输出，再经过 WO 投影和残差连接。}}
+  {{fig 72 | 处理第一个 token「The」。它的 key 和 value 相乘，得到 3 乘 3 的状态 S1。它的 query 乘以 S1，得到这一层的输出，再经过 WO 投影和残差连接。WO 是一个权重矩阵，投影指乘上它，把结果变回模型的维度，也就是每个 token 的向量里有几个数。残差连接是把这一层的输入直接加到这一层的输出上。}}
   <p>处理完第一个 token，Q、K、V 这些中间结果都可以清掉，只留下 S1。下一个 token 来的时候，重复同样的事，只多一步相加。</p>
   {{fig 82 | 处理到第四个 token「about」。about 的 key 和 value 相乘，得到一个新的 3 乘 3 矩阵，加到上一步保存的 S3 上，成为 S4。about 的 query 乘以 S4，得到输出。}}
   <figure class="plate">
@@ -119,7 +119,7 @@
       <thead><tr><th scope="col"></th><th scope="col">标准注意力<br><span class="muted small">也叫全局注意力、softmax 注意力</span></th><th scope="col">线性注意力</th></tr></thead>
       <tbody>
         <tr><th scope="row">计算量和上下文长度 n 的关系</th><td>和 n 的平方成正比</td><td>和 n 成正比</td></tr>
-        <tr><th scope="row">新的 token 怎样用到前面的内容</th><td>直接去看前面的每一个 token</td><td>只能和一个固定大小的状态打交道，前面的内容都汇总在这个状态里</td></tr>
+        <tr><th scope="row">新的 token 怎样用到前面的内容</th><td>直接去看前面的每一个 token</td><td>只能读一个固定大小的状态，前面的内容都汇总在这个状态里</td></tr>
         <tr><th scope="row">对长上下文的影响</th><td>有利：需要的信息在多远都能直接找到</td><td>不利：信息得先存进状态，之后还要一直保留在状态里</td></tr>
         <tr><th scope="row">生成时要保存什么</th><td>前面所有 token 的 key 和 value，也就是 KV cache，随 n 线性增长</td><td>一个状态，大小固定</td></tr>
       </tbody>
@@ -131,8 +131,10 @@
   <h2>实际的做法：两种混着用</h2>
   <p>线性注意力省计算，标准注意力更能从长上下文里找回信息。自然的做法是把两种混在一个模型里：大部分层用线性注意力，少数几层用标准注意力。</p>
   {{fig 88 | 两种混合的办法，例子里的线性注意力层是 DeltaNet。左：DeltaNet 层和滑动窗口注意力层（SWA）一层隔一层地放，旁边的小方格图表示每个 token 只看它前面相邻的几个 token。右：大部分是 DeltaNet 层，中间插两层标准注意力，图里写作 Global Attention，旁边的小方格图表示每个 token 能看前面所有的 token。图片来源：<a href="https://sustcsonglin.github.io/blog/2024/deltanet-3/">Songlin Yang 的文章</a>。}}
-  <p>DeltaNet 是线性注意力的一个改进版，改的是状态的更新规则。滑动窗口注意力是标准注意力的一种省计算的变体：每个 token 只看前面固定个数的 token。下面是这两种混合模型的成绩。</p>
-  {{fig 89 | 三个模型的成绩。Wiki. ppl 是在维基百科文字上的困惑度（衡量模型预测下一个 token 时有多拿不准的指标），越低越好。Avg. Common-sense 是几个常识类任务的平均准确率，Avg. Retrieval 是几个从上下文里抽取信息的任务的平均准确率，都是越高越好。图片来源：同上。}}
+  <p>DeltaNet 是线性注意力的一个改进版，改的是状态的更新规则。前面讲的线性注意力只往状态里加新内容，旧的内容去不掉。DeltaNet 每来一个 token，先用它的 key 从状态里取出原来存的 value，把这份旧内容按一个算出来的比例去掉，再按同样的比例写入新的 value。出处：<a href="https://arxiv.org/abs/2406.06484">Yang 等，2024</a>。</p>
+  <p>滑动窗口注意力是标准注意力的一种省计算的变体：每个 token 只看前面固定个数的 token。</p>
+  <p>下面的图是三个模型的成绩：全部用线性注意力的 DeltaNet，和上面两种混合模型。图后面的表多列了一行全部用标准注意力的 Transformer++，作为参照。</p>
+  {{fig 89 | 三个模型的成绩，从上到下是 DeltaNet、DeltaNet 加滑动窗口注意力、DeltaNet 加两层标准注意力。Wiki. ppl 是在维基百科文字上的困惑度（衡量模型预测下一个 token 时有多拿不准的指标），越低越好。Avg. Common-sense 是几个常识类任务的平均准确率，Avg. Retrieval 是几个从上下文里抽取信息的任务的平均准确率，都是越高越好。图片来源：同上。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">模型</th><th scope="col" class="r">维基百科上的困惑度</th><th scope="col" class="r">常识类任务的平均准确率</th><th scope="col" class="r">抽取信息类任务的平均准确率</th></tr></thead>
@@ -156,12 +158,12 @@
 <section class="sec" id="kimi">
   <h2>一个大模型的例子：Kimi K3</h2>
   <p>Kimi K3 是月之暗面（Moonshot AI）的 Kimi 团队在 2026 年公开权重的模型。看过前面的内容，它的结构图里的线性注意力层、标准注意力层和前馈网络都能认出来。各部件在图里的名字和细节见图后面的表。</p>
-  {{fig 90 | Kimi K3 的结构图，右边彩色的框和文字是后加的标注。一个大的模块里从下往上画了两对层：下面一对是「线性注意力（图里叫 KDA）加前馈网络」，旁边标着 3×，表示重复三次。上面一对是「多头注意力（图里叫 Gated MLA）加前馈网络」，标着 1×。左边两个虚线框分别是前馈网络和 KDA 的内部结构。图片来源：<a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>。}}
+  {{fig 90 | Kimi K3 的结构图，右边彩色的框和文字是后加的标注。一个大的模块里从下往上画了两对层：下面一对是「线性注意力（图里叫 KDA）加前馈网络」，旁边标着 3×，表示重复三次。上面一对是「标准注意力（图里叫 Gated MLA）加前馈网络」，标着 1×，右边的标注把这一层写作 Multi-Head (Latent) Attention。左边两个虚线框分别是前馈网络和 KDA 的内部结构。图片来源：<a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">图里的名字</th><th scope="col">是什么</th><th scope="col">技术报告里怎么说</th></tr></thead>
       <tbody>
-        <tr><th scope="row">KDA<br><span class="muted small">Kimi Delta Attention</span></th><td>线性注意力的一种。在 DeltaNet 那种更新规则上加了门。门给 key 的每一个维度各算一个保留比例，决定状态里对应的旧内容保留多少。技术报告把这叫作按通道的门，一个通道就是 key 的一个维度</td><td>用一个固定大小的状态，代替标准注意力里不断变大的 KV cache</td></tr>
+        <tr><th scope="row">KDA<br><span class="muted small">Kimi Delta Attention</span></th><td>线性注意力的一种。它沿用上一节 DeltaNet 的更新规则，也就是写入新内容之前先去掉状态里的一部分旧内容，并在这个规则上加了门。门给 key 的每一个维度各算一个保留比例，决定状态里对应的旧内容保留多少。技术报告把这叫作按通道的门，一个通道就是 key 的一个维度</td><td>用一个固定大小的状态，代替标准注意力里不断变大的 KV cache</td></tr>
         <tr><th scope="row">Gated MLA<br><span class="muted small">Multi-head Latent Attention</span></th><td>标准注意力的一种。每个 token 的 key 和 value 先变成一个低维的向量再保存</td><td>每个 token 仍然能直接看前面所有的 token，同时减少 KV cache 占的内存</td></tr>
         <tr><th scope="row">Stable LatentMoE</th><td>前馈网络的位置上用的部件。里面有很多个「专家」子网络，每个 token 只走其中的一小部分</td><td>每个 token 从 896 个专家里实际用到 16 个</td></tr>
       </tbody>
@@ -178,7 +180,7 @@
   <ul>
     <li><b>agent 的上下文可以非常长。</b>对话历史、工具的返回结果、读进来的文件，全都在上下文里。</li>
     <li><b>推理的效率是设计 agent 系统时要考虑的一项。</b>每一步都要调用模型，上下文越长，每一步越贵、越慢。</li>
-    <li><b>了解模型的结构，有助于给应用选对模型。</b>要处理很长的上下文、又要从里面准确找回信息的任务，值得先查一下：这个模型用的是线性注意力，还是标准注意力，还是混合的。查的地方是模型的技术报告或模型说明，上一节 Kimi K3 的 3 比 1 就写在它的技术报告里。按前面小模型的成绩，在抽取信息上吃亏的是全部用线性注意力的模型，两种混合模型的成绩都不低于全部用标准注意力的模型。</li>
+    <li><b>了解模型的结构，有助于给应用选对模型。</b>要处理很长的上下文、又要从里面准确找回信息的任务，值得先查一下：这个模型用的是线性注意力，还是标准注意力，还是混合的。查的地方是模型的技术报告或模型说明，上一节 Kimi K3 的 3 比 1 就写在它的技术报告里。按前面小模型的成绩，抽取信息类任务上成绩最低的是全部用线性注意力的模型，两种混合模型的成绩都不低于全部用标准注意力的模型。</li>
     <li><b>围绕具体模型的长处和短处来设计运行框架。</b>运行框架（harness，也叫 scaffold）是包在模型外面、给它工具并管理多轮对话的程序。知道模型在哪里弱，就知道运行框架该在哪里补。例如模型不擅长从很长的上下文里找回信息，运行框架就少往上下文里放东西，用检索只挑最相关的内容放进去。补得有没有效果，要用实验来验证。这几条做法见<a href="context.html">第八部分</a>。</li>
   </ul>
 </section>
@@ -188,7 +190,7 @@
   <ul>
     <li>线性注意力用一个固定大小、不断更新的状态，代替标准注意力里那个随长度变大的方阵。</li>
     <li>它快而且省内存，但从长上下文里找回信息的能力弱一些。</li>
-    <li>上下文长度的上限来自训练时见过的长度，训练时要专门把它加上去。</li>
+    <li>上下文长度的上限主要来自训练时见过的长度，训练时要专门把它加上去。位置向量是一张按位置查的表时，表的行数是另一个上限。</li>
     <li>大模型已经在混用两种注意力，Kimi K3 的比例是 3 比 1。</li>
   </ul>
   <p>模型的结构讲完了。下一部分讲这些权重是怎么来的：<a href="training.html">一个模型是怎么训练出来的</a>。</p>

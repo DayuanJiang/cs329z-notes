@@ -114,7 +114,7 @@
       <thead><tr><th scope="col">角色</th><th scope="col">是什么</th><th scope="col">例子</th></tr></thead>
       <tbody>
         <tr><th scope="row">主机<br><span class="muted small">MCP Host</span></th><td>用户直接使用的 AI 应用。它管理所有客户端，负责和模型交互，决定哪些调用需要用户同意</td><td>Claude Desktop、代码编辑器</td></tr>
-        <tr><th scope="row">客户端<br><span class="muted small">MCP Client</span></th><td>主机为每个服务器创建的一个连接对象。它负责取工具列表、转发调用、带回结果。一个客户端只对应一个服务器</td><td>图里有四个客户端，意思是有四条打开的连接，和有几个用户无关</td></tr>
+        <tr><th scope="row">客户端<br><span class="muted small">MCP Client</span></th><td>主机里负责连接服务器的对象。主机每建立一条通向服务器的连接，就创建一个客户端。它负责取工具列表、转发调用、带回结果。一个客户端只连一个服务器。反过来，一个远程的服务器可以同时有几个客户端连着</td><td>图里有四个客户端，意思是有四条打开的连接，和有几个用户无关</td></tr>
         <tr><th scope="row">服务器<br><span class="muted small">MCP Server</span></th><td>提供工具的程序。可以是本机上的一个进程，也可以是远程的服务</td><td>本地的文件系统服务器、数据库服务器，远程的 Sentry 服务器（Sentry 是一个收集程序报错的在线服务）</td></tr>
       </tbody>
     </table>
@@ -131,7 +131,7 @@
 
 <section class="sec" id="messages">
   <h2>两个最常用的请求：列出工具和调用工具</h2>
-  <p>连接建立之后，剩下的问题是怎么知道有哪些工具可用。在<a href="learn.html">第三部分</a>，这要靠训练模型来学。在这里，只要问一句。</p>
+  <p>连接建立之后，剩下的问题是怎么知道有哪些工具可用。在<a href="learn.html">第三部分</a>，这要靠训练模型来学。在 MCP 里，客户端向服务器发一个 tools/list 请求，服务器就把工具列表发回来。</p>
   {{figs 53 54 | 左：列出工具，请求是 tools/list，响应是一个工具列表。右：调用工具，请求是 tools/call，响应是执行的结果。}}
   <p>MCP 的消息用的是 JSON-RPC 2.0，一种用 JSON 写的远程调用格式：请求里写明要调用的方法名和参数，响应里带回结果，两者靠同一个 id 对应起来。</p>
   <figure class="plate">
@@ -148,7 +148,7 @@
   <p>这些 JSON 看上去很繁琐，但不需要人手写，也不需要模型来写。开发者用 MCP 的开发包写一个普通的函数，开发包会生成工具的描述，并处理这些消息的收发。模型看到的只是工具列表，它输出的只是工具名和参数。</p>
   <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「MCP 要先握手、有状态」的说法已经不适用于最新版规范。</b>常见的说法是：MCP 是有状态的会话协议，客户端连上服务器后要先握手（initialize），双方交换各自支持的功能，然后才能列工具、调工具。有状态的意思是服务器要记住之前和这个客户端交换过的内容，后面的请求依赖这些内容。这是 2025-06-18 版规范的写法，这一版要求握手必须是客户端和服务器之间的第一次交互。2026-07-28 版把 MCP 改成了无状态的协议：取消了握手和协议层面的会话，每个请求都在 <code>_meta</code> 字段里带上协议版本和客户端支持的功能，服务器不用记住之前的请求。服务器另外提供一个 <code>server/discover</code> 请求来说明自己支持什么。出处：<a href="https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle">2025-06-18 版规范的生命周期一节</a>和<a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">2026-07-28 版的变更说明</a>。</div></div>
   <p>三个角色的划分，以及 tools/list 和 tools/call 这两个请求，在两个版本里是一样的。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>上面两张图用的是 2026-07-28 版的格式。</b>图里每个请求的参数里都有 <code>_meta</code>，它就是上一个框里说的那个字段。这个字段在 2025-06-18 版里就有，当时用来附带额外的元数据，也就是关于这条消息本身的附加信息。工具列表的响应里有 <code>ttlMs</code>，意思是这份列表可以缓存多少毫秒，它是 2026-07-28 版新增的字段。出处：2025-06-18 版规范的<a href="https://modelcontextprotocol.io/specification/2025-06-18/basic">基础协议一节</a>和 <a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">2026-07-28 版的变更说明</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这一节开头左右两张配图用的是 2026-07-28 版的格式。</b>图里每个请求的参数里都有 <code>_meta</code>，它就是上一个框里说的那个字段。这个字段在 2025-06-18 版里就有，当时用来附带额外的元数据，也就是关于这条消息本身的附加信息。工具列表的响应里有 <code>ttlMs</code>，意思是这份列表可以缓存多少毫秒，它是 2026-07-28 版新增的字段。出处：2025-06-18 版规范的<a href="https://modelcontextprotocol.io/specification/2025-06-18/basic">基础协议一节</a>和 <a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">2026-07-28 版的变更说明</a>。</div></div>
 </section>
 
 <section class="sec" id="example">

@@ -17,8 +17,8 @@
       <thead><tr><th scope="col">难点</th><th scope="col">一句话</th><th scope="col">具体是什么意思</th></tr></thead>
       <tbody>
         <tr><th scope="row">可靠性<br><span class="muted small">Reliability</span></th><td>错误会一步一步累积</td><td>agent 要连续做很多步，前面一步错了，后面的步骤都建立在错的结果上</td></tr>
-        <tr><th scope="row">训练<br><span class="muted small">Training</span></th><td>奖励稀疏，任务长，每跑一次都很贵</td><td>做了几百步之后才知道任务成没成，很难判断是哪一步起了作用；每一次运行（rollout）要调用模型很多次</td></tr>
-        <tr><th scope="row">长任务<br><span class="muted small">Long-horizon</span></th><td>上下文越来越长，内容会偏离原意</td><td>任务做几个小时，记录多到上下文窗口（模型一次能读入的文字的上限）放不下；压缩之后，早先的要求可能就丢了</td></tr>
+        <tr><th scope="row">训练<br><span class="muted small">Training</span></th><td>奖励稀疏，任务长，每跑一次都很贵</td><td>奖励是训练时告诉模型做得好不好的信号。agent 做了几百步之后才知道任务成没成，中间拿不到奖励，很难判断是哪一步起了作用；每一次运行（rollout）要调用模型很多次</td></tr>
+        <tr><th scope="row">长任务<br><span class="muted small">Long-horizon</span></th><td>上下文越来越长，内容会偏离原意</td><td>任务做几个小时，记录多到上下文窗口（模型一次能读入的文字的上限）放不下；把旧的记录压缩成一份短的摘要之后，早先的要求可能就丢了</td></tr>
         <tr><th scope="row">安全<br><span class="muted small">Safety</span></th><td>任务成功不等于行为安全</td><td>agent 可以交出一个正确的结果，而过程中访问了不该访问的东西，或者泄露了信息</td></tr>
         <tr><th scope="row">评估<br><span class="muted small">Evaluation</span></th><td>评什么，怎么评</td><td>用什么任务、看哪些指标、分数怎么算，都还没有定论，而且它常常被低估</td></tr>
       </tbody>
@@ -50,7 +50,7 @@
   </figure>
   <p>实验用了两个基准测试（benchmark，一组题目加一个打分的办法）。GAIA 是通用助手类的任务，要上网、读文件、多步推理。τ-bench 是客服类的任务。</p>
   <p>每个任务跑 5 次，每次用不同的随机种子（random seed，程序产生随机数时用的起始值）。temperature（控制输出随机程度的参数）设为 0，也就是把生成时主动加入的随机性关掉。</p>
-  <p>论文说明，这样设置之后，5 次运行之间还有的差别就来自生成时的随机选择以外的因素，例如浮点数运算的先后顺序不同会让结果有细微的差别，服务器同时处理的请求数不同也会带来差别。换随机种子在这时还会带来什么差别，论文没有写明。</p>
+  <p>论文说明，这样设置之后，生成时的随机选择已经关掉，5 次运行的结果仍然会有差别。这些差别来自别的因素，例如浮点数运算的先后顺序不同会让结果有细微的差别，服务器同时处理的请求数不同也会带来差别。换随机种子在这时还会带来什么差别，论文没有写明。</p>
   <p>总的可靠性分数是一致性、可预测性、稳健性三个方面的平均，在 0 到 1 之间，越高越可靠。安全单独看，不混进平均里，理由是安全事故是小概率但后果严重的事，平均之后就看不出来了。</p>
   <h3>能力和可靠性之间的差距</h3>
   <p>下图是 HAL 可靠性面板较早的一版，每一行是一个模型。</p>
@@ -74,7 +74,7 @@
   <p>论文和面板给出的几条主要发现：</p>
   <ul>
     <li><b>可靠性的提高落后于准确率。</b>24 个月的模型更新里，准确率稳步上升，总的可靠性只有小幅提高。</li>
-    <li><b>结果的一致性低。</b>能做出某个任务的 agent，常常不能每次都做出来。小模型的一致性常常和大模型持平甚至更高，面板给的解释是大模型有更多条路可以走。</li>
+    <li><b>结果的一致性低。</b>能做出某个任务的 agent，常常不能每次都做出来。小模型的一致性常常和大模型持平甚至更高。面板给的解释是，大模型完成同一个任务可以用的解法更多，所以多次运行之间的差别更大。</li>
     <li><b>换个说法就可能出问题。</b>工具出故障这类真实的技术问题，多数模型处理得不错；同一条指令换一种说法，各个模型的表现差别却很大。</li>
   </ul>
 </section>
@@ -180,7 +180,7 @@
 <section class="sec" id="collusion">
   <h2>多个 agent 串通：2026 年 7 月的一次事件</h2>
   <p>上一节的实验是人为设计的。2026 年 7 月发生的一件事，是在真实的评测里自己出现的。</p>
-  {{fig 69 | 事件的开头，分四步。下面的方框是留言板上的几类合作项目，颜色对应左边的图例。图片来源：<a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">METR，2026</a>。}}
+  {{fig 69 | 事件的开头，分四步。这些 agent 后来找到一个可以互相留言的地方，下文叫它留言板，它的来历见下表。下面的方框是留言板上的几类合作项目，颜色对应左边的图例。图片来源：<a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">METR，2026</a>。}}
   <p>事情发生在 OpenAI 内部一次对模型网络攻击能力的评测里。评测用的是 ExploitGym，一个有 898 道题的基准测试，每道题给 agent 一个真实软件漏洞的触发输入，要它一步步做成能用的攻击程序。为了测出能力的上限，这次评测有意放宽了模型对网络攻击类请求的拒绝。OpenAI 在 7 月 7 日到 8 日启动了数万个 agent，用到的模型包括 GPT-5.6 Sol 和一个未发布的内部模型。</p>
   <p>这些 agent 是互相隔离的。每个 agent 关在自己的沙箱（sandbox，一个和外界隔离的运行环境）里，彼此不应该有任何联系，对外只能通过一个内部的软件包代理下载安装包。下表是事情的经过。</p>
   <figure class="plate">
@@ -190,7 +190,7 @@
         <tr><th scope="row">一 卡住，找别的路</th><td>一部分 agent 分到的题因为意外根本做不出来。它们开始在环境里四处查看，想找作弊的办法，并注意到那个软件包代理的缓存里能看到别的沙箱里的 agent 下载过什么</td></tr>
         <tr><th scope="row">二 发现彼此</th><td>7 月 8 日晚上，一个 agent 发现自己可以在这个缓存里新建目录，目录的名字别的 agent 也看得到。它把求助的话写成目录名，这个缓存就成了一个可以互相留言的留言板。几个小时里就有 50 多个 agent 找到了它。到 7 月 13 日，大约 1,200 个 agent 在上面发了 7 万多条消息和文件</td></tr>
         <tr><th scope="row">三 合作</th><td>它们的共同目标是找到一个通用的办法骗过或者改掉 ExploitGym 的评分程序。留言板上形成了几个大的项目：把题目的攻击目标换成一个做得出来的版本，篡改自己的运行记录和日志，弄清评分程序的规则。有一个 agent 充当协调者，给别的 agent 派任务</td></tr>
-        <tr><th scope="row">四 攻击外部系统</th><td>Hugging Face 是一个托管机器学习模型和数据集的网站。按 OpenAI 的说明，模型推断那里可能存着 ExploitGym 的模型、数据集和答案。按调查报告，agent 们还希望在那里看到别的 ExploitGym 运行记录，从中找到评分程序的线索。一个 agent 在 7 月 10 日找到了暴露在网上的 Hugging Face 账号凭证并贴到留言板上。到 7 月 11 日下午，约 700 个 agent 在参与攻击 Hugging Face。OpenAI 的说明是，这些模型把多个漏洞串起来，从 Hugging Face 的生产数据库里拿到了评测的答案。Hugging Face 的安全团队发现并阻止了这些活动</td></tr>
+        <tr><th scope="row">四 攻击外部系统</th><td>Hugging Face 是一个托管机器学习模型和数据集的网站。按 OpenAI 的说明，这些 agent 推断，Hugging Face 上可能存着和 ExploitGym 有关的模型、数据集和答案。按调查报告，agent 们还希望在那里看到别的 ExploitGym 运行记录，从中找到评分程序的线索。一个 agent 在 7 月 10 日找到了暴露在网上的 Hugging Face 账号凭证并贴到留言板上。到 7 月 11 日下午，约 700 个 agent 在参与攻击 Hugging Face。OpenAI 的说明是，这些模型把多个漏洞串起来，从 Hugging Face 的生产数据库里拿到了评测的答案。Hugging Face 的安全团队发现并阻止了这些活动</td></tr>
       </tbody>
     </table>
     <figcaption>整理自 <a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">METR 的调查报告</a>和 <a href="https://openai.com/index/hugging-face-model-evaluation-security-incident/">OpenAI 的说明</a>。METR 的两位研究者和 Redwood Research 的一位研究者在 OpenAI 现场工作了六天，分析了约 1,300 份带原始推理过程的运行记录。</figcaption>
@@ -214,7 +214,7 @@
     <table class="tbl">
       <thead><tr><th scope="col">问题</th><th scope="col">后果</th><th scope="col">论文的建议</th></tr></thead>
       <tbody>
-        <tr><th scope="row">只盯着准确率，<br>不看别的指标</th><td>成绩最好的 agent 做得比需要的复杂，花的钱也比需要的多；大家对「准确率是靠什么提高的」得出了错误的结论</td><td>把花费和准确率放在一起看，把两者一起优化</td></tr>
+        <tr><th scope="row">只盯着准确率，<br>不看别的指标</th><td>成绩最好的 agent 有不必要的复杂设计，也有不必要的花费；大家对「准确率是靠什么提高的」得出了错误的结论</td><td>把花费和准确率放在一起看，把两者一起优化</td></tr>
         <tr><th scope="row">把做模型的人和做应用<br>的人的需要混在一起</th><td>很难看出哪个 agent 最适合某个具体的应用</td><td>分清一次评估是给谁用的</td></tr>
         <tr><th scope="row">留出的测试题不够，<br>有的基准测试根本没有</th><td>agent 走捷径、对着基准测试过度调整，换个场合就不行</td><td>按一套原则来设置留出的测试题</td></tr>
         <tr><th scope="row">评估的做法<br>没有统一的标准</th><td>结果普遍难以复现</td><td>把评估的做法标准化</td></tr>
@@ -228,8 +228,8 @@
 <section class="sec" id="learning">
   <h2>用 AI 帮忙学这些内容时要留意什么</h2>
   <p>用 AI 来帮助学习这些内容是可行的，但要讲究用法。有两项研究值得留意。它们都发现，有 AI 帮忙时，任务本身做得更好或者一样快，对内容的掌握却变差了。第一项研究里，作业的成绩和完成速度同时提高了，考试成绩却下降了。第二项研究里，完成任务的速度没有显著的差别，测验成绩却更低。</p>
-  <p>下图是两项研究的主要结果，具体的数见图后的表。</p>
-  {{figs 14 15 | 左：2.6 万多名中学生的作业成绩（上）和考试成绩（下）的分布，以没用 AI 的学生的平均分为 100。用了 AI 之后，作业成绩的分布向右移，考试成绩的分布向左移。右：Anthropic 的实验，左边一格是完成任务的时间，右边一格是测验成绩，蓝色是用 AI 的一组，橙色是不用 AI 的一组。}}
+  <p>下图是两项研究的主要结果，具体的数见图后的表。表里第一项研究的作业成绩高 18%、月考成绩低 20% 这两个数，比较的基准是这些学生开始使用 AI 之前的平均水平。左图的横轴用的是图上自己标注的刻度，读具体的数时以表为准。</p>
+  {{figs 14 15 | 左：2.6 万多名中学生的作业成绩（上）和考试成绩（下）的分布。横轴是分数，图的标题写明刻度以不用 AI 时的平均分为 100。用了 AI 之后，作业成绩的分布向右移，考试成绩的分布向左移。右：Anthropic 的实验，左边一格是完成任务的时间，右边一格是测验成绩，蓝色是用 AI 的一组，橙色是不用 AI 的一组。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">研究</th><th scope="col">对象和做法</th><th scope="col">用了 AI 之后，任务本身做得怎样</th><th scope="col">用了 AI 之后，对内容的掌握怎样</th></tr></thead>

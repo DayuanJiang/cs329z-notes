@@ -106,8 +106,8 @@
         <tr><th scope="row">CoT-SC</th><td>CoT 做 21 遍，取出现最多的答案</td><td class="r">33.4</td><td class="r">60.4</td></tr>
         <tr><th scope="row">Act</th><td>只行动，不写推理</td><td class="r">25.7</td><td class="r">58.9</td></tr>
         <tr><th scope="row">ReAct</th><td>推理和行动交替</td><td class="r">27.4</td><td class="r">60.9</td></tr>
-        <tr><th scope="row">CoT-SC，不行再 ReAct</th><td>21 个答案里最多的那个不到一半时，说明模型自己的知识没把握，改用 ReAct</td><td class="r">34.2</td><td class="r">64.6</td></tr>
-        <tr><th scope="row">ReAct，不行再 CoT-SC</th><td>ReAct 在规定的步数里没给出答案时，改用 CoT-SC</td><td class="r">35.1</td><td class="r">62.0</td></tr>
+        <tr><th scope="row">先用 CoT-SC，<br>没把握时改用 ReAct</th><td>21 个答案里出现最多的那个不到一半时，说明模型靠自己的知识答这道题没有把握，这时改用 ReAct</td><td class="r">34.2</td><td class="r">64.6</td></tr>
+        <tr><th scope="row">先用 ReAct，<br>没给出答案时改用 CoT-SC</th><td>ReAct 在规定的步数里没给出答案时，改用 CoT-SC</td><td class="r">35.1</td><td class="r">62.0</td></tr>
         <tr><th scope="row">有监督训练的最好成绩</th><td>专门为这个任务训练的模型，作为参照</td><td class="r">67.5</td><td class="r">89.5</td></tr>
       </tbody>
     </table>
@@ -191,7 +191,7 @@
   <h2>失败后写一段反思：Reflexion</h2>
   <p>self-consistency 是在一次回答之内多想几遍。Reflexion 是在多次尝试之间学习：这次失败了，写一段话总结为什么失败，下次尝试时带上这段话。</p>
   {{fig 39 | 左：Reflexion 的结构。右：两个例子，一个是家居任务，一个是写程序。每个例子从上到下是任务、这次的运行轨迹、评估结果、反思、下一次的运行轨迹。图片来源：<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>。}}
-  <p>它由三个角色组成，下表每行一个。行动者和反思者是 LLM，评估者可以是 LLM，也可以是一条规则。</p>
+  <p>它由三个角色组成，下表每行一个。行动者和反思者是 LLM，评估者可以是 LLM，也可以是一条规则。表里的短期记忆指这一次尝试的运行轨迹，只在这一次尝试里用。长期记忆指跨多次尝试保留下来的内容，这里存的是每次失败后写下的反思。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">角色</th><th scope="col">做什么</th><th scope="col">在家居任务的例子里</th></tr></thead>
@@ -208,9 +208,10 @@
   <p>左图里，只用 ReAct 的那条线在第 6、7 次尝试之后就不再上升。加上 Reflexion 之后，12 次尝试里解决了 134 个任务中的 130 个。</p>
   <p>右图把没解决的任务分成两类，按一条简单的规则区分。同一个动作连续三轮以上得到同样的回应，归为幻觉。动作数超过 30 个，归为低效的规划。这个对应关系的依据见<a href="#notes">资料说明</a>。</p>
   <p>只用 ReAct 时，归入幻觉这一类的任务停在全部 134 个任务的 22% 左右，不再下降。典型的情况是 agent 以为自己手里拿着某样东西，其实没有，然后在这个错误的认识上又做了很多步，没有办法退回去找到出错的地方。加上反思之后，这类情况几乎消失了。</p>
-  <p>Reflexion 也用在写程序上。写程序的数据集通常按一次提交的通过率算成绩：每道题只提交一个程序，看通过数据集里评分用的测试的题占多少。Reflexion 要反复尝试，每次都得有东西判断程序写得对不对。如果拿评分用的测试来判断，就等于提交了不止一次，成绩不能再算作一次提交的通过率。</p>
+  <p>Reflexion 也用在写程序上。写程序的数据集通常按一次提交的通过率算成绩。数据集给每道题配了一组评分用的测试。每道题只提交一个程序，这个程序通过了这组测试，这道题就算通过。通过的题占全部题目的比例，就是一次提交的通过率。</p>
+  <p>Reflexion 要反复尝试，每次都得有东西判断程序写得对不对。如果拿评分用的测试来判断，就等于提交了不止一次，成绩不能再算作一次提交的通过率。</p>
   <p>论文的做法是让模型先自己写一组单元测试，也就是检查一段代码在给定输入下结果对不对的小程序，用它们充当评估者。提交之前的反复尝试只用这些自己写的测试，所以最后仍然只提交一次。按一次提交的通过率算，Reflexion 在写程序的 HumanEval 数据集上是 91%，当时 GPT-4 是 80%。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>Reflexion 论文的副标题里有「强化学习」，实际上没有训练。</b>论文的副标题是 verbal reinforcement learning，正文里也用 reinforce 这个词，容易让人以为它用了强化学习。它的做法是把反思写成文字放进 prompt，模型的权重完全没有更新。论文摘要自己写明了这一点：强化 agent 靠的是语言反馈，不靠更新权重。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>Reflexion 论文的副标题里有「强化学习」，实际上没有训练。</b>论文的副标题是 verbal reinforcement learning，正文里也用 reinforce 这个词，容易让人以为它用了强化学习，也就是让模型通过试错、按得到的奖励来学习的训练方法。它的做法是把反思写成文字放进 prompt，模型的权重完全没有更新。论文摘要自己写明了这一点：强化 agent 靠的是语言反馈，不靠更新权重。</div></div>
 </section>
 
 <section class="sec" id="multi">
@@ -278,7 +279,7 @@
         <tr><th scope="row">ReAct</th><td>推理和行动交替，每一步都看结果</td><td>很多轮模型调用和工具调用</td></tr>
         <tr><th scope="row">self-consistency</th><td>同一道题推理很多遍，取多数答案</td><td>调用次数成倍增加</td></tr>
         <tr><th scope="row">Reflexion</th><td>失败后写反思，带到下一次尝试</td><td>要重做很多次，还要有办法判断成败</td></tr>
-        <tr><th scope="row">多 agent 辩论</th><td>几个 agent 互相读对方的解法再更新</td><td>agent 数乘以轮数那么多次调用</td></tr>
+        <tr><th scope="row">多 agent 辩论</th><td>几个 agent 互相读对方的解法再更新</td><td>调用次数是 agent 数乘以轮数</td></tr>
         <tr><th scope="row">orchestrator</th><td>一个 agent 拆任务，分给几个专门的 agent</td><td>协调本身要花调用，系统也更复杂</td></tr>
       </tbody>
     </table>

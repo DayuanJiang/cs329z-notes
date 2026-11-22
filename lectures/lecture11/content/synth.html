@@ -65,7 +65,7 @@
     <figcaption>三个基准测试考的都是操作网页。Mind2Web 在真实网站的页面上考每一步选的动作对不对。MiniWoB++ 是一组在简化的小网页上完成的操作题。WebArena 要在几个专门部署的网站上把整个任务做完。这里的 Mind2Web 测试给模型的输入里保证包含正确的元素，比 Mind2Web 原本的设置容易。出处：<a href="https://arxiv.org/abs/2409.15637">Ou 等，2024</a> 的表 1。</figcaption>
   </figure>
   <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「成本是人工的 3%」比的是两种不同的东西。</b>这个说法出自论文摘要，对比的是 Synatra 每条样本 0.031 美元和 Mind2Web 每条人工轨迹 0.8 美元。Synatra 的一条样本是一个单步的例子，Mind2Web 的 0.8 美元买到的是一整条轨迹，论文自己把 1 千条这样的轨迹拆成了 9 千个单步的例子。按单步来比，人工是每步大约 0.089 美元，Synatra 的成本大约是它的 35%（粗略估算）。</div></div>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「超过了 GPT-3.5」要带上范围。</b>这个说法也出自论文摘要，摘要的原话限定在 WebArena 和 Mind2Web 两个基准测试上。从上面的表看，MiniWoB++ 上没有超过，WebArena 上的差距只有 0.12 个百分点。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「超过了 GPT-3.5」只在两个基准测试上成立。</b>这个说法也出自论文摘要，摘要的原话限定在 WebArena 和 Mind2Web 两个基准测试上。从上面的表看，MiniWoB++ 上没有超过，WebArena 上的差距只有 0.12 个百分点。</div></div>
 </section>
 
 <section class="sec" id="synatra-agenttrek">
@@ -104,20 +104,21 @@
   <p>第 6 步是它和别的办法不一样的地方。以前常见的做法是用一个判断函数，把没完成任务的轨迹直接丢掉。OS-Genesis 的作者认为，没完成的轨迹里也有对界面的有用探索，而且它们占的比例很大，丢掉太浪费。</p>
   <h3>「成功率接近翻倍」是和谁比</h3>
   <p>论文说用 OS-Genesis 的数据训练之后，成功率接近翻倍。下表是同一个模型 Qwen2-VL-7B 用不同的数据训练之后，在 AndroidWorld 上的任务成功率。</p>
+  <p>表里拿来作比较的是两种先有指令的做法，都是论文作者自己搭的。第一种是给 GPT-4o 看应用或网页的起始截图和几个任务的例子，让它写出高层指令，再照着指令在环境里操作，把过程收集成轨迹。第二种在第一种的基础上，让 GPT-4o 参照已有的指令再多写出一批高层指令，所以轨迹的条数多一些。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">Qwen2-VL-7B 用什么数据训练</th><th scope="col" class="r">AndroidWorld 任务成功率</th></tr></thead>
       <tbody>
         <tr><th scope="row">不训练</th><td class="r">0.89%</td></tr>
-        <tr><th scope="row">先有指令的合成数据</th><td class="r">6.25%</td></tr>
-        <tr><th scope="row">先有指令的合成数据，指令由模型自己扩充（1,500 条轨迹）</th><td class="r">9.82%</td></tr>
+        <tr><th scope="row">先有指令的第一种做法（1,000 条轨迹）</th><td class="r">6.25%</td></tr>
+        <tr><th scope="row">先有指令的第二种做法，多写了一批指令（1,500 条轨迹）</th><td class="r">9.82%</td></tr>
         <tr><th scope="row">OS-Genesis 的数据（1,000 条轨迹）</th><td class="r">17.41%</td></tr>
         <tr><th scope="row">作为参照：GPT-4o 不经训练，配合 M3A 这个 agent 框架</th><td class="r">23.70%</td></tr>
       </tbody>
     </table>
     <figcaption>AndroidWorld 是一个在 Android 手机上完成任务的基准测试，共 116 个任务，这里用了其中 112 个。出处：<a href="https://arxiv.org/abs/2412.19723">Sun 等，2024</a> 的表 1。</figcaption>
   </figure>
-  <p>「接近翻倍」是从 9.82% 到 17.41%，也就是和先有指令的两种做法里成绩较好的那一种比。这种拿来作比较的对照做法叫基线（baseline）。这个提升来自整套流程，奖励模型只是其中一环。</p>
+  <p>「接近翻倍」是从 9.82% 到 17.41%，也就是和先有指令的第二种做法比，它是两种里成绩较好的一种，用的轨迹是 1,500 条，比 OS-Genesis 的 1,000 条多。这种拿来作比较的对照做法叫基线（baseline）。这个提升来自整套流程，奖励模型只是其中一环。</p>
   <p>还要注意表的最后一行：训练出来的 7B 模型，仍然低于不经训练的 GPT-4o。产生这些数据的正是 GPT-4o，论文在局限性里也写到，能构造出多少成功的轨迹，受执行任务的那个模型能力的限制。</p>
 </section>
 
@@ -185,7 +186,7 @@
 <section class="sec" id="swe-smith">
   <h2>SWE-smith：往真实仓库里注入 bug</h2>
   <p>SWE-bench 式的任务是从真实的 issue 和修复它的代码改动里找出来的，能找到多少，取决于历史上有多少这样的记录。SWE-smith（Yang 等，NeurIPS 2025）反过来做：拿一个测试能通过的仓库，往里面放 bug，只要这个 bug 让原来通过的测试变成不通过，就得到了一个任务。修好它的标准是让这些测试重新通过。</p>
-  {{fig 48 | 流程从左到右。真实的仓库，带着源代码和通过的单元测试。搭环境：SWE-agent 尝试安装仓库并运行测试，开发者根据它的结果写 Dockerfile。生成任务的四种策略。最后得到新的任务：环境镜像，加上合成的任务，其中有生成的 issue、带 bug 的代码改动和核实过的测试。图片来源：<a href="https://arxiv.org/abs/2504.21798">Yang 等，2025</a>。}}
+  {{fig 48 | 流程从左到右分四栏。第一栏是一个真实的仓库，带着源代码和能通过的单元测试。第二栏是搭环境：SWE-agent 尝试安装仓库并运行测试，开发者根据它的结果写 Dockerfile。第三栏列出生成任务的四种策略。第四栏是得到的新任务：一个环境镜像，加上合成的任务，其中有生成的 issue、带 bug 的代码改动和核实过的测试。图片来源：<a href="https://arxiv.org/abs/2504.21798">Yang 等，2025</a>。}}
   <h3>环境：每个仓库一个，共用</h3>
   <p>仓库选的是下载量最高的 5,000 个 Python 包里，GitHub 星数在 1,000 以上的那些，并且去掉了 SWE-bench 测试用的 12 个仓库。</p>
   <p>每个仓库只搭一次环境，搭的时候用到 SWE-agent。SWE-agent 是一个写代码用的运行框架，也就是包在模型外面、给它工具并管理多轮对话的程序。先让一个语言模型在 SWE-agent 里尝试把仓库装好、把测试跑起来，再由人检查安装步骤，确认 80% 以上的现有测试能通过，然后做成 Docker 镜像。同一个仓库的所有任务共用这一个镜像，SWE-bench 则是每个任务一个镜像。</p>
@@ -213,8 +214,8 @@
   <p>存储方面，全部镜像一共占 295 GB。论文估计按 SWE-bench 每个任务一个镜像的做法造 5 万个任务，需要 50 到 150 TB。</p>
   <h3>从环境到轨迹，再到模型</h3>
   <p>环境造好之后，还要有一个强的模型在里面把任务做一遍，才得到训练用的运行轨迹。论文让 Claude 3.7 Sonnet 在 SWE-agent 里去解这些任务，一共在 8,686 个任务上尝试了 17,906 次，其中 36% 成功。只留成功的轨迹，每个任务最多留 3 条，得到 5,016 条。</p>
-  <p>用这 5,016 条轨迹微调 Qwen 2.5 Coder 32B，得到的模型在 SWE-bench Verified 上每题只尝试一次，解决了 40.2%。SWE-bench Verified 是 SWE-bench 里经过人工筛选的 500 道题。</p>
-  <p>论文还比较了哪种 bug 做出的训练数据最好。做法是每种办法各取 1,000 个任务，让 Claude 3.7 Sonnet 去解，再各取 507 条成功的轨迹来微调 Qwen 2.5 Coder 7B，然后比较微调出的模型在 SWE-bench Verified 上的解决率。Combine 不在这次比较里。</p>
+  <p>用这 5,016 条轨迹微调 Qwen2.5-Coder-32B，得到的模型在 SWE-bench Verified 上每题只尝试一次，解决了 40.2%。SWE-bench Verified 是 SWE-bench 里经过人工筛选的 500 道题。</p>
+  <p>论文还比较了哪种 bug 做出的训练数据最好。做法是每种办法各取 1,000 个任务，让 Claude 3.7 Sonnet 去解，再各取 507 条成功的轨迹来微调 Qwen2.5-Coder-7B，然后比较微调出的模型在 SWE-bench Verified 上的解决率。Combine 不在这次比较里。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">任务用哪种办法造</th><th scope="col" class="r">微调出的模型在 SWE-bench Verified 上的解决率</th></tr></thead>
@@ -239,13 +240,13 @@
     <li><b>补测试。</b>提交自带测试的，用自带的。没有的，让语言模型看着正确的代码改动来生成测试，要求这些测试在改动之前不通过、之后通过。</li>
     <li><b>反向翻译出 issue。</b>把提交说明、代码改动和不通过的测试的输出交给语言模型，让它写出一份 issue，描述这个问题但不透露解法。这一步叫反向翻译（back-translation），因为方向和平常相反：平常是先有 issue 再有代码，这里是从代码倒推 issue。</li>
   </ol>
-  {{fig 50 | 论文的总览图。左：用这套办法得到的可运行环境，是只靠人写的 issue 能得到的 2.5 倍以上。中：四根柱子是训练出的模型在 SWE-Bench Verified 上的四个成绩。右：和别的系统比较，上面四个是闭源模型，下面是开放权重的模型。图片来源：<a href="https://arxiv.org/abs/2504.07164">Jain 等，2025</a>。}}
+  {{fig 50 | 论文的总览图。左：用这套办法得到的可运行环境，是只靠人写的 issue 能得到的 2.5 倍以上。中：四根柱子是训练出的模型在 SWE-bench Verified 上的四个成绩。右：和别的系统比较，上面四个是闭源模型，下面是开放权重的模型。图片来源：<a href="https://arxiv.org/abs/2504.07164">Jain 等，2025</a>。}}
   <p>中间那四根柱子需要分开读，它们的跑法不同。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">成绩</th><th scope="col">怎么跑出来的</th></tr></thead>
       <tbody>
-        <tr><th scope="row">34.4%</th><td>每道题只跑一次。模型是用 R2E-Gym 上的 3,321 条成功轨迹微调的 Qwen-2.5-Coder-32B。同一个基础模型不微调是 7.0%，用另一个数据集 SWE-Gym 微调是 20.6%</td></tr>
+        <tr><th scope="row">34.4%</th><td>每道题只跑一次。模型是用 R2E-Gym 上的 3,321 条成功轨迹微调的 Qwen2.5-Coder-32B。同一个基础模型不微调是 7.0%，用另一个数据集 SWE-Gym 微调是 20.6%</td></tr>
         <tr><th scope="row">42.8%</th><td>每道题跑 26 次，由一个不运行代码的验证模型从 26 个结果里挑一个交上去</td></tr>
         <tr><th scope="row">43.7%</th><td>每道题跑 26 次，由一个会写测试、运行测试的验证 agent 来挑</td></tr>
         <tr><th scope="row">51.0%</th><td>每道题跑 26 次，两种验证办法一起用来挑</td></tr>

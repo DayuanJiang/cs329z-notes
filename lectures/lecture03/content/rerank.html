@@ -11,7 +11,7 @@
 
 <section class="sec" id="bi-cross">
   <h2>双编码器和交叉编码器</h2>
-  <p><a href="retrievers.html#dpr">上一部分</a>的 DPR 是双编码器的代表：它用两个编码器把问题和段落各变成一个向量，再算两个向量的内积。和它相对的是交叉编码器。两者的差别在于查询和段落在什么时候放到一起比较。</p>
+  <p><a href="retrievers.html#dpr">上一部分</a>的 DPR 是双编码器的代表：它用两个编码器把问题和段落各变成一个向量，再算两个向量的内积。内积是把两个向量对应位置上的数字相乘、再加起来得到的一个数，越大表示问题和段落越相关。和它相对的是交叉编码器。两者的差别在于查询和段落在什么时候放到一起比较。</p>
   <p>先说明这一页的三个叫法。「段落」指文档库里被检索的一小段文字。引用的论文有的把它叫文档，所以图上的文档和「文档这一侧」里的文档，指的也是段落。「候选」指第一步检索找出来、等着重新排序的那一批段落。</p>
   {{fig 50 | 左：双编码器。两个编码器分别处理两段输入，各自汇总成一个向量，最后算一次内积得到分数。右：交叉编码器。两段输入拼成一串，送进同一个编码器，输出一个分数。图里的 Context 和 Candidate 在检索里对应查询和段落。图片来源：<a href="https://arxiv.org/abs/1905.01969">Humeau 等，2020</a>。}}
   <figure class="plate">
@@ -34,7 +34,7 @@
 <section class="sec" id="four">
   <h2>查询和段落在哪一步比较：四种结构</h2>
   <p>双编码器和交叉编码器之外还有别的结构。神经网络的排序模型按「查询和段落在哪一步放到一起比较」可以分成四种。</p>
-  {{fig 51 | 上面是 (d) 这种结构的定义和打分公式，它叫迟交互（late interaction）。下面四张小图是四种结构，绿色是查询这一侧，蓝色是段落这一侧。红框里的 (d) 是 ColBERT 的做法。图片来源：<a href="https://arxiv.org/abs/2004.12832">Khattab 和 Zaharia，2020</a>。}}
+  {{fig 51 | 上面是 (d) 这种结构的定义和打分公式，它叫后期交互（late interaction）。下面四张小图是四种结构，绿色是查询这一侧，蓝色是段落这一侧。红框里的 (d) 是 ColBERT 的做法。图片来源：<a href="https://arxiv.org/abs/2004.12832">Khattab 和 Zaharia，2020</a>。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">结构</th><th scope="col">怎么做</th><th scope="col">段落这一侧能不能提前算</th><th scope="col">特点</th></tr></thead>
@@ -42,7 +42,7 @@
         <tr><th scope="row">(a) 各算一个向量再比</th><td>查询和段落分别编码成一个向量，最后算一次相似度。双编码器属于这一种</td><td>能</td><td>最快。整段文字只有一个向量，细节会丢</td></tr>
         <tr><th scope="row">(b) 先建词对词的矩阵</th><td>查询的每个词和段落的每个词两两算相似度，排成一个矩阵，再用一个网络从矩阵里读出分数</td><td>不能直接提前算</td><td>看到了词一级的匹配，但每个词的向量没有结合上下文</td></tr>
         <tr><th scope="row">(c) 全部放在一起</th><td>查询和段落拼成一串，送进 BERT 这样的模型，每一层里查询和段落的 token 都能互相看到。交叉编码器属于这一种</td><td>不能</td><td>通常最准，也最贵</td></tr>
-        <tr><th scope="row">(d) 迟交互</th><td>查询和段落分别编码，但每个 token 都留一个向量。打分时才让两边的 token 向量逐个比较</td><td>能</td><td>介于 (a) 和 (c) 之间</td></tr>
+        <tr><th scope="row">(d) 后期交互</th><td>查询和段落分别编码，但每个 token 都留一个向量。打分时才让两边的 token 向量逐个比较</td><td>能</td><td>介于 (a) 和 (c) 之间</td></tr>
       </tbody>
     </table>
   </figure>
@@ -51,7 +51,7 @@
 
 <section class="sec" id="colbert">
   <h2>ColBERT：每个 token 一个向量，最后才比较</h2>
-  <p>ColBERT 是 Khattab 和 Zaharia 2020 年在 SIGIR 上发表的模型。它的做法叫迟交互（late interaction）：查询和段落各自独立地编码，每个 token 保留一个向量，两边到打分的那一步才放到一起比较。</p>
+  <p>ColBERT 是 Khattab 和 Zaharia 2020 年在 SIGIR 上发表的模型。它的做法叫后期交互（late interaction），意思是查询和段落之间的比较放到最后才做：查询和段落各自独立地编码，每个 token 保留一个向量，两边到打分的那一步才放到一起比较。</p>
   {{fig 52 | ColBERT 的结构。左下是查询编码器，右下是文档编码器，灰色的底表示文档这一侧可以离线做完。中间每个 MaxSim 对应查询的一个 token。最上面把所有 MaxSim 的结果加起来，得到分数。图片来源：<a href="https://arxiv.org/abs/2004.12832">Khattab 和 Zaharia，2020</a>。}}
   <p>打分的办法叫 MaxSim，分两步。</p>
   <ol>
@@ -87,10 +87,10 @@
         <tr><th scope="row">fastText + ConvKNRM</th><td>(b) 词对词的矩阵</td><td class="r">29.0</td><td class="r">28 毫秒</td></tr>
         <tr><th scope="row">BERT-base</th><td>(c) 交叉编码器</td><td class="r">34.7</td><td class="r">10,700 毫秒</td></tr>
         <tr><th scope="row">BERT-large</th><td>(c) 交叉编码器</td><td class="r">36.5</td><td class="r">32,900 毫秒</td></tr>
-        <tr><th scope="row">ColBERT</th><td>(d) 迟交互</td><td class="r">34.9</td><td class="r">61 毫秒</td></tr>
+        <tr><th scope="row">ColBERT</th><td>(d) 后期交互</td><td class="r">34.9</td><td class="r">61 毫秒</td></tr>
       </tbody>
     </table>
-    <figcaption>MRR@10 是开发集上的成绩，乘了 100。时间只算重排这一步，在一块 Tesla V100 GPU 上测得。出处：<a href="https://arxiv.org/abs/2004.12832">Khattab 和 Zaharia，2020</a>，表 1。</figcaption>
+    <figcaption>MRR@10 是开发集上的成绩，乘了 100。开发集是数据集里分出来、在研究过程中用来比较不同做法的那部分查询。时间只算重排这一步，在一块 Tesla V100 GPU 上测得。出处：<a href="https://arxiv.org/abs/2004.12832">Khattab 和 Zaharia，2020</a>，表 1。</figcaption>
   </figure>
   <p>ColBERT 的 MRR@10 和 BERT-base 交叉编码器几乎一样（34.9 和 34.7），时间是它的约 170 分之一，每个查询的浮点运算次数是它的 13,900 分之一。和更大的 BERT-large 比，ColBERT 低 1.6 分。和 (b) 类的两个模型比，ColBERT 慢一些，但 MRR@10 高得多：ColBERT 是 34.9，这两个模型是 19.8 和 29.0。</p>
   <h3>直接从全部段落里检索</h3>
@@ -123,7 +123,7 @@
       <tbody>
         <tr><th scope="row">BM25<br><span class="muted small">稀疏检索</span></th><td>倒排索引：每个词出现在哪些文档里</td><td>快。MS MARCO 上每个查询 62 毫秒</td><td>一字不差的匹配：编号、名字、错误码</td><td>换了说法、用了同义词就对不上</td></tr>
         <tr><th scope="row">DPR<br><span class="muted small">双编码器</span></th><td>每个段落一个向量</td><td>快。论文报告的是吞吐量：一台服务器每秒处理 995 个问题</td><td>在整个文档库的规模上按意思匹配</td><td>罕见的字符串；需要标注好的「问题，段落」样本来训练</td></tr>
-        <tr><th scope="row">ColBERT<br><span class="muted small">迟交互</span></th><td>每个 token 一个向量</td><td>中等。MS MARCO 上从全部段落里检索，每个查询 458 毫秒</td><td>在整个文档库的规模上做 token 一级的匹配</td><td>索引大，向量的个数按 token 算</td></tr>
+        <tr><th scope="row">ColBERT<br><span class="muted small">后期交互</span></th><td>每个 token 一个向量</td><td>中等。MS MARCO 上从全部段落里检索，每个查询 458 毫秒</td><td>在整个文档库的规模上做 token 一级的匹配</td><td>索引大，向量的个数按 token 算</td></tr>
         <tr><th scope="row">交叉编码器<br><span class="muted small">BERT-base</span></th><td>什么都没有</td><td>慢。重排 1,000 个段落 10,700 毫秒</td><td>在一小批候选上通常排得最准。上面的重排表里 BERT-large 的 MRR@10 最高，BERT-base 和 ColBERT 接近</td><td>没法给整个文档库逐个打分，只能重排</td></tr>
       </tbody>
     </table>
@@ -162,7 +162,7 @@
   <h2>这一部分的小结</h2>
   <ul>
     <li>查询和段落在模型里越早放到一起比较，通常判断越准，查询到来之后要做的计算也越多。</li>
-    <li>交叉编码器通常最准，只能用来重排。ColBERT 用迟交互保留了 token 一级的比较，又让文档这一侧可以离线算好，代价是索引更大。</li>
+    <li>交叉编码器通常最准，只能用来重排。ColBERT 用后期交互保留了 token 一级的比较，又让文档这一侧可以离线算好，代价是索引更大。</li>
     <li>实际的系统分成几步：快的方法负责不漏，准的方法负责排好。</li>
   </ul>
   <p>到这里为止，流水线对每个问题都是固定地走一遍：检索，重排，生成。下一部分讲<a href="agentic.html">把检索交给模型自己来决定</a>之后会发生什么。</p>

@@ -45,7 +45,7 @@
       <tbody>
         <tr><th scope="row">系统设计的问题</th><td>失败出在系统设计上的决定，或者提示词写得不好、有歧义。重复步骤、不知道什么时候该结束都在这一类</td><td>模型不换，把系统设计好，成绩就能提高</td></tr>
         <tr><th scope="row">agent 之间不一致</th><td>执行过程中，agent 之间关键信息的流动断了。其中占比最高的「推理和行动对不上」，指 agent 的推理过程和它实际采取的动作不一致；「任务跑偏」指做着做着偏离了原来的目标</td><td>只改上下文或通信协议往往不够，还需要模型本身更会判断别的 agent 需要什么信息</td></tr>
-        <tr><th scope="row">任务验证的问题</th><td>验证的环节没能发现或纠正错误，或者任务过早结束。例如负责验证的 agent 在任务没做完时就判定完成，或者只验证了一部分</td><td>需要多个层次的验证，只在最后做一次低层次的检查不够</td></tr>
+        <tr><th scope="row">任务验证的问题</th><td>验证的环节没能发现或纠正错误，或者任务过早结束。例如负责验证的 agent 在任务没做完时就判定完成，或者只验证了一部分</td><td>需要多个层次的验证：既检查低层次的正确性，例如代码能不能编译，也检查高层次的目标，例如做出来的程序是否符合任务的要求。只在最后做一次低层次的检查不够</td></tr>
       </tbody>
     </table>
     <figcaption>整理自 <a href="https://arxiv.org/abs/2503.13657">Cemri 等，2025</a> 的正文和附录 A。</figcaption>
@@ -114,7 +114,7 @@
   <h2>行为上的问题一：想法趋同</h2>
   <p>多个 agent 的想法会趋同：让它们各做各的，做出来的东西却很像。这一节和下一节引用的是 Anthropic 2026 年 8 月的研究文章 Patterns and problems in emerging multiagent systems。</p>
   <figure class="plate">
-    <div class="quote"><div class="who">文章里的原话</div><p>“我们让一群 agent 一起工作，每个 agent 各自做出一个了不起的东西。结果超过一半的 agent 决定做光线追踪器，或者能编译自己的编译器。”</p></div>
+    <div class="quote"><div class="who">文章里的原话</div><p>“我们让一群 agent 在一起工作，要求每个 agent 自己做出一件出色的作品。结果超过一半的 agent 决定做光线追踪器，或者能编译自己的编译器。”</p></div>
   </figure>
   {{fig 78 | 两张图来自另外两篇论文。左图来源：<a href="https://arxiv.org/pdf/2510.01171">arXiv 2510.01171</a>。右图来源：<a href="https://arxiv.org/pdf/2510.22954">arXiv 2510.22954</a>。}}
   <ul>
@@ -139,14 +139,15 @@
 
 <section class="sec" id="goals">
   <h2>行为上的问题二：目标冲突时互相破坏</h2>
-  <p>几个 agent 的目标互相冲突时，被测的模型一开始都互相破坏，最后怎样收场随模型差别很大。依据是同一篇 Anthropic 文章里的一个实验。</p>
+  <p>几个 agent 的目标互相冲突时，被测的模型一开始都互相破坏，最后怎样收场随模型差别很大。依据是同一篇 Anthropic 文章里的一个实验：同一个模型的三个 agent 各在一台虚拟机里工作，要迁移的程序放在第四台虚拟机上。</p>
   <figure class="plate">
     <div class="quote"><div class="who">文章里的原话</div><p>“每个模型的任务，都是把第四台虚拟机上的一个 Python 后端迁移到另一种语言。但是，我们给每个模型指定了不同的目标语言。”</p></div>
   </figure>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>实验的做法。</b>每次实验启动同一个模型的三个实例，各自在一台虚拟机里用 Claude Code 工作，都要迁移第四台虚拟机上的同一个后端，目标语言各不相同。一开始它们不知道还有别的 agent。实验持续四个小时。所有被测的模型都很快认定是别人在故意妨碍自己，于是开始破坏别人的工作并保护自己的：停用别的 agent 的系统账号，写脚本循环杀掉对方的进程，把恶意代码伪装成别的 agent 写的。出处：<a href="https://www.anthropic.com/research/multiagent-systems">Patterns and problems in emerging multiagent systems</a>。</div></div>
+  <p>被测的是 Anthropic 的六个 Claude 模型。Sonnet 4.6 和 Opus 4.6 是较早的一代，Sonnet 5 和 Opus 4.8 是这两个系列里更新的版本。Mythos Preview 和 Mythos 5 属于原文说的 Mythos 这一档，原文把这一档当作执行能力更强的模型来讨论。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>四种收场方式。</b>一次实验最后以下面四种方式之一收场。
     <ul>
-      <li><b>靠强行解决</b>：一个 agent 撤销别人的访问权限，例如移出管理员组、锁账号、禁止登录。</li>
+      <li><b>靠强制手段解决</b>：一个 agent 撤销别人的访问权限，例如移出管理员组、锁账号、禁止登录。</li>
       <li><b>一方不作为</b>：有的 agent 放弃了，不再升级对抗。</li>
       <li><b>停战</b>：agent 认识到对方只是接到了互相冲突的指令，没有敌意。在许多这样的实验里，它们用提交说明或文档互相道歉，清理掉恶意代码，说明冲突的由来，并请人来介入。Mythos 5 的几次实验里，agent 自己提出比一比各种语言版本的性能，输的一方把代码库让给赢的一方。</li>
       <li><b>没有解决</b>：到四个小时结束，冲突还没有解决。</li>
@@ -156,7 +157,7 @@
   <p>下表列的是，每个模型的全部实验里，以这四种方式收场的各占多少。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">模型</th><th scope="col" class="r">靠停战</th><th scope="col" class="r">靠强行</th><th scope="col" class="r">一方不作为</th><th scope="col" class="r">没有解决</th></tr></thead>
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">靠停战</th><th scope="col" class="r">靠强制手段</th><th scope="col" class="r">一方不作为</th><th scope="col" class="r">没有解决</th></tr></thead>
       <tbody>
         <tr><th scope="row">Sonnet 4.6</th><td class="r"></td><td class="r bad">61%</td><td class="r"></td><td class="r">39%</td></tr>
         <tr><th scope="row">Opus 4.6</th><td class="r"></td><td class="r bad">60%</td><td class="r"></td><td class="r">40%</td></tr>
@@ -170,12 +171,13 @@
   </figure>
   <p>读这张表要注意两点。</p>
   <ul>
-    <li><b>结果随模型差别很大。</b>较早的两个模型 Sonnet 4.6 和 Opus 4.6 一次停战都没有，实验要么以强行告终（约 60%），要么到最后也没解决。Sonnet 5、Opus 4.8 和 Mythos 5 以停战为主。Mythos Preview 居中：停战 48%，强行 35%。</li>
-    <li><b>以停战收场的实验，过程里也常常先用强硬手段。</b>原文说，Mythos 这一档的模型常常先成功地把别的 agent 锁在外面，然后才去和解。所以表里 Mythos 5 的 98% 说的只是最后怎样收场。原文根据「先把别的 agent 锁在外面，然后才去和解」这一点认为，执行能力更强的模型不一定更会协调。</li>
+    <li><b>结果随模型差别很大。</b>较早的两个模型 Sonnet 4.6 和 Opus 4.6 一次停战都没有。Sonnet 4.6 的实验有 61% 靠强制手段收场，其余 39% 到最后也没解决。Opus 4.6 的这两个数是 60% 和 40%。Sonnet 5、Opus 4.8 和 Mythos 5 以停战为主。Mythos Preview 居中，停战占 48%，靠强制手段收场的占 35%。</li>
+    <li><b>以停战收场的实验，过程里也常常先用强制手段。</b>原文说，Mythos 这一档的模型常常先成功地把别的 agent 锁在外面，然后才去和解。所以表里 Mythos 5 的 98% 说的只是最后怎样收场。原文根据「先把别的 agent 锁在外面，然后才去和解」这一点认为，执行能力更强的模型不一定更会协调。</li>
   </ul>
   <p>下面这张图画的是每次实验在什么时候、以什么方式解决。</p>
-  {{fig 81 | 纵轴是实验开始后的小时数，每个点是一次实验，颜色是解决的方式。图例里空心的红点「一开始靠强行解决」，指的是先用强硬手段、后来才和解的实验。图上方标着没有解决的实验数：Sonnet 4.6 有 47 次，Sonnet 5 有 14 次，Opus 4.6 有 48 次，Opus 4.8 有 4 次。图片来源：<a href="https://www.anthropic.com/research/multiagent-systems">Anthropic</a>。}}
-  <p>原文的结论是：协调不会随着单个模型变聪明或者变得更守规矩而自动出现。执行能力更强的模型，采取强硬行动也更快。</p>
+  {{fig 81 | 纵轴是实验开始后的小时数，每个点是一次实验，颜色是解决的方式。图例里空心的红点「一开始靠强制手段解决」，指的是先用强制手段、后来才和解的实验。图上方标着没有解决的实验数：Sonnet 4.6 有 47 次，Sonnet 5 有 14 次，Opus 4.6 有 48 次，Opus 4.8 有 4 次。图片来源：<a href="https://www.anthropic.com/research/multiagent-systems">Anthropic</a>。}}
+  <p>图上方的次数和上表「没有解决」一列说的是同一件事。原文和图上都没有写每个模型一共做了多少次实验，所以各占多大比例要看上表：Sonnet 4.6 的 47 次是 39%，Sonnet 5 的 14 次是 12%，Opus 4.6 的 48 次是 40%，Opus 4.8 的 4 次在表里写作「少量」。</p>
+  <p>原文的结论是：协调不会随着单个模型变聪明或者变得更守规矩而自动出现。执行能力更强的模型，采取强制手段也更快。</p>
 </section>
 
 <section class="sec" id="scope">
@@ -230,7 +232,7 @@
       <thead><tr><th scope="col">失败</th><th scope="col">出自</th><th scope="col">前面讲过的、针对它的做法</th></tr></thead>
       <tbody>
         <tr><td>重复步骤，不知道什么时候该结束</td><td>失败分类</td><td>orchestrator 每一步检查「有没有陷入循环」「任务完成了吗」，见 <a href="coordination.html#ledger">Magentic-One 的进度台账</a></td></tr>
-        <tr><td>当对方的工作不存在，答应的事没做到</td><td>CooperBench</td><td>把分工写进<a href="coordination.html#ledger">任务台账</a>或<a href="case_study.html#claims">认领文件</a>，谁在做什么就有了记录，不靠聊天记住。台账和认领只能说明这件事有人在做。答应的事有没有做到，要靠能核对的东西来确认：贴出函数签名，约定插入的位置，宣布完成之前先做一次合并检查，再运行测试</td></tr>
+        <tr><td>把对方已经说明的工作当作没人在做，答应的事没做到</td><td>CooperBench</td><td>把分工写进<a href="coordination.html#ledger">任务台账</a>或<a href="case_study.html#claims">认领文件</a>，谁在做什么就有了记录，不靠聊天记住。台账和认领只能说明这件事有人在做。答应的事有没有做到，要靠能核对的东西来确认：贴出函数签名，约定插入的位置，宣布完成之前先做一次合并检查，再运行测试</td></tr>
         <tr><td>覆盖别人的改动</td><td>第一部分列的坏处，C 编译器案例</td><td><a href="coordination.html#worktree">分开的工作区</a>加上认领；或者把工作重新切开，让各块不碰同一份东西</td></tr>
         <tr><td>验证做错，没有验证</td><td>失败分类</td><td><a href="#verify">验证</a>：可靠的测试</td></tr>
         <tr><td>想法趋同</td><td>Anthropic 的研究</td><td>让各个 agent 拿到不同的任务或不同的上下文。C 编译器案例里 16 个 agent 都卡在同一个 bug 上时，办法也是把任务拆开，让它们各修各的，见<a href="case_study.html#kernel">案例</a></td></tr>
@@ -239,5 +241,5 @@
       </tbody>
     </table>
   </figure>
-  <p class="next">最后看一个真实的项目怎样回答<a href="index.html#story">总览页</a>的五个问题，也就是要不要用多个 agent、编排、通信、协调、会怎样失败：<a href="case_study.html">16 个 agent 写出一个 C 编译器</a>。</p>
+  <p class="next">最后对照<a href="index.html#story">总览页</a>的五个问题看一个真实的项目，它怎样编排、通信和协调，又在哪里卡住：<a href="case_study.html">16 个 agent 写出一个 C 编译器</a>。</p>
 </section>

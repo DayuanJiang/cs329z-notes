@@ -8,10 +8,10 @@
       <tbody>
         <tr><td>每一步，模型输出的是整个词表上的一个概率分布</td><td>输出有随机性，可以用 temperature（调节输出多样性的参数）这类设置去调；也可以在每一步只允许合法的 token，从机制上保证输出的格式</td><td><a href="lm.html">一</a>、<a href="structured.html">七</a></td></tr>
         <tr><td>标准的注意力让每个 token 直接去看前面所有的 token，计算量随长度的平方增长</td><td>长上下文很贵。省计算的线性注意力又更难从长上下文里找回信息，所以选模型时要看它用的是哪一种</td><td><a href="transformer.html">二</a>、<a href="linear.html">三</a></td></tr>
-        <tr><td>模型的能力来自它练过的数据和环境</td><td>模型会调用工具、会长时间工作，是因为训练时专门用带运行环境的任务练过。训练的方式也会带来问题，比如模型爱说好话</td><td><a href="training.html">四</a></td></tr>
+        <tr><td>模型的能力来自它练过的数据和环境</td><td>模型会调用工具、会长时间工作，是因为训练时专门用带运行环境的任务练过。训练的方式也会带来问题，比如模型爱奉承、说话过分肯定</td><td><a href="training.html">四</a></td></tr>
         <tr><td>读输入时所有 token 并行算，写输出时一次只出一个 token</td><td>输入 token 便宜，输出 token 贵而且慢。agent 读得多、写得少，这种用法在价格上划算</td><td><a href="inference.html">五</a></td></tr>
         <tr><td>每个 token 算过的中间结果可以存下来接着用，但它依赖前面的全部内容</td><td>上下文的开头保持不变、新内容只往后加，缓存才能一直用</td><td><a href="inference.html#kvcache">五</a>、<a href="context.html#cache">八</a></td></tr>
-        <tr><td>让模型多生成一些 token 再回答，成绩通常更好</td><td>难的任务可以多花，简单的任务少花，由使用的人决定</td><td><a href="scaling.html">六</a></td></tr>
+        <tr><td>让模型多生成一些 token 再回答，成绩通常更好</td><td>难的任务可以让模型多用一些 token，简单的任务少用一些，由使用的人决定</td><td><a href="scaling.html">六</a></td></tr>
         <tr><td>上下文越长，模型用好其中信息的能力越差</td><td>上下文要小而精：少放工具，用检索挑内容，满了之后小心地做摘要</td><td><a href="context.html">八</a></td></tr>
       </tbody>
     </table>
@@ -43,7 +43,9 @@
     <li><b>位置向量</b>是加到每个 token 的向量上、表示它排在第几个的一组数。<b>前馈网络</b>是对每个 token 的向量单独做一次变换的那一层。</li>
     <li><b>query、key、value</b> 是注意力层为每个 token 算出的三个向量：query 表示它在找什么，key 表示它有什么，value 是别的 token 看它时它交出去的内容。</li>
     <li><b>ConvS2S</b> 是一个用卷积网络做翻译的模型。<b>集成模型</b>指把几个分别训练的模型的预测合起来用。</li>
+    <li><b>预训练、中期训练和后训练</b>是训练的先后三个阶段。预训练让模型在海量文字上学预测下一个 token，后训练用专门挑选的数据教模型按人希望的方式回答，中期训练夹在两者之间。</li>
     <li><b>交叉熵损失</b>是训练时衡量模型离目标有多远的一个数：模型给真实的下一个 token 的概率越高，它越低。</li>
+    <li><b>配比</b>是各种来源的数据在训练数据里各占多少。</li>
     <li><b>指令微调</b>是用很多条「指令加上理想的回答」接着训练模型。</li>
     <li><b>DCLM</b> 是一个公开的预训练数据集和基准测试。<b>SWE-smith</b> 是一种自动造训练任务的办法。<b>SWE-bench Verified</b> 和 <b>SWE-bench Lite</b> 是修真实代码仓库里 bug 的基准测试。</li>
     <li><b>内存带宽</b>是数据从内存送到计算单元的速度。</li>
@@ -78,20 +80,20 @@
 
 <section class="sec" id="gaps">
   <h2>容易想当然的八件事</h2>
-  <p>这张表留到读完各部分之后再看，用来核对自己的理解。左边一列是八个说法，照配图上的字面或者第一眼的印象，很容易这样理解。右边一列是对照原始出处之后的实际情况：有的比字面复杂，有的在原始出处里是另一种说法。</p>
+  <p>这张表留到读完各部分之后再看，用来核对自己的理解。左边一列是八个说法，照各部分页面里配图上的字面或者第一眼的印象，很容易这样理解。右边一列是对照原始出处之后的实际情况：有的比字面复杂，有的在原始出处里是另一种说法。</p>
   <p>表里提到的模型、基准测试、文章和几个术语在各部分里都有交代，表后面先各给一句解释。每一件的出处和细节在最后一列指向的页面里。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">容易这样理解</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
-        <tr><td>temperature 就是把概率除以 T，再重新归一化</td><td>除的是 logits，也就是 softmax 之前的分数。把概率同除以一个数再归一化，分布不会变</td><td><a href="lm.html#temperature">语言模型</a></td></tr>
-        <tr><td>线性注意力就是把 softmax 去掉</td><td>提出它的论文是把 softmax 里的指数运算换成一个特征变换，并且保留了归一化。交换相乘顺序这个核心想法是一样的</td><td><a href="linear.html#idea">线性注意力</a></td></tr>
-        <tr><td>RWKV 和 Mamba 用的都是线性注意力，RULER 的图说明线性注意力不如标准注意力</td><td>Mamba 是状态空间模型，结构里没有注意力。图里三个模型的大小和训练数据都不同，纵轴是 13 个任务的平均。它能说明的是：这两个用固定大小状态的模型在这个基准测试上落后</td><td><a href="linear.html#cost">线性注意力</a></td></tr>
-        <tr><td>Marin 的热力图是预训练和冷却两个阶段各自的数据配比</td><td>按原文，它画的是每个数据桶的占比和模型成绩之间的相关系数。深蓝色的格子表示这个桶的占比越高成绩越好，不表示这个桶的占比高</td><td><a href="training.html#mid">训练</a></td></tr>
-        <tr><td>Inkling 用「任务奖励减去 token 惩罚」这个公式训练推理强度；Kimi K3 分高、中、低三档，答错并超预算扣 1 分</td><td>那个公式是一篇解读文章的推测，官方没有公开。Kimi K3 的三档是低、高、最高；规则是只要超预算，任务奖励就改成负 1</td><td><a href="scaling.html#effort-training">多花算力</a></td></tr>
-        <tr><td>往上下文开头插入内容会让 KV cache 作废，是因为位置向量变了</td><td>位置改变是原因之一。按注意力的计算方式推论，更一般的原因是每个 token 的结果都依赖它前面的全部内容，前面一改，后面全变。所以缓存只在开头完全相同时能接着用</td><td><a href="context.html#cache">上下文工程</a></td></tr>
-        <tr><td>OOLONG 上 Gemini 2.5 Pro 的得分从接近 90 分掉到 13 分左右，说明 context rot（上下文越长，模型越用不好其中信息）有多严重</td><td>论文说这条线下降的主要原因是推理过程超出了最大输出长度，API 不返回内容，记 0 分。不受这种记 0 分影响的例子是 GPT-5：满分 100，它的得分从上下文 8K 个 token 时的 85.56 降到 128K 个 token 时的 46.36</td><td><a href="context.html#rot">上下文工程</a></td></tr>
-        <tr><td>HarnessTax 的结果说明，除了一个模型之外，用精简的 Pi 成功率都最高</td><td>文章自己的结论是：换运行框架对成功率影响很小，对花费影响很大。每个数只来自 30 个任务，从图上看，同一个模型的三根柱子的误差线都互相重叠</td><td><a href="context.html#bloat">上下文工程</a></td></tr>
+        <tr><td>temperature 就是把概率除以 T，再重新归一化</td><td>除的是 logits，也就是 softmax 之前的分数。把概率同除以一个数再归一化，分布不会变</td><td><a href="lm.html#temperature">一</a></td></tr>
+        <tr><td>线性注意力就是把 softmax 去掉</td><td>提出它的论文是把 softmax 里的指数运算换成一个特征变换，并且保留了归一化。交换相乘顺序这个核心想法是一样的</td><td><a href="linear.html#idea">三</a></td></tr>
+        <tr><td>RWKV 和 Mamba 用的都是线性注意力，RULER 的图说明线性注意力不如标准注意力</td><td>Mamba 是状态空间模型，结构里没有注意力。图里三个模型的大小和训练数据都不同，纵轴是 13 个任务的平均。它能说明的是：这两个用固定大小状态的模型在这个基准测试上落后</td><td><a href="linear.html#cost">三</a></td></tr>
+        <tr><td>Marin 的热力图是预训练和冷却两个阶段各自的数据配比</td><td>按原文，它画的是每个数据桶的占比和模型成绩之间的相关系数。深蓝色的格子表示这个桶的占比越高成绩越好，不表示这个桶的占比高</td><td><a href="training.html#mid">四</a></td></tr>
+        <tr><td>Inkling 用「任务奖励减去 token 惩罚」这个公式训练推理强度；Kimi K3 分高、中、低三档，答错并超预算扣 1 分</td><td>那个公式是一篇解读文章的推测，官方没有公开。Kimi K3 的三档是低、高、最高；规则是只要超预算，任务奖励就改成负 1</td><td><a href="scaling.html#effort-training">六</a></td></tr>
+        <tr><td>往上下文开头插入内容会让 KV cache 作废，是因为位置向量变了</td><td>位置改变是原因之一。按注意力的计算方式推论，更一般的原因是每个 token 的结果都依赖它前面的全部内容，前面一改，后面全变。所以缓存只在开头完全相同时能接着用</td><td><a href="context.html#cache">八</a></td></tr>
+        <tr><td>OOLONG 上 Gemini 2.5 Pro 的得分从接近 90 分掉到 13 分左右，说明 context rot（上下文越长，模型越用不好其中信息）有多严重</td><td>论文说这条线下降的主要原因是推理过程超出了最大输出长度，API 不返回内容，记 0 分。不受这种记 0 分影响的例子是 GPT-5：满分 100，它的得分从上下文 8K 个 token 时的 85.56 降到 128K 个 token 时的 46.36</td><td><a href="context.html#rot">八</a></td></tr>
+        <tr><td>HarnessTax 的结果说明，除了一个模型之外，用精简的 Pi 成功率都最高</td><td>文章自己的结论是：换运行框架对成功率影响很小，对花费影响很大。每个数只来自 30 个任务，从图上看，同一个模型的三根柱子的误差线都互相重叠</td><td><a href="context.html#bloat">八</a></td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在最后一列指向的页面里。</figcaption>

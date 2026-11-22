@@ -116,7 +116,7 @@
 # 3. what the harness appends after running the tool
 "def add(a, b): ..."</code></pre>
   <p>这里要分清谁在做什么。模型从头到尾只做了一件事：生成第 2 段那一行文字。读文件的是运行框架（harness，包在模型外面、提供工具并管理多轮对话的程序），模型看到的是运行框架放回来的结果。所以工具能做什么、不能做什么，由运行框架决定；一个工具调用要不要先经过人的批准，也在这一层控制。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>约束解码是什么。</b>模型每生成一个 token（模型处理文字的最小单位），本来可以从整个词表里任选。约束解码（constrained decoding）在每一步只允许它选那些不会破坏规定格式的 token。它保证的是格式，参数的值对不对，它管不了。约束解码在第 2 讲展开。出处和下一个框相同：<a href="https://web.archive.org/web/20250103232131/https://openai.com/index/introducing-structured-outputs-in-the-api/">OpenAI，2024</a>（存档页面）。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>约束解码是什么。</b>模型每生成一个 token（模型处理文字的最小单位），本来可以从整个词表里任选。约束解码（constrained decoding）在每一步只允许它选那些不会破坏规定格式的 token。它保证的是格式。参数的值对不对，不在它的检查范围内。约束解码在第 2 讲展开。出处和下一个框相同：<a href="https://web.archive.org/web/20250103232131/https://openai.com/index/introducing-structured-outputs-in-the-api/">OpenAI，2024</a>（存档页面）。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>约束解码的一个例子：OpenAI 的 Structured Outputs。</b>OpenAI 在 2024 年 8 月推出的 Structured Outputs 就是这样做的。开发者用 JSON Schema 描述想要的输出，JSON Schema 是一种写明一段 JSON 里有哪些字段、各是什么类型的格式。系统把它转成一套语法规则，生成时只保留符合规则的 token。按 OpenAI 的说明，只靠训练，模型在他们的测试里有 93% 的输出符合 schema；加上约束解码之后是 100%。出处：<a href="https://web.archive.org/web/20250103232131/https://openai.com/index/introducing-structured-outputs-in-the-api/">OpenAI，2024</a>（存档页面）。</div></div>
 </section>
 

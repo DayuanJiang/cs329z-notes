@@ -16,12 +16,12 @@
     <table class="tbl">
       <thead><tr><th scope="col">问题</th><th scope="col">常见的答案</th><th scope="col">在哪里细讲</th></tr></thead>
       <tbody>
-        <tr><th scope="row">存什么，取什么<br><span class="muted small">What</span></th><td>事实（具体的和一般的），做法，对话的进展</td><td>这三样可以对应到<a href="basics.html#four">第一部分</a>的三种长期记忆：事实对应存知识的语义记忆，做法对应程序性记忆，对话的进展对应存经历的情景记忆</td></tr>
+        <tr><th scope="row">存什么，取什么<br><span class="muted small">What</span></th><td>事实（具体的和一般的），做法，对话的进展</td><td><a href="basics.html#four">第一部分</a></td></tr>
         <tr><th scope="row">什么时候触发存和取<br><span class="muted small">When</span></th><td>agent 按需调用工具；后台的流程；事件触发</td><td><a href="#when">下一节</a></td></tr>
         <tr><th scope="row">用什么办法存和取<br><span class="muted small">How</span></th><td>文件系统；数据库加检索；知识图谱</td><td>本页<a href="#how">后面几节</a></td></tr>
       </tbody>
     </table>
-    <figcaption>每一格里列的都只是常见的答案，不同的系统还有别的做法。</figcaption>
+    <figcaption>每一格里列的都只是常见的答案，不同的系统还有别的做法。第一行的三样可以对应到第一部分的三种长期记忆：事实对应存知识的语义记忆，做法对应程序性记忆，对话的进展对应存经历的情景记忆。</figcaption>
   </figure>
   <p>读后面任何一个记忆系统时，都可以拿这三个问题去问它。<a href="upkeep.html#recap">第五部分最后的对照表</a>就按存什么、什么时候写、什么时候读，把四种模式排在一起比较。</p>
 </section>
@@ -156,11 +156,12 @@
       </tbody>
     </table>
   </figure>
-  <p>介绍一个系统的论文通常都论证自己的系统最好，所以很难从论文里得出一个通用的排名。这一讲的建议是：能用文件系统的地方，就先用文件系统。理由是它的结构最简单，查什么、怎么查都让模型自己决定，现在的模型做得了这件事。告诉模型「这是你的文件系统，把它当记忆来用」，很多时候就能工作。</p>
+  <p>介绍一个系统的论文通常都论证自己的系统最好，所以很难从论文里得出一个通用的排名。这一讲的建议是：能用文件系统的地方，就先用文件系统。理由是它的结构最简单，查什么、怎么查都让模型自己决定，现在的模型做得了这件事。告诉模型「这是你的文件系统，把它当记忆来用」，很多时候就行得通。</p>
   <p>对查找速度有要求的时候，再考虑另外两种办法。按上表列的好处和代价，只是要查得快，可以用数据库。还要表达事物之间的关系和随时间的变化，可以用知识图谱，代价是建图要调用很多次语言模型。</p>
   <p>文件系统的代价是延迟。agent 每查一次记忆，都要运行命令、读结果、推理、再决定下一步，来回好几轮。</p>
   <p><a href="eval.html#lme">第六部分</a>的 LongMemEval-V2 基准测试给出了一组具体的数字。它考的是记忆系统能不能从 agent 过去的大量运行轨迹（trajectory，每一步的动作和看到的结果的完整记录）里找到答案。</p>
   <p>这个测试把查找和作答分成两步。被测的记忆做法负责查找，也就是针对一个问题找出有关的内容。找出的内容再交给一个固定的小模型，由它写出答案。下表比较三种记忆的做法在这个测试上的准确率和查询耗时。</p>
+  <p>表里第一行取出的有两样东西。片段是轨迹里相邻几步的记录。笔记是存入每条轨迹时由语言模型写的两条概括，一条总结可以再用的任务步骤，一条记下这个环境特有的情况和容易出错的地方。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">记忆的做法</th><th scope="col">具体怎么做</th><th scope="col" class="r">回答问题的准确率</th><th scope="col" class="r">每个问题的查询耗时</th></tr></thead>
@@ -190,6 +191,7 @@
         <tr><th scope="row">记忆维护<br><span class="muted small">Memory Maintenance</span></th><td>存了之后继续整理：清理、更新、删除旧的记忆</td><td>Sleep-time compute、A-Mem、Mem0</td><td><a href="upkeep.html#maintain">第五部分</a></td></tr>
       </tbody>
     </table>
+    <figcaption>「例子」一列里，MemGPT 和 Mem0 在<a href="#when">前面讲触发方式的一节</a>介绍过，技能文件在<a href="#files">讲文件系统的一节</a>介绍过。其余几个各用一句话说明。Voyager 是一个在游戏 Minecraft 里自己探索的 agent，它把写过的程序存起来再用。Agent Workflow Memory 是一个让操作网页的 agent 从做成的任务里归纳出步骤的方法。MemoryOS 是一个把记忆分成短期、中期、长期三层的系统，用固定的规则在层与层之间搬运信息。Reflexion 是一个让 agent 在任务失败后写一段反思、重试时带上这段反思的方法。Generative Agents 用语言模型模拟一个小镇上的居民，每个居民都有自己的记忆。Sleep-time compute 让模型利用空闲时间提前推理、重写记忆。A-Mem 是一个每存一条新记忆就更新相关旧记忆的记忆系统。</figcaption>
   </figure>
   <p>这四种模式是对已有论文的一种归纳，没有公认的标准分法。一个系统也可以同时用到几种模式。比如 Letta 的产品沿用 MemGPT 的分层记忆，又加了一个在后台整理记忆的 agent，表里第二种和第四种模式都用上了。把它们分开讲，是为了看清每一种做法各自解决什么问题、带来什么代价。</p>
   <p>下一部分从第一种模式讲起：<a href="skills.html">从做成的事里学会做法</a>。</p>

@@ -3,7 +3,7 @@
   <ul class="takeaways">
     <li>推理分两个阶段。prefill 是读 prompt：整段输入的所有 token 一次并行算完。decode 是写回答：一次只生成一个 token。prompt 是交给模型的那段输入文字，token 是模型处理文字的最小单位。</li>
     <li>注意力层是模型里让每个 token 参考它前面各个 token 的那一层，它为每个 token 算出 key 和 value 两个向量。这两个向量算过一次就存下来，后面生成新 token 时直接用。存下来的这部分叫 KV cache，它随上下文变长而变大。</li>
-    <li>限制两个阶段速度的资源不同。prefill 受 GPU 的算力限制，decode 受内存带宽限制。对应的两个指标是首个 token 的等待时间和每个输出 token 的时间。</li>
+    <li>限制两个阶段速度的资源不同。prefill 受 GPU 的算力限制，decode 受内存带宽限制，内存带宽是数据从内存送到计算单元的速度。对应的两个指标是首个 token 的等待时间和每个输出 token 的时间。</li>
     <li>推测解码用一个小模型先起草几个 token，再让大模型一次检查完。在 2023 年的一篇论文里，三项测试上的解码速度分别是普通解码的 1.92、2.01 和 2.46 倍，输出的分布不变。</li>
   </ul>
 </section>
@@ -16,7 +16,7 @@
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">CPU</th><th scope="col">GPU</th></tr></thead>
       <tbody>
-        <tr><th scope="row">重点</th><td>控制：把一条条指令分派给少数几个算术逻辑单元，能灵活地处理分支和判断</td><td>算力：把大量同样的运算同时丢给非常多的计算单元</td></tr>
+        <tr><th scope="row">重点</th><td>控制：把一条条指令分派给少数几个算术逻辑单元，能灵活地处理分支和判断</td><td>算力：把大量同样的运算同时分给非常多的计算单元</td></tr>
         <tr><th scope="row">适合的工作</th><td>步骤复杂、前后依赖多的程序</td><td>可以拆成大量并行小运算的工作，比如矩阵相乘</td></tr>
       </tbody>
     </table>
@@ -24,7 +24,7 @@
 </section>
 
 <section class="sec" id="roofline">
-  <h2>屋顶线模型：算力和内存带宽，哪一个先到头</h2>
+  <h2>屋顶线模型：速度受算力限制，还是受内存带宽限制</h2>
   <p>一段程序在一块芯片上最快能跑多快，受两样东西限制：芯片的算力，和内存带宽，也就是数据从内存送到计算单元的速度。屋顶线模型（Roofline model）把这两个限制画在一张图上。</p>
   <p>这张图在这里的用处是解释推理的两个阶段各受哪一样限制。读 prompt 的阶段和写回答的阶段，正好分别落在图上折点的两边，后面会把它们放回这张图上。</p>
   {{fig 122 | 屋顶线模型。横轴是算术强度，纵轴是能达到的每秒浮点运算次数。粉色的水平线是芯片算力的上限，蓝色的斜线由内存带宽决定。紫色的折线是两者合起来的上限，形状像屋顶。绿色虚线左边是受带宽限制的区域，右边是受算力限制的区域。图片来源：<a href="https://docs.nersc.gov/tools/performance/roofline/">NERSC 的文档</a>。}}
@@ -141,9 +141,9 @@
     <li><b>接受或拒绝。</b>从前往后比。拿 greedy 解码（每一步都选概率最高的 token）来说：起草的 token 如果正是大模型在这个位置上概率最高的那个，就接受。遇到第一个不一致的位置，就在那里换成大模型自己的选择，后面的草稿作废，再从这里重新起草。</li>
   </ol>
   <p>如果草稿全被接受，大模型过一遍就得到了 K 个 token，本来要过 K 遍。大模型并行检查几个 token 花的时间，和它自己生成一个 token 差不多，因为 decode 阶段的算力本来就有富余。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>输出和只用大模型时是一样的。</b>用 greedy 时，结果和大模型自己解码完全相同。用抽样时，DeepMind 的论文把第 3 步的规则换成一种修改过的拒绝抽样。拒绝抽样是先拿到一个候选、再按一定的概率决定收下还是丢掉的抽样办法。按这个规则，每个 token 最后被选中的概率和只用大模型抽样时相同，差别只在计算机做浮点运算的误差以内。所以小模型只影响速度，不影响质量。出处：<a href="https://arxiv.org/abs/2302.01318">Chen 等，2023</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>输出和只用大模型时是一样的。</b>用 greedy 时，结果和大模型自己解码完全相同。用抽样时，DeepMind 的 Chen 等 2023 年的论文把第 3 步的规则换成一种修改过的拒绝抽样。拒绝抽样是先拿到一个候选、再按一定的概率决定收下还是丢掉的抽样办法。按这个规则，每个 token 最后被选中的概率和只用大模型抽样时相同，差别只在计算机做浮点运算的误差以内。所以小模型只影响速度，不影响质量。出处：<a href="https://arxiv.org/abs/2302.01318">Chen 等，2023</a>。</div></div>
   <h3>实际快了多少</h3>
-  <p>下面的图和数字来自 DeepMind 的 Chen 等 2023 年的论文。同一时期提出同样想法、并起了 speculative decoding 这个名字的是 <a href="https://arxiv.org/abs/2211.17192">Leviathan 等，2022</a>。</p>
+  <p>下面的图和数字也来自 DeepMind 的 Chen 等 2023 年的这篇论文。同一时期提出同样想法、并起了 speculative decoding 这个名字的是 <a href="https://arxiv.org/abs/2211.17192">Leviathan 等，2022</a>。</p>
   {{fig 137 | 三张小图的横轴都是每轮起草的 token 数 K。左：生成 128 个 token 的平均时间。中：草稿被接受的比例。右：一轮起草加检查的总时间。蓝线是 HumanEval（写代码的测试），橙线是 XSum（写摘要的测试）。图上方的红字写的是：有些领域比别的领域更好预测。图片来源：<a href="https://arxiv.org/abs/2302.01318">Chen 等，2023</a>。}}
   <p>这篇论文用的大模型是 700 亿参数的 Chinchilla，起草的小模型有 40 亿参数。K 取 4 时的结果如下。表里的 top-p 抽样，是只在累计概率达到 p 的那几个最可能的 token 里随机抽。</p>
   <figure class="plate">

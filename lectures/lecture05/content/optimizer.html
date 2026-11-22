@@ -90,9 +90,10 @@ extract_optimized = gepa.compile(extract_small, trainset=trainset)</code></pre>
   <p>预算是大约 100 次度量调用，也就是整个优化过程中大约给程序的输出打 100 次分。仓库的说明写着这一步大约要 3 分钟。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>GEPA 的出处和思路。</b>GEPA 出自 Agrawal 等人 2025 年的论文 <a href="https://arxiv.org/abs/2507.19457">GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning</a>，发表在 ICLR 2026。它的思路是让一个模型用自然语言反思程序哪里做错了，从反复的尝试里总结出规则，再提出新的 prompt。摘要里报告，它比此前领先的 prompt 优化器 MIPROv2 高出 10% 以上，举的例子是在数学题集 AIME-2025 上准确率高 12%。摘要没有写明这两个数是百分点还是相对比例。</div></div>
   <h3>它在过程中做了什么</h3>
-  <p>GEPA 的算法第 9 讲会讲到。这里先说看懂运行日志需要的两点。</p>
+  <p>GEPA 的算法第 9 讲会讲到。这里先说看懂运行日志需要的三点。</p>
   <ul>
-    <li>GEPA 保留一批各有所长的指令，每一版叫一个候选，每一轮从里面挑一个来改。开始时只有原始的那一句话指令这一个候选。</li>
+    <li>GEPA 保留一批各有所长的指令，每一版叫一个候选。「各有所长」指每一版至少在一封训练邮件上得分最高，并列也算。开始时只有原始的那一句话指令这一个候选。</li>
+    <li>每一轮从候选里随机挑一个来改。一个候选在越多的邮件上得分最高，被挑中的机会越大。</li>
     <li>每一轮做的事是：挑一版指令，在一小批训练样例上运行，把出错的地方交给反思模型写新指令。新指令在这一小批上更好，才拿去做完整的评估，也就是在全部 30 封训练邮件上运行一遍。</li>
   </ul>
   <p>notebook（课程配套仓库里的 Jupyter notebook，代码和运行结果放在一起的文档）里保存的运行日志记下了这样一个过程：</p>
@@ -110,6 +111,7 @@ extract_optimized = gepa.compile(extract_small, trainset=trainset)</code></pre>
     </table>
     <figcaption>按 notebook 里 GEPA 的日志整理。</figcaption>
   </figure>
+  <p>第 7 轮被挑中的仍是原始指令，原因在上面说的挑选规则里。第 3 轮收下的那版指令在 30 封训练邮件里错了一封，日志显示原始指令在这一封上是对的。原始指令在这一封上得分最高，所以一直留在候选里，仍有机会被挑中。</p>
   <p>把表里的评估加起来，度量一共被调用了 120 次：3 次 30 封的完整评估，加上 10 次 3 封的小批评估。所以预算里的 100 是约数，日志的第一行写的就是 approx 100。</p>
   <h3 id="result">结果</h3>
   <p>最后用测试集的 20 封邮件给优化后的提取器打分，和优化之前的两个成绩放在一起：</p>
@@ -218,9 +220,9 @@ print(result.dates)</code></pre>
   <h2>DSPy 的小结</h2>
   <ul>
     <li>signature 定义输入和输出的约定。</li>
-    <li>module 组合 signature 和程序逻辑，并规定怎样完成这个约定，比如 <code>dspy.Predict</code>、<code>dspy.ChainOfThought</code>、<code>dspy.BestOfN</code>。</li>
+    <li>module 组合 signature 和程序逻辑，并规定怎样让模型按这个约定给出输出，比如 <code>dspy.Predict</code>、<code>dspy.ChainOfThought</code>、<code>dspy.BestOfN</code>。</li>
     <li>有了数据和度量，optimizer 可以改进程序里的 prompt 或模型权重。</li>
-    <li>DSPy 有内置的 module 让 agent 来完成 signature：<code>dspy.ReAct</code> 和 <code>dspy.RLM</code>。</li>
+    <li>DSPy 有内置的 module，让 agent 来给出 signature 规定的输出：<code>dspy.ReAct</code> 和 <code>dspy.RLM</code>。</li>
   </ul>
   <p>下一部分换一个框架，<a href="langgraph.html">用 LangGraph 把同一个程序再写一遍</a>。</p>
 </section>

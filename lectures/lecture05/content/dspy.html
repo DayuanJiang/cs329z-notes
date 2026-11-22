@@ -20,14 +20,14 @@
       <thead><tr><th scope="col" class="nw">概念</th><th scope="col">是什么</th><th scope="col">在这一讲的例子里</th></tr></thead>
       <tbody>
         <tr><th scope="row">signature<br><span class="muted small">签名</span></th><td>严格地规定语言模型的输入字段和输出字段</td><td>输入是一封邮件，输出是日程的名称、日期、开始时间和时长</td></tr>
-        <tr><th scope="row">module<br><span class="muted small">模块</span></th><td>把 signature 和程序逻辑组合成可以调用的函数，并决定用什么方式让模型完成 signature</td><td>先提取日程，再挑一个表情符号，最后调用日历的接口</td></tr>
+        <tr><th scope="row">module<br><span class="muted small">模块</span></th><td>把 signature 和程序逻辑组合成可以调用的函数，并决定用什么方式让模型给出 signature 规定的输出</td><td>先提取日程，再挑一个表情符号，最后调用日历的接口</td></tr>
         <tr><th scope="row">optimizer<br><span class="muted small">优化器</span></th><td>改进程序里的 prompt 或模型权重，让一个度量的分数尽量高</td><td>让一个小模型的提取准确率从 55% 升到 100%</td></tr>
       </tbody>
     </table>
     <figcaption>55% 和 100% 是 20 封测试邮件上的结果，见<a href="optimizer.html#result">第三部分</a>。DSPy 的论文把 optimizer 叫作 teleprompter，现在的文档统一叫 optimizer。</figcaption>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>DSPy 的论文提出了什么。</b>论文是 Khattab 等人的 <a href="https://arxiv.org/abs/2310.03714">DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</a>，2023 年 10 月上传，发表在 ICLR 2024。它提出把一次模型调用写成带参数的模块，再由一个「编译器」根据一个度量自动生成指令和示例。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>论文报告的效果。</b>论文在数学应用题和多步问答这两类任务上做了评测。摘要里报告，几行 DSPy 代码经过几分钟的编译，得到的程序比标准的 few-shot prompt（在 prompt 里放几个示例的做法）好：用 GPT-3.5 时普遍高出 25% 以上，用 llama2-13b-chat 时普遍高出 65% 以上。摘要没有写明这两个数是百分点还是相对比例。出处：<a href="https://arxiv.org/abs/2310.03714">论文的摘要和第 1 节</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>DSPy 的论文提出了什么。</b>论文是 Khattab 等人的 <a href="https://arxiv.org/abs/2310.03714">DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</a>，2023 年 10 月上传，发表在 ICLR 2024。它提出把一次模型调用写成带参数的模块。参数指模块能从数据里学到的内容，论文里主要是放进 prompt 的示例。再由一个「编译器」根据一个度量自动生成指令和示例。编译的过程由上面表里的 optimizer 来做，现在的代码里优化器的方法名仍然叫 <code>compile</code>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>论文报告的效果。</b>论文在数学应用题和多步问答这两类任务上做了评测。摘要里报告，几行 DSPy 代码经过几分钟的编译，也就是上面说的自动优化，得到的程序比标准的 few-shot prompt（在 prompt 里放几个示例的做法）好：用 GPT-3.5 时普遍高出 25% 以上，用 llama2-13b-chat 时普遍高出 65% 以上。摘要没有写明这两个数是百分点还是相对比例。出处：<a href="https://arxiv.org/abs/2310.03714">论文的摘要和第 1 节</a>。</div></div>
 </section>
 
 <section class="sec" id="example">
@@ -57,7 +57,7 @@ sentiment_classifier = dspy.Predict(sentiment_signature)
 print(sentiment_classifier(message="I am very happy today!").sentiment)
 print(sentiment_classifier(message="I am very angry today!").sentiment)
 print(sentiment_classifier(message="I am very confused today!").sentiment)</code></pre>
-  <p>三次调用的输出依次是 <code>positive</code>、<code>Negative</code>、<code>negative</code>。结果有两个毛病。一是大小写不统一，后面的程序没法直接拿它做判断。二是「情感」有哪几种取值完全由模型自己决定。原因是这个 signature 只给了一个字段名，没有规定输出该是什么样子。</p>
+  <p>三次调用的输出依次是 <code>positive</code>、<code>Negative</code>、<code>negative</code>。结果有两个问题。一是大小写不统一，后面的程序没法直接拿它做判断。二是「情感」有哪几种取值完全由模型自己决定。原因是这个 signature 只给了一个字段名，没有规定输出该是什么样子。</p>
 </section>
 
 <section class="sec" id="typed">
@@ -170,10 +170,10 @@ extract_cot(email="We have a meeting scheduled for this Friday, October 9th at 1
   <p>结果里多了一个排在最前面的字段 <code>reasoning</code>，内容是模型的推理：邮件说这个星期五 10 月 9 日上午 10 点有一个会议，所以名称是 meeting，日期是 10 月 9 日，开始时间是 10:00，没有给出时长。后面四个字段和之前一样。</p>
   <p><code>ChainOfThought</code> 做的事很简单：在输出字段的最前面加一个 <code>reasoning</code>。字段的顺序在这里起了作用，排在最前面的字段最先生成。</p>
   <p>这是演示所用的 DSPy 3.4 的行为。从 3.5.0 起，如果模型本身带有推理功能，<code>ChainOfThought</code> 会直接使用模型自带的推理，<code>reasoning</code> 字段里可能是空的。</p>
-  <p>DSPy 自带的 module 还有几个。下表列出这一讲提到的五个，和每一个怎样完成 signature：</p>
+  <p>DSPy 自带的 module 还有几个。下表列出这一讲提到的五个，和每一个怎样得到 signature 规定的输出：</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col" class="nw">module</th><th scope="col">怎么完成 signature</th></tr></thead>
+      <thead><tr><th scope="col" class="nw">module</th><th scope="col">怎么得到 signature 规定的输出</th></tr></thead>
       <tbody>
         <tr><th scope="row"><code>dspy.Predict</code></th><td>把 signature 变成 prompt，调用一次模型</td></tr>
         <tr><th scope="row"><code>dspy.ChainOfThought</code></th><td>先让模型写出推理，再给出各个输出字段</td></tr>
@@ -234,7 +234,7 @@ pick_emoji(event_name="Dentist")</code></pre>
   <h2>这一部分的小结</h2>
   <ul>
     <li>signature 定义输入和输出的约定。字段名、类型、<code>desc</code> 和文档字符串都会进到 prompt 里。</li>
-    <li>module 规定怎样完成这个约定，比如 <code>dspy.Predict</code>、<code>dspy.ChainOfThought</code>、<code>dspy.BestOfN</code>。</li>
+    <li>module 规定怎样让模型按这个约定给出输出，比如 <code>dspy.Predict</code>、<code>dspy.ChainOfThought</code>、<code>dspy.BestOfN</code>。</li>
     <li>自定义的 module 把多个 signature 和 Python 逻辑组合成一个程序。</li>
     <li>想知道框架到底给模型发了什么，随时可以用 <code>inspect_history</code> 把 prompt 打印出来看。</li>
   </ul>

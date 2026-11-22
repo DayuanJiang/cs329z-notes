@@ -14,13 +14,13 @@
   <p><a href="anatomy.html">第二部分</a>把一个 agent 拆成了五个部件。真实的产品里，LLM 总是和别的部件组合在一起用。ChatGPT Plus 就是一个例子：除了 LLM，它还有上网浏览的插件、执行 Python 的插件和 DALL-E 图像生成器，回答时由 LLM 决定什么时候调用它们。这种组合有一个名字，叫复合 AI 系统。</p>
   <p>这个词出自 Matei Zaharia 等 11 位作者 2024 年 2 月发表在伯克利 BAIR 博客上的文章。文章的主要判断是：最好的 AI 成果越来越多地来自由多个部件组成的系统，单靠一个模型拿到的越来越少。</p>
   <p class="lead-in">文章的定义是：<mark>复合 AI 系统用多个互相配合的部件来完成 AI 任务，包括多次调用模型、检索器或外部工具</mark>。与之相对的是 AI 模型，它只是一个统计模型，比如一个预测下一个 token（模型处理文字的最小单位，大致是一个词或半个词）的 Transformer。</p>
-  <p>文章举了下面这些例子。表里有三个词先说明一下。采样指让模型生成一次回答，生成带有随机性，所以同一道题多次采样会得到不同的回答。基准测试（benchmark）是一组题目加一个打分的办法。MMLU 是一个基准测试，题目是 57 个学科的知识选择题。</p>
+  <p>文章举了下面这些例子。表里有四个词先说明一下。采样指让模型生成一次回答，生成带有随机性，所以同一道题多次采样会得到不同的回答。基准测试（benchmark）是一组题目加一个打分的办法。MMLU 是一个基准测试，题目是 57 个学科的知识选择题。符号数学引擎是按写好的数学规则推导结论的程序。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">系统</th><th scope="col">有哪些部件</th><th scope="col">怎么配合</th></tr></thead>
       <tbody>
         <tr><th scope="row">AlphaCode 2</th><td>fine-tuning（在预训练模型的基础上，用特定任务的数据继续训练）过的 LLM，分别负责生成程序和给程序打分；代码执行模块；聚类模型</td><td>为一道编程题生成最多一百万个解答，再过滤和打分</td></tr>
-        <tr><th scope="row">AlphaGeometry</th><td>fine-tuning 过的 LLM；符号数学引擎</td><td>LLM 提出在几何图形上添加什么辅助构造，符号引擎检查由此能推出哪些事实，反复进行</td></tr>
+        <tr><th scope="row">AlphaGeometry</th><td>fine-tuning 过的 LLM；符号数学引擎</td><td>LLM 提出在几何图形上添加什么辅助构造，符号数学引擎检查由此能推出哪些事实，反复进行</td></tr>
         <tr><th scope="row">Medprompt</th><td>GPT-4；在一个存有正确例题的数据库里做最近邻搜索；让模型自己写出每道例题的推理过程；多次采样后合并</td><td>回答医学问题时，先找相似的例题拼成 prompt，再生成最多 11 个答案并从中评选</td></tr>
         <tr><th scope="row">Gemini 做 MMLU<br>题目的办法</th><td>Gemini；一段定制的推理逻辑</td><td>对每道题采样 32 个带推理过程的答案，足够多的答案一致时就返回这个答案，否则改用不带推理过程的生成</td></tr>
         <tr><th scope="row">ChatGPT Plus</th><td>LLM；上网浏览的插件；执行 Python 的插件；DALL-E 图像生成器</td><td>回答时可以调用工具，什么时候调用、怎么调用由 LLM 决定</td></tr>
@@ -35,10 +35,10 @@
     <table class="tbl">
       <thead><tr><th scope="col">理由</th><th scope="col">意思</th><th scope="col">文章举的例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row">有些任务靠设计系统<br>更容易提高</th><td>把模型做大的回报有限，换一种系统设计可能提高得多得多，而且改系统比等一轮训练快</td><td>一个假设的例子：最好的 LLM 能做对 30% 的编程竞赛题，训练预算增加到三倍也只到 35%；让模型多次采样、逐个测试，用现有的模型就可能到 80%。这几个数是文章为了说明道理假设的，没有实测</td></tr>
+        <tr><th scope="row">有些任务靠设计系统<br>更容易提高</th><td>把模型做大的回报有限，换一种系统设计带来的提高可能大得多，而且改系统比等一轮训练快</td><td>一个假设的例子：最好的 LLM 能做对 30% 的编程竞赛题，训练预算增加到三倍也只到 35%；让模型多次采样、逐个测试，用现有的模型就可能到 80%。这几个数是文章为了说明道理假设的，没有实测</td></tr>
         <tr><th scope="row">系统可以随时更新</th><td>模型的知识停在训练数据截止的那一天。系统可以接上搜索和检索，用上最新的数据，也可以按用户的权限决定能看哪些文件</td><td>只根据提问的用户有权访问的文件来回答</td></tr>
         <tr><th scope="row">系统更容易控制，<br>也更容易让人信任</th><td>很难保证一个模型绝不做某件事。在系统这一层可以过滤模型的输出，也可以给回答附上出处</td><td>把 LLM 和检索结合起来，给出引用，或者自动核对事实</td></tr>
-        <tr><th scope="row">不同应用对质量和花费<br>的要求差别很大</th><td>一个模型的质量和价格是固定的，应用的需求却各不相同</td><td>代码补全要又快又便宜，所以用精心调过的小模型；一份正确的法律意见，很多人愿意付几美元，这就需要设计一个能把这笔预算用上的系统</td></tr>
+        <tr><th scope="row">不同应用对质量和花费<br>的要求差别很大</th><td>一个模型的质量和价格是固定的，应用的需求却各不相同</td><td>代码补全要又快又便宜，所以用精心调过的小模型。很多人愿意为一份正确的法律意见付几美元，问一次 GPT-4 却只要几美分。要让这笔更高的预算换来更好的回答，就需要专门设计一个系统</td></tr>
       </tbody>
     </table>
     <figcaption>出处：<a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">Zaharia 等，2024</a>。</figcaption>
@@ -162,11 +162,12 @@
 <section class="sec" id="roadmap">
   <h2>后面各讲讲什么</h2>
   <p>后面各讲的安排大体上也按这三层来分：第 2 到 9 讲讲系统的各个部件，第 10 讲起讲评估和数据。这一讲把所有的题目都点到了，每个题目后面都有专门的一讲或几讲。</p>
+  <p>表里有几个词先说明一下。第 2 讲题目里的搭建者，指搭 agent 的人。解码指模型算出下一个 token 的概率之后，从里面挑一个接到后面的过程，文字就是这样一步一步生成的。上下文工程指决定往上下文里放什么、怎么放。第 5 讲的编排，指安排一个系统里的各个步骤和各个 agent 按什么顺序运行、怎样配合。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">讲次</th><th scope="col">主题</th><th scope="col">接着这一讲的哪一部分</th></tr></thead>
       <tbody>
-        <tr><th scope="row">第 2 讲</th><td>给搭建者讲的 LLM：解码、上下文长度、推理时的扩展、结构化输出、上下文工程</td><td><a href="anatomy.html">第二部分</a>里的 LLM 核心</td></tr>
+        <tr><th scope="row">第 2 讲</th><td>给搭建者讲的 LLM：解码、上下文长度、推理时多花算力换更好的答案（test-time scaling）、结构化输出、上下文工程</td><td><a href="anatomy.html">第二部分</a>里的 LLM 核心</td></tr>
         <tr><th scope="row">第 3 讲</th><td>检索增强生成（RAG）</td><td>本页的 <a href="#rag">RAG</a></td></tr>
         <tr><th scope="row">第 4 讲</th><td>工具使用和函数调用，包括 MCP</td><td><a href="tools.html">第五部分</a></td></tr>
         <tr><th scope="row">第 5、6 讲</th><td>框架与编排；agent 的设计模式，包括 ReAct、Reflexion 和几种 workflow 模式</td><td><a href="reasoning.html">第三部分</a>和本页</td></tr>
@@ -178,7 +179,7 @@
         <tr><th scope="row">第 13、15 讲</th><td>评估基础与基准测试设计；用 LLM 当评审和评估的基础设施</td><td><a href="challenges.html#evaluation">第七部分</a>里的评估</td></tr>
       </tbody>
     </table>
-    <figcaption>表里的 orchestrator 指负责把任务分给几个 agent 的协调者。讲次和主题依据<a href="https://cs329z.stanford.edu/">课程主页</a>的日程。第 14 讲是一次对谈，这里没有列。之后的讲次还会讲 SWE-bench 和代码能力的评估、agent 的安全和防护、coding agent、主动式的个人 agent。</figcaption>
+    <figcaption>表里的 orchestrator 指负责把任务分给几个 agent 的协调者。讲次和主题依据<a href="https://cs329z.stanford.edu/">课程主页</a>的日程。第 14 讲是一次对谈，这里没有列。之后的讲次还会讲 SWE-bench 和代码能力的评估、agent 的安全和防护、coding agent，以及不等用户吩咐就主动做事的个人 agent（proactive personal agent）。</figcaption>
   </figure>
 </section>
 

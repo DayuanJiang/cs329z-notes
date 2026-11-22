@@ -72,13 +72,13 @@
       </tbody>
     </table>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>DrQA 的具体数字。</b>DrQA 用的文档库是 500 多万篇英文维基百科文章。它的检索器不含任何需要训练的部分，按词和相邻两个词的组合算 TF-IDF，每个问题返回 5 篇文章。阅读器是一个多层的循环神经网络，从文章里标出答案所在的那一小段文字。出处：<a href="https://arxiv.org/abs/1704.00051">Chen 等，2017</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>DrQA 的具体数字。</b>DrQA 用的文档库是 500 多万篇英文维基百科文章。它的检索器不含任何需要训练的部分，按词和相邻两个词的组合算 TF-IDF，每个问题返回 5 篇文章。阅读器是一个多层的循环神经网络，从文章里标出答案所在的那一小段文字。循环神经网络是一种按顺序逐个词读入文字的神经网络。出处：<a href="https://arxiv.org/abs/1704.00051">Chen 等，2017</a>。</div></div>
 </section>
 
 <section class="sec" id="rag">
   <h2>2020 年的 RAG 模型</h2>
   <p>RAG 这个名字来自 Lewis 等人 2020 年的论文《Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks》。上一节 DrQA 的阅读器只能从文章里标出一段原文当答案。这篇论文在两段式的基础上改了两处：阅读器换成一个能写出任意文字的生成器，检索器和生成器放在一起训练。</p>
-  {{fig 14 | RAG 模型的结构。左边绿色的框是检索器，右边蓝色的框是生成器。图的四周是三种任务的输入和输出：问答、事实核查、给定答案生成问题。最上面的虚线表示训练时误差从生成器一路传回查询编码器。图片来源：<a href="https://arxiv.org/abs/2005.11401">Lewis 等，2020</a>。}}
+  {{fig 14 | RAG 模型的结构。左边绿色的框是检索器，右边蓝色的框是生成器。图的四周是三种任务的输入和输出：问答、事实核查、给定答案生成问题。最上面的虚线表示训练的范围：生成器和检索器里把查询变成向量的那个模型（图上的 Query Encoder，查询编码器）一起训练，都按回答对不对来调整参数。图片来源：<a href="https://arxiv.org/abs/2005.11401">Lewis 等，2020</a>。}}
   <p>读图之前先说明三个词。向量是一串固定个数的数字。编码器是把一段文字变成一个向量的模型，训练得好的编码器会让意思相近的内容得到相近的向量。内积是把两个向量对应位置上的数字相乘、再加起来得到的一个数，这里用它衡量两个向量有多相近：内积越大，查询和文字越相关。</p>
   <p>图里的文档（document）指的是维基百科文章切成的 100 词的段落，下面都叫段落。文档索引里存着每个段落的向量，它们由文档编码器事先算好。</p>
   <p>从左到右看这张图。</p>
@@ -136,7 +136,7 @@
   <h3>怎么训练</h3>
   <p>检索器和生成器一起训练，目标是让正确回答的概率尽量大。论文的写法是最小化负的边缘对数似然 <code>Σ −log p(yj|xj)</code>，j 遍历所有训练样本。这里的 <code>p(yj|xj)</code> 就是上面那个对前 K 个段落加权求和得到的概率，「边缘」指的是对段落求和这一步。取对数再加负号之后，让概率尽量大就变成了让这个数尽量小。</p>
   <p>训练数据只有「输入，正确输出」这样的成对样本，没有人标注应该检索哪个段落。检索器是靠最后的回答对不对来间接学习的：一个段落帮生成器写出了正确回答，检索器就学着给它更高的分数。</p>
-  <p>训练时有一部分是固定不动的：文档编码器和文档索引。原因是索引很大，文档编码器每变一次，索引里 2,100 万个向量都要重算。论文发现不更新它也能得到很好的效果，所以只微调查询编码器和生成器。</p>
+  <p>训练时有一部分是固定不动的：文档编码器和文档索引。原因是索引很大，文档编码器每变一次，索引里 2,100 万个向量都要重算。论文发现不更新它也能得到很好的效果，所以一起训练的只有查询编码器和生成器。论文把这一步叫微调（fine-tuning），意思是在已经训练好的模型上用新的数据接着训练。</p>
 </section>
 
 <section class="sec" id="results">
@@ -155,11 +155,11 @@
         <tr><th scope="row">RAG-Sequence</th><td>能</td><td class="r">44.5</td><td class="r">56.8</td><td class="r">45.2</td><td class="r">52.2</td></tr>
       </tbody>
     </table>
-    <figcaption>单位是完全匹配的百分比，测试集上的成绩。</figcaption>
+    <figcaption>单位是完全匹配的百分比，测试集上的成绩。测试集是数据集里留出来、专门用来报告成绩的那部分题目。</figcaption>
   </figure>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>TriviaQA 一列有两种划分。</b>划分指从数据集里取哪一部分题目当测试集。TriviaQA 有两种测试集的划分。T5 用的是维基百科那一种，所以表里它的 50.1 不能和同一列的其他数直接比。在维基百科那种划分上，RAG-Token 是 66.1，RAG-Sequence 是 68.0。其余模型的数是标准划分上的。</div></div>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>DPR 一行有三列用了混合检索。</b>这一行是 RAG 论文的表里引用的数。Natural Questions 一列是单用 DPR 检索的成绩。TriviaQA、WebQuestions、CuratedTrec 三列是 BM25（按词匹配的传统检索算法）加 DPR 混合检索的成绩，单用 DPR 检索时这三列是 56.8、42.4、49.4，见<a href="retrievers.html#dpr-results">第四部分</a>的表，CuratedTrec 在那张表里写作 TREC。所以 TriviaQA 一列里 DPR 的 57.9 高于 RAG，靠的是混合检索。单用 DPR 检索的 56.8 和 RAG-Sequence 持平。各列来历的核对经过见<a href="#notes">资料说明</a>。</div></div>
-  <p>读这张表有三点。</p>
+  <p>这张表说明三件事。</p>
   <ul>
     <li><b>能查资料的都比只靠权重的强。</b>T5-11B 有 110 亿个可训练的参数，RAG 只有 6.26 亿个。RAG 在 Natural Questions 上却比 T5-11B 高出 10 个百分点。</li>
     <li><b>RAG 在四个数据集里的三个上超过了 DPR 的问答系统。</b>TriviaQA 的标准划分是例外，原因见表下的第二个说明框。RAG 的检索器是用 DPR 训练好的检索器初始化的，两者主要的差别在后半段：DPR 的阅读器只能从段落里抽一段原文当答案，RAG 的生成器可以自己写。</li>

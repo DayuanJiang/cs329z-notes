@@ -1,7 +1,7 @@
 <section class="sec" id="thesis">
   <h2>一句话的结论</h2>
   <p class="lead-in">搭一个 agent 系统要做三组设计决定：<mark>控制流在谁手里，模型怎样推理和行动，每次调用模型时上下文里放什么</mark>。每一组都有几种现成的设计模式。模式给的只是大致的解法，真实的系统是把几种模式组合起来，再按自己的情况改出来的。</p>
-  <p>这里的 agent，指能自己决定下一步调用什么工具、分很多步去完成任务的语言模型系统。包在模型外面、给它工具并管理多轮对话的程序叫运行框架（harness，也叫 scaffold）。这一讲讲的就是设计运行框架时有哪些现成的思路可以用。</p>
+  <p>「agent 系统」在这一讲里是统称：下一步由程序定的 workflow 和下一步由模型定的 agent 都算在内。其中的 agent，指能自己决定下一步调用什么工具、分很多步去完成任务的语言模型系统。包在模型外面、给它工具并管理多轮对话的程序叫运行框架（harness，也叫 scaffold）。这一讲讲的就是设计运行框架时有哪些现成的思路可以用。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">要决定的事</th><th scope="col">现成的模式</th><th scope="col">今天的情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
@@ -11,7 +11,7 @@
         <tr><th scope="row">上下文里放什么</th><td>五种：事件日志、把信息存到记忆里、compaction（把旧的历史压缩成摘要）、屏蔽旧的观察结果、上下文隔离</td><td>互相兼容，一个系统里常常同时用好几种</td><td><a href="context.html">六</a></td></tr>
       </tbody>
     </table>
-    <figcaption>英文的模式名在各自的页面里解释。表里的「观察结果」指工具执行之后返回给模型的内容。<a href="pi.html">第七部分</a>用 Pi 这个运行框架，看三组决定在一个真实的产品里是怎样取舍的。</figcaption>
+    <figcaption>英文的模式名在各自的页面里解释。表里的「观察结果」指工具执行之后返回给模型的内容。「事件日志」是一份只追加、不修改的记录，发生过的每件事都记在里面，每次调用模型时从它重新生成输入。「上下文隔离」指把一部分工作交给另一个 agent 在它自己的上下文窗口里做，或者把暂时用不到的说明留到需要时再放进上下文。<a href="pi.html">第七部分</a>用 Pi 这个运行框架，看三组决定在一个真实的产品里是怎样取舍的。</figcaption>
   </figure>
 </section>
 
@@ -26,7 +26,7 @@
         <tr><th scope="row"><a href="control.html">一 设计模式是什么，<br>控制流在谁手里？</a></th><td>模式是对常见解法的总结，用的时候要自己补完。控制流写在程序里的是 workflow，好预测；交给模型的是 agent，更灵活</td><td>同是处理客服工单：分类、查规定、自动回信是 workflow；查清问题并解决掉，需要 agent</td></tr>
         <tr><th scope="row"><a href="workflows.html">二 workflow 有哪些<br>现成的搭法？</a></th><td>五种模式。区别在于分几路、每路做什么是程序定的还是模型定的，以及有没有循环</td><td>先判断数学题的难度再决定交给哪个模型，是 routing；同一道题解五遍取多数，是 parallelization 里的 voting</td></tr>
         <tr><th scope="row"><a href="compose.html">三 真实的 workflow<br>长什么样？</a></th><td>是几种模式的组合，而且常常只能近似地对上。怎样组合也可以交给程序去搜索</td><td>STORM 写维基百科式的文章，流程里能找到四种模式。Archon 用搜索算法自动拼出 workflow，论文把拼出来的 workflow 叫架构。按论文图上读出的近似值，允许一个架构用的 token 数达到约 5 万时，Archon 搜出的架构在三个基准测试上的平均分和 o1 基本持平</td></tr>
-        <tr><th scope="row"><a href="reasoning.html">四 agent 该<br>怎样推理？</a></th><td>行动之前先推理；失败之后把反思写成文字留给下一次。有可靠的外部反馈时，反思的效果才明显</td><td>在问答数据集 HotpotQA 和事实核查数据集 Fever 上，ReAct 比只行动高约 2 个百分点。让 GPT-4-Turbo 自己检查自己的答案，三种问法都没有超过只答一次</td></tr>
+        <tr><th scope="row"><a href="reasoning.html">四 agent 该<br>怎样推理？</a></th><td>行动之前先推理；失败之后把反思写成文字留给下一次。有可靠的外部反馈时，反思的效果才明显</td><td>在问答数据集 HotpotQA 和事实核查数据集 Fever 上，ReAct 的成绩比只行动、不写推理的做法高约 2 个百分点。这里的成绩，在 HotpotQA 上是答案和标准答案完全一致的比例，在 Fever 上是判断正确的比例。让 GPT-4-Turbo 自己检查自己的答案，三种问法都没有超过只答一次</td></tr>
         <tr><th scope="row"><a href="acting.html">五 动作用<br>什么形式？</a></th><td>要组合多个工具时，把一段代码当作动作，比每次只发出一个工具调用好。能事先计划的任务，可以先写出计划再由程序执行，省 token，互不依赖的步骤还能并行</td><td>在要连续调用多个工具的基准测试上，CodeAct 在最强的模型上的成功率，比把工具调用写成 JSON 或文字的两种做法里较好的一种高 20.7 个百分点。ReWOO 在 HotpotQA 上用的 token 约为 ReAct 的五分之一</td></tr>
         <tr><th scope="row"><a href="context.html">六 上下文窗口里<br>放什么？</a></th><td>只放当前需要的，同时不丢掉目标和进度。五种模式各有代价，可以一起用</td><td>在一个编程 agent 的预备实验里，平均每一轮的 token 约 84% 是工具输出。把旧的输出屏蔽掉，五种模型配置里有四种花费降了一半左右</td></tr>
         <tr><th scope="row"><a href="pi.html">七 一个真实的运行框架<br>做了哪些选择？</a></th><td>Pi 只留最少的东西：4 个默认工具，ReAct 式循环，事件日志、按需加载的 skill（写着某类工作该怎么做的说明文件）和 compaction 一起管理上下文。执行工具之前不征求同意，对工具调用没有内置的限制</td><td>作者在 2025 年 11 月说，system prompt 加工具定义不到 1,000 个 token</td></tr>
@@ -40,7 +40,7 @@
   <h2>页面里三种颜色的框</h2>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲有两处。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲有两处橙色的框，分别在<a href="reasoning.html#limits">第四部分</a>和<a href="context.html#rot">第六部分</a>。下面「容易想当然的七件事」把全讲里这类出入汇总成一张表，其中两件就是这两个框讲的内容。</div></div>
 </section>
 
 <section class="sec" id="modules">

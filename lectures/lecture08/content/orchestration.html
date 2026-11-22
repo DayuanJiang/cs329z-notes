@@ -2,7 +2,7 @@
   <h2>先看结论</h2>
   <ul class="takeaways">
     <li>编排要做两个选择：要不要一个 agent 统管全局，其余的 agent 之间能不能直接交流。统管全局的 agent 叫 orchestrator，其余干活的 agent 叫 worker。两个选择组合出四种方式：独立、集中、去中心、混合。</li>
-    <li>交流越多，开销越大。Kim 等人 2026 年的论文按通信开销换算：达到同样的成绩，四种方式的 token 用量是单 agent 的 1.6 到 6.2 倍。按实测的美元成本看有例外，独立方式在两家的模型上比单 agent 便宜。</li>
+    <li>交流越多，开销越大。Kim 等人 2026 年的论文按通信开销换算：达到同样的成绩，四种方式的 token 用量是单 agent 的 1.6 到 6.2 倍。按实测的美元成本看有例外，独立方式在 Google 和 Anthropic 两家的模型上比单 agent 便宜。</li>
     <li>论文的实验里，只把各个 agent 的输出拼在一起、没人核对的独立方式，在论文六个评测里的五个上都是四种里最差的。</li>
     <li>哪种方式好取决于任务：能拆成并行分析的任务用集中方式最好，要边找边调整的任务用去中心方式稍好，一步接一步的任务四种都比单 agent 差。</li>
     <li>「去中心」这个词有两种意思。本页的数字测的是 agent 一轮一轮辩论。C 编译器案例是 16 个 agent 合写一个 C 编译器的项目，那里的 agent 各自在共享仓库里挑任务，是另一种做法。</li>
@@ -96,12 +96,13 @@
   </figure>
   <p>三列数字各是什么意思：</p>
   <ul>
-    <li><b>通信开销</b>量的是完成一个任务用的轮数比单 agent 多出的比例，一轮是一次推理加回应。单 agent 是基准，所以是 0%。论文测到单 agent 平均用 7.2 轮，独立方式用 11.4 轮，比单 agent 多出 58%。混合方式用 44.3 轮，多出 515%。论文说这个指标相当于 token 的用量：达到同样的成绩，四种多 agent 方式的 token 用量是单 agent 的 1.6 到 6.2 倍。58% 对应 1.6 倍，515% 对应 6.2 倍。</li>
-    <li><b>每 1000 token 的成功数</b>是论文的 token 效率指标。论文没有写明它怎么算，所以 67.7 这样的数值只适合用来比较几种方式的相对高低。不管哪种多 agent 方式，这个指标都比单 agent 低，混合方式只有单 agent 的五分之一。</li>
-    <li><b>错误放大系数</b>也以单 agent 为基准，单 agent 记作 1.0。按论文的定义，它衡量 agent 之间的协调失误带来了多少额外的计算工作，是论文分析运行记录里的 token 估算出来的，论文没有给出算式。所以它量的是运行过程里多花的工作。独立方式的 17.2，论文的读法是错误被放大到了单 agent 的 17.2 倍。</li>
+    <li><b>通信开销</b>指完成一个任务用的轮数比单 agent 多出的比例，一轮是一次推理加回应。单 agent 是基准，所以是 0%。论文测到单 agent 平均用 7.2 轮，独立方式用 11.4 轮，比单 agent 多出 58%。混合方式用 44.3 轮，多出 515%。论文说这个指标相当于 token 的用量：达到同样的成绩，四种多 agent 方式的 token 用量是单 agent 的 1.6 到 6.2 倍。58% 对应 1.6 倍，515% 对应 6.2 倍。</li>
+    <li><b>每 1000 token 的成功数</b>是论文的 token 效率指标。论文没有写明它怎么算，所以 67.7 这样的数值没法按字面解释，只适合用来比较几种方式的相对高低。不管哪种多 agent 方式，这个指标都比单 agent 低，混合方式只有单 agent 的五分之一。</li>
+    <li><b>错误放大系数</b>是和单 agent 比出来的倍数，单 agent 记作 1.0。论文没有给出算式，所以 17.2 具体是哪两个量相除，从论文里查不到。论文对它有两处描述。定义里说，它衡量 agent 之间的协调失误带来了多少额外的计算工作，是分析运行记录里的 token 估算出来的。讲结果时说，独立方式把运行记录里的错误放大到了单 agent 的 17.2 倍。两处合起来可以这样读：数值越大，错误在运行过程中带来的额外工作越多。</li>
   </ul>
-  <p>错误放大系数量的是过程，最终答案错了多少要看另一个指标。论文另外定义了一个按任务算的错误放大系数：多 agent 方式没做对的任务所占的比例，除以单 agent 没做对的任务所占的比例。按那个指标，多 agent 方式大约是单 agent 的 1.1 到 1.3 倍。表里按运行记录估算的系数在 4 到 17 之间。论文说两个指标看的是错误的不同方面，所以数值差得很远。</p>
-  <p>独立方式的 agent 互不交流，谈不上协调失误，错误放大系数却最高。论文把 17.2 归因于错误没有人拦：独立方式没有任何核对的环节，单个 agent 的错误会原样进入合并后的输出。集中方式有 orchestrator 在合并之前核对，系数降到 4.4。</p>
+  <p>论文里名字叫错误放大系数的指标有两个。上面说的是按运行记录估算的那一个，看的是运行过程，本页的「错误放大系数」都指它。另一个按任务算，看的是最终答案错了多少，本页把它叫作错误率之比：多 agent 方式没做对的任务所占的比例，除以单 agent 没做对的任务所占的比例。</p>
+  <p>两个指标的数值差得很远。多 agent 方式的错误率之比大约是 1.1 到 1.3，表里的错误放大系数在 4 到 17 之间。论文说这是因为两个指标看的是错误的不同方面。</p>
+  <p>独立方式的 agent 互不交流，定义里说的「协调失误」在它身上对不上，它的错误放大系数却最高。论文解释 17.2 时用的是另一个说法：错误没有经过核对就传了下去。独立方式没有任何核对的环节，单个 agent 的错误会原样进入合并后的输出。集中方式有 orchestrator 在合并之前核对，系数降到 4.4。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读错误放大系数时要注意两点。</b>
     <ul>
       <li>17.2 测的是论文实现的独立方式：输出直接拼接，没有任何核对。前面定义的独立方式里，汇总者会审阅、合并或挑选，那样的做法没有被测到。</li>
@@ -137,7 +138,7 @@
 
 <section class="sec" id="fit">
   <h2>哪种方式适合哪种任务</h2>
-  <p><a href="sas_vs_mas.html#task">第一部分</a>用这组数据说明多 agent 好不好取决于任务。这里按架构分开看。表里的数字是每种多 agent 方式的成绩相对单 agent 的变化：+81% 表示比单 agent 高 81%，−35% 表示比单 agent 低 35%。</p>
+  <p><a href="sas_vs_mas.html#task">第一部分</a>用这组数据说明多 agent 好不好取决于任务。这里按架构分开看。表里的数字是每种多 agent 方式的成绩相对单 agent 成绩的变化比例：+81% 表示高出的部分相当于单 agent 成绩的 81%，−35% 表示比单 agent 的成绩低了 35%。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">评测</th><th scope="col" class="r">独立</th><th scope="col" class="r">集中</th><th scope="col" class="r">去中心</th><th scope="col" class="r">混合</th><th scope="col">怎么看</th></tr></thead>
@@ -145,7 +146,7 @@
         <tr><th scope="row">Finance Agent</th><td class="r good">+57%</td><td class="r good"><b>+81%</b></td><td class="r good">+75%</td><td class="r good">+73%</td><td>能拆成并行的分析。有 orchestrator 综合的集中方式最好</td></tr>
         <tr><th scope="row">BrowseComp-Plus</th><td class="r bad">−35%</td><td class="r">+0%</td><td class="r good"><b>+9%</b></td><td class="r good">+6%</td><td>网页浏览要边找边调整。agent 之间能互通消息的去中心方式稍好</td></tr>
         <tr><th scope="row">Workbench</th><td class="r bad">−11%</td><td class="r bad">−1%</td><td class="r good"><b>+6%</b></td><td class="r bad">−1%</td><td>工具很多。集中和混合方式接近单 agent，去中心方式略高，独立方式明显更低</td></tr>
-        <tr><th scope="row">PlanCraft</th><td class="r bad">−70%</td><td class="r bad">−50%</td><td class="r bad">−41%</td><td class="r bad"><b>−39%</b></td><td>一步接一步的规划。四种都比单 agent 差，只能挑最不差的</td></tr>
+        <tr><th scope="row">PlanCraft</th><td class="r bad">−70%</td><td class="r bad">−50%</td><td class="r bad">−41%</td><td class="r bad"><b>−39%</b></td><td>一步接一步的规划。四种都比单 agent 差，其中混合方式降得最少</td></tr>
       </tbody>
     </table>
     <figcaption>数字读自论文的图（图在<a href="sas_vs_mas.html#task">第一部分</a>），相对单 agent 的变化，每行最好的加粗。「怎么看」一栏整理自论文正文。</figcaption>
@@ -158,7 +159,7 @@
 <section class="sec" id="cost">
   <h2>成本</h2>
   <p>这一节看实测的花费。下面的图把每种方式一次实验花的钱和它的成绩画在一起。</p>
-  {{fig 24 | 横轴是每次实验花的钱（美元），纵轴是成绩，三格是三家的模型。图片来源：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。}}
+  {{fig 24 | 横轴是每次实验花的钱（美元），纵轴是成绩，三格分别是 OpenAI、Google 和 Anthropic 的模型。图片来源：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。}}
   <p>关于成本，图上能读出三件事：</p>
   <ul>
     <li>三格里最贵的都是混合方式。</li>
@@ -207,6 +208,6 @@
   <ul>
     <li><b>每 1000 token 的成功数怎么算。</b>Kim 等人论文的 Table 5 里，这个指标只有一行数字，行名是 Success/1K tokens。论文把它叫作 token 效率，全文没有找到它的算法。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
     <li><b>通信开销按什么算。</b>Kim 等人的论文有一处把通信开销描述成每个任务里 agent 之间交换消息的次数，给出的算式用的是轮数：多 agent 方式的轮数减去单 agent 的轮数，再除以单 agent 的轮数。Table 5 里的数值和按轮数算出来的一致，本页按算式来解释。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
-    <li><b>去中心方式最后怎样定出答案。</b>Kim 等人论文的 Table 5 只有数字，没有写各种方式怎样合成最终答案。本页那张表里去中心方式的合成办法取自同一篇论文的 Table 2：辩论的轮数是事先定的，示意图上去中心一列标的是多数票（Majority Voting）。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>去中心方式最后怎样定出答案。</b>Kim 等人论文的 Table 5 只有数字，没有写各种方式怎样合成最终答案。本页那张表里去中心方式的合成办法取自同一篇论文的 Table 2。这张表的脚注写明辩论的轮数是事先定的参数。表里有一行给每种方式配了一张小示意图，去中心一列的那张示意图上标着多数票（Majority Voting）。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
   </ul>
 </section>

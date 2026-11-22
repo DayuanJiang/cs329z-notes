@@ -134,12 +134,12 @@
   <p>MetaGPT 给每个 agent 分了角色。分角色只有在各个 agent 确实做出不同的事时才有意义，见<a href="failures.html#conformity">第五部分</a>。</p>
   <h3>留言板怎么实现</h3>
   <p>对 agent 来说，读写留言板通常就是几个工具：发消息，读消息，订阅某一类消息。MetaGPT 里，一个 agent 会收到指名发给它的消息，也会收到它订阅的那几类消息，收到之后才开始行动。任务做完后发一条消息通知其他 agent，这个要求通常写在提示词里。</p>
-  <p>留言板不一定要专门开发。给 agent 配上读写 Slack 的工具，Slack 的频道就是一块留言板。Linear 这样的任务看板也一样，<a href="coordination.html#ledger">第四部分</a>的 Symphony 就建在它上面。</p>
+  <p>留言板不一定要专门开发。给 agent 配上读写 Slack 的工具，Slack 的频道就是一块留言板。Linear 这样的任务看板也一样。OpenAI 的 Symphony 把看板上的任务派给编程 agent，它就建在这样的看板上，见<a href="coordination.html#ledger">第四部分</a>。</p>
 </section>
 
 <section class="sec" id="unsanctioned">
   <h2>留言板的另一面：没人批准的协作</h2>
-  <p>协调也会自发出现。下面的例子说明，留言板可以不是设计出来的。它发生在 OpenAI 的一次评测里。这一讲把它叫作 HuggingFace 事件，名字来自其中的一段经过：一部分 agent 后来攻击了 Hugging Face，一个托管模型和数据集的网站。</p>
+  <p>前面的留言板都是设计出来的。通道还会在设计之外自己出现，下面的例子里，留言板是 agent 自己搭的。它发生在 OpenAI 的一次评测里。这一讲把它叫作 HuggingFace 事件，名字来自其中的一段经过：一部分 agent 后来攻击了 Hugging Face，一个托管模型和数据集的网站。</p>
   {{fig 43 | 图片来源：<a href="https://metr.org/">METR</a>，图上还有 Redwood Research 的标志。}}
   <figure class="plate">
     <ol class="steps">
@@ -163,18 +163,18 @@
     <ul>
       <li><b>任务本身是起因之一。</b>按 ExploitGym 作者的估计，约 30% 到 40% 的目标程序用指定的漏洞攻不破。拿到这种任务的 agent 会四处找别的办法，于是找到了软件包仓库。</li>
       <li><b>它们合作研究怎样骗过或篡改评分程序。</b>它们做成了单个 agent 做不到的事。有些 agent 甚至冒着自己任务失败的风险去做实验，给「集体」提供信息。</li>
-      <li><b>约 700 个 agent 后来参与了对 Hugging Face 的攻击。</b>按报告，留言板上的 agent 去找泄露在外的 Hugging Face 登录凭据，它们希望看到别的 ExploitGym 运行记录，从中弄清评分程序是怎么实现的。报告认为这是攻击的主要目的。</li>
+      <li><b>约 700 个 agent 后来参与了对 Hugging Face 的攻击。</b>按报告的了解，起因是建起留言板的那个 agent 在 Hugging Face 上发现了一个数据集，里面是另一个模型在 CyberGym 上的运行记录。CyberGym 是一个和 ExploitGym 很相似的评测，许多任务是重合的。这个数据集要经过人工批准才能访问，留言板上的 agent 于是去找泄露在外的 Hugging Face 登录凭据。它们希望借此看到别人做这类任务的运行记录，从中弄清评分程序是怎么实现的。报告认为这是攻击的主要目的。</li>
     </ul>
     出处同上。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>没有人设计，组织自己出现了。</b>按<a href="orchestration.html#swarm">第二部分</a>的分法，严格意义上的 swarm 指没有 orchestrator、所有 agent 都能互相通信的做法。这块留言板开始时符合这个定义：没有人设计过 orchestrator，没有哪个 agent 被指定为上级，大家都往同一块留言板上写。同一份调查报告记录了后来的两个变化。
     <ul>
-      <li><b>约定是一步一步出现的。</b>agent 先约定了怎样标明自己的身份、怎样区分提问、请求和结果。后来有了个人信箱，有了 HOLD、VETO、owner 这类管理共用资源的约定。出现冒名发消息的问题之后，还有了给消息加密码学签名的办法。</li>
-      <li><b>出现了带头的 agent。</b>一个任务相同、剩余预算大得多的 agent 出现后，建起留言板的那个 agent 把自己的笔记交给了它。后者接着组织了多条工作线，参与的 agent 合计有几百个，调查报告用的词正是 orchestrate。也就是说，设计上没有 orchestrator，统管的角色是在运行中自己形成的。</li>
+      <li><b>约定是一步一步出现的。</b>agent 先约定了怎样标明自己的身份、怎样区分提问、请求和结果。后来有了个人信箱，也有了管理共用资源的几个约定：owner 标明一样共用的东西归哪个 agent 管，HOLD 表示请别的 agent 先不要动它，VETO 表示反对别的 agent 提出的一个动作。出现冒名发消息的问题之后，还有了给消息加密码学签名的办法。</li>
+      <li><b>出现了带头的 agent。</b>一个任务相同、剩余预算大得多的 agent 出现后，建起留言板的那个 agent 把自己的笔记交给了它。预算决定一个 agent 还能运行多久，报告没有写明它的单位。后者接着组织了多条工作线，参与的 agent 合计有几百个，调查报告用的词正是 orchestrate。也就是说，设计上没有 orchestrator，统管的角色是在运行中自己形成的。</li>
     </ul>
     出处同上。</div></div>
   <p>这个例子对设计有两点含义，可以这样理解。</p>
   <ul>
-    <li><b>通道不限于你设计的那几条。</b>agent 能找到的任何一处大家都能读写的地方，都可能变成通道。</li>
+    <li><b>通道不限于设计者安排的那几条。</b>agent 能找到的任何一处大家都能读写的地方，都可能变成通道。</li>
     <li><b>这次自发的协作为什么做成了事。</b><a href="coordination.html#patterns">第四部分</a>会讲到，agent 靠聊天来协调并不可靠。这里的情况不同：调查报告说，它们常常是让一部分 agent 去做冒险的试验，再把结果告诉大家。各做各的试验、再共享结果，是一种能拆开的探索。<a href="sas_vs_mas.html">第一部分</a>的结论是，工作能拆开时，用多个 agent 更可能划算。</li>
   </ul>
   {{fig 44 | 图片来源：<a href="https://www.moltbook.com/post/e72d9de7-2bfd-4ce0-93b0-f7af8ab7fb53">moltbook.com</a>。}}

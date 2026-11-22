@@ -82,7 +82,7 @@
       <thead><tr><th scope="col">哪一种</th><th scope="col">具体是什么</th><th scope="col">后果</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
         <tr><th scope="row">信号是错的<br><span class="muted small">Wrong signal</span></th><td>验证器有毛病，把对的判成错的，或者把错的判成对的。还有一种是 agent 没有真正完成任务，靠捷径让验证器判了通过</td><td>模型被奖励去做错的事，或者因为做对了而受罚</td><td><a href="valid.html">第二部分</a>、<a href="passed.html">第四部分</a></td></tr>
-        <tr><th scope="row">没有信号<br><span class="muted small">No signal</span></th><td>任务太容易或太难。模型每次都做对，或者每次都做错</td><td>强化学习常用的做法是把同一个任务的几次运行互相比较。这样的任务比不出差别，不产生任何更新，算力白花了</td><td><a href="learnable.html">第三部分</a></td></tr>
+        <tr><th scope="row">没有信号<br><span class="muted small">No signal</span></th><td>任务太容易或太难。模型每次都做对，或者每次都做错</td><td>强化学习常用的做法是把同一个任务的几次运行互相比较。这样的任务比不出差别，不产生任何更新，花在它们上面的算力没有用处</td><td><a href="learnable.html">第三部分</a></td></tr>
         <tr><th scope="row">信号是重复的<br><span class="muted small">Redundant signal</span></th><td>同一类东西又来了很多份</td><td>数据量涨了，模型没有学到新的东西</td><td><a href="mix.html">第六部分</a></td></tr>
       </tbody>
     </table>
@@ -98,19 +98,21 @@
   {{fig 11 | 三张小图的横轴都是训练数据的条数，从 316 条到 10 万条。纵轴是准确率。左：SWE-bench Verified 里抽出的 100 个任务。中：Terminal-Bench 2.0。右：七个基准测试的平均。红色和橙色是 OpenThoughts-Agent 自己的数据集，红色微调的是 Qwen3-32B，橙色微调的是 Qwen3-8B。蓝色和青色是 Nemotron-Terminal-Corpus，蓝色是 Qwen3-32B，青色是 Qwen3-8B。紫色是 SERA，只微调了 Qwen3-32B。两条水平的虚线是没有微调的基础模型。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。}}
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这张图比的是三个团队各自造的数据集。</b>图里的三个数据集出自三个不同的团队，各自截取到相同的条数，再用来微调同一个基础模型。所以这张图说的是：条数相同的时候，不同做法造出来的数据集，训练出的模型差别很大。三个数据集各自独立，彼此之间没有「从同一批数据里换一种挑法」的关系。</div></div>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>没有哪个数据集在三张小图上都领先。</b>红线只在右边的平均图上基本领先。左图里，紫色实线在它有数据的范围内一直在红线上面，这条实线是 SERA 的数据集用 SERA 自己的运行框架评测的结果。运行框架（harness）指包在模型外面、给它工具并管理多轮对话的程序。</div></div>
-  <p>从同一批数据里挑，规模相同时挑过的子集是不是比随机选的更好，论文里另有专门的实验。下面两组都用 Qwen3-8B，每组拿一种挑法和随机选做对比。第一组挑任务，两边的任务数相同，留下的是 GPT-5 作答时写得最长的任务。第二组挑轨迹，两边的 token 总数相同，留下的是至少有 5 轮的轨迹。训练数据在约 1 万到 1.45 万条之间。</p>
-  <p>表里的分数是三个基准测试的平均准确率，这三个是 SWE-bench Verified 的 100 题、OpenThoughts-TBLite 和 Terminal-Bench 2.0。</p>
+  <p>从同一批数据里挑，规模相同时挑过的子集是不是比随机选的更好，论文里另有专门的实验。下面两组都用 Qwen3-8B，每组拿一种挑法和随机选做对比。训练数据在约 1 万到 1.45 万条之间。</p>
+  <p>第一组挑任务，两边的任务数相同。挑法是让 GPT-5 解答每个候选任务，按它的回答用了多少 token 来排，留下回答最长的那些任务。token 是模型处理文字的最小单位，大致是一个词或半个词。论文把留下的这些说成 GPT-5 要用更多 token 才能解决的任务。这种挑法沿用自更早的 OpenThoughts 项目，这篇论文没有另外说明理由。</p>
+  <p>第二组挑轨迹，两边的 token 总数相同，留下的是至少有 5 轮的轨迹。</p>
+  <p>表里的分数是三个基准测试的平均准确率，这三个是 SWE-bench Verified 的 100 题、OpenThoughts-TBLite 和 Terminal-Bench 2.0。OpenThoughts-TBLite 是这篇论文的作者新做的基准测试，有 100 个和 Terminal-Bench 同一类的任务，用来更快地估计模型在 Terminal-Bench 2.0 上的成绩。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">实验</th><th scope="col">怎么挑的</th><th scope="col" class="r">三个基准测试的平均准确率</th></tr></thead>
       <tbody>
         <tr><th scope="row" rowspan="2">挑任务：从候选任务里选 1 万个</th><td>随机选</td><td class="r">14.10%</td></tr>
-        <tr><td>选 GPT-5 作答时写得最长的那些任务</td><td class="r">17.43%</td></tr>
+        <tr><td>选 GPT-5 的回答最长的那些任务</td><td class="r">17.43%</td></tr>
         <tr><th scope="row" rowspan="2">挑轨迹：两组的 token 总数都约为 1.45 亿</th><td>随机选，共 14,470 条</td><td class="r">14.50%</td></tr>
         <tr><td>只留至少有 5 轮的轨迹，共 9,859 条</td><td class="r">18.00%</td></tr>
       </tbody>
     </table>
-    <figcaption>出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>的表 5 和表 15。token 是模型处理文字的最小单位，大致是一个词或半个词。</figcaption>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>的表 5 和表 15。</figcaption>
   </figure>
   <p>两组里，挑过的都比随机的高 3 个百分点以上。论文把这类结果概括成一条：能得到更长轨迹的办法，训练效果更好。</p>
   <p>挑选之外，这篇论文里影响最大的一步是任务从哪里来：换一种任务来源，SWE-bench Verified 那 100 题上的准确率最多能差 30 个百分点。</p>
@@ -144,6 +146,6 @@
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
     <li><b>CWM 去重之前的轨迹条数。</b>论文给的 300 万条是去掉近似重复之后剩下的数。去重之前一共生成了多少条，论文里没有找到。出处：<a href="https://arxiv.org/abs/2510.02387">CWM 的论文</a>第 2.3 节。</li>
-    <li><b>挑任务那一组用的是哪个模型。</b>按作答长度挑任务时用来作答的模型，论文在表 5 里写的是 GPT-5，在后面的第 4 节里写的是 gpt-5-nano，两处不一致。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>的表 5 和第 4 节。</li>
+    <li><b>挑任务那一组用的是哪个模型。</b>按回答的长度挑任务时用来解答任务的模型，论文在表 5 里写的是 GPT-5，在后面的第 4 节里写的是 gpt-5-nano，两处不一致。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>的表 5 和第 4 节。</li>
   </ul>
 </section>

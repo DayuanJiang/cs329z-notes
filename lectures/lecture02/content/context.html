@@ -1,7 +1,7 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>上下文工程（context engineering）管的是每次调用模型时，上下文窗口里的全部 token 怎么安排。上下文窗口是一次能放进模型的 token 数的上限，token 是模型处理文字的最小单位。</li>
+    <li>上下文工程（context engineering）要解决的是每次调用模型时，上下文窗口里的全部 token 怎么安排。上下文窗口是一次能放进模型的 token 数的上限，token 是模型处理文字的最小单位。</li>
     <li>不能把所有东西都放进去，原因有两个：上下文越长，模型用好其中信息的能力越差，这叫 context rot；上下文越长，每一步越贵。</li>
     <li>四条实际的做法：只放必要的工具和内容；用检索挑出最相关的再放；新内容只往后面加，让前面算过的缓存一直能用；每个安排都用实验来验证。</li>
     <li>上下文满了之后要做 compaction，也就是把历史总结成一段摘要再继续。留多了很快又满，丢多了会丢掉完成任务必需的信息。</li>
@@ -14,7 +14,7 @@
   <p>ChatGPT 刚出现的那段时间，大家关心的是 prompt 工程（prompt engineering）：一段交给模型的指令该怎么措辞，模型才答得好。那时流行过各种写法，比如告诉模型「答不好这个问题世界就要毁灭」。</p>
   <p>现在的 agent 要在很多轮里连续工作，agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。能给模型的信息非常多，问题变成了：这么多信息，哪些放进去，怎么组织，怎么删减。这就是上下文工程，它是在 prompt 工程之上的一层。</p>
   {{fig 161 | 左：prompt 工程，上下文窗口里只有 system prompt 和一条用户消息，模型回一条消息。右：agent 的上下文工程。最左一栏是可以放进去的全部材料（文档、工具、记忆文件、详细的说明、领域知识、消息历史），经过中间的挑选，只有一部分进入上下文窗口。模型的输出除了消息还有工具调用，工具的结果又回到左边的材料里，等待下一轮挑选。图片来源：<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025 年 9 月</a>。}}
-  <p>这张图出自 Anthropic 2025 年 9 月的文章《Effective context engineering for AI agents》。文章里有两个定义。上下文指调用一次模型时放进去的那组 token。上下文工程指在推理过程中挑选并维护最合适的那组 token 的一整套办法，prompt 之外进入上下文的所有其他信息也归它管。</p>
+  <p>这张图出自 Anthropic 2025 年 9 月的文章《Effective context engineering for AI agents》。文章里有两个定义。上下文指调用一次模型时放进去的那组 token。上下文工程指在推理过程中挑选并维护最合适的那组 token 的一整套办法，prompt 之外进入上下文的所有其他信息也在它的范围里。</p>
   <h3>agent 的上下文里有什么</h3>
   <figure class="plate">
     <table class="tbl">
@@ -49,8 +49,8 @@
     </table>
     <figcaption>合成数据部分的得分，满分 100，数字来自论文第一版的表格。答案是类别、日期这类的题按是否完全一致给分，答案是数字的题按离正确答案的远近给部分分。</figcaption>
   </figure>
-  <p>三个模型在 8K 时都在 74 分以上，到 128K 时都不到 50 分，而 128K 仍然在这些模型的上下文窗口以内。</p>
-  <p>论文第一版的摘要给的是同一个结论。它点名的三个模型是 GPT-5、Claude Sonnet 4 和 Gemini 2.5 Pro：在 128K 时，两部分的准确率都低于 50%。上面的表没有列 Gemini，原因见下面的说明。</p>
+  <p>表里的三个模型在 8K 时都在 74 分以上，到 128K 时都不到 50 分，而 128K 仍然在这些模型的上下文窗口以内。</p>
+  <p>论文第一版的摘要给的是同一个结论，点名的模型和表里的有一个不同：摘要说的是 GPT-5、Claude Sonnet 4 和 Gemini 2.5 Pro，这三个模型在 128K 时，两部分的准确率都低于 50%。Gemini 2.5 Pro 没有列在上面的表里，原因见下面的说明。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>图里最醒目的那条黄线，不适合拿来说明 context rot。</b>左图里黄色的线是 Gemini 2.5 Pro。它掉得最多，主要是因为输出超长的题被直接记了 0 分，所以上面的表没有列它。这条线在上下文短的时候接近 90 分，从 8K 时的 88.13 分开始下降，到 256K 时从图上看只有 13 分左右，已经低于随机猜的基线，看上去是 context rot 最严重的例子。论文自己解释了主要原因：上下文很长时，Gemini 的推理过程常常超出最大输出长度，而它的 API 在这种情况下不返回任何内容，这道题就直接记 0 分。别的模型在同样情况下返回的是被截断的输出，还可能拿到部分分。在真实对话记录的那部分，论文没有观察到这个问题，Gemini 是成绩最好的模型。出处：<a href="https://arxiv.org/abs/2511.02817v1">OOLONG 论文的第一版</a>第 4 节。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>context rot 这个词的来历。</b>这个词出自 Chroma 2025 年 7 月的技术报告。报告测了 18 个模型，结论是模型并不均匀地使用上下文，输入越长，表现越不可靠。出处：<a href="https://research.trychroma.com/context-rot">Chroma 的报告</a>。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Anthropic 对 context rot 的解释。</b>Anthropic 的文章把它和注意力的结构联系起来：n 个 token 之间有 n 的平方对两两关系，上下文越长，模型顾及这些关系的能力越弱；训练数据里短序列又比长序列常见，模型处理长距离依赖的经验更少。文章把这叫作模型的「注意力预算」，每加进一个 token 都会消耗一点。它还强调这是一个逐渐变差的过程，没有一个突然失效的点。出处：<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic 的文章</a>。</div></div>
@@ -61,7 +61,7 @@
   <h2>做法一：只放必要的工具和内容</h2>
   <p>放进上下文的工具定义和说明越多，每一步越贵，因为这些内容模型每一步都要读一遍。有时候几个工具就够了。</p>
   <p>Pi 是一个例子。它是一个开源的、很精简的写代码的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序），只给模型四个工具：读文件、写文件、编辑文件和执行命令行命令。</p>
-  <p>一项叫 HarnessTax 的研究把 Pi 和另外两种运行框架 Codex、Claude Code 放在一起比。Codex 是 OpenAI 的运行框架，Claude Code 是 Anthropic 的运行框架。花费的差别从第一次调用模型就开始了：7 个模型平均下来，Claude Code 的初始上下文是 Pi 的 10 倍以上，里面是更长的说明和更大的工具定义。这些内容每一步都要读一遍。</p>
+  <p>一项叫 HarnessTax 的研究把 Pi 和另外两种运行框架 Codex、Claude Code 放在一起比。Codex 是 OpenAI 的运行框架，Claude Code 是 Anthropic 的运行框架。花费的差别从第一次调用模型就开始了。第一次调用模型时放进上下文的内容叫初始上下文。7 个模型平均下来，Claude Code 的初始上下文的长度是 Pi 的 10 倍以上，里面是更长的说明和更大的工具定义。这些内容每一步都要读一遍。</p>
   <p>下面的图和表是这项研究在成功率和花费上的结果。</p>
   {{fig 166 | 同一个模型配三种运行框架（Pi、Codex、Claude Code），在 Terminal-Bench 2.0（一个在命令行终端里完成任务的基准测试）上的结果。左边一组柱子是每次运行的花费，右边一组是成功率。绿色边框标出每个模型里花费最低和成功率最高的那一个。图里是四个 Claude 模型。图片来源：<a href="https://arena.ai/blog/coding-agents-harness-tax">Arena 的 HarnessTax 文章，2026 年 9 月</a>。}}
   <figure class="plate">
@@ -79,11 +79,12 @@
   <h3>这张图能说明什么</h3>
   <p>这项研究一共测了 7 个模型和 3 种运行框架的 21 种组合，用了两个基准测试：SWE-bench Lite 考的是修真实代码仓库里的 bug，Terminal-Bench 2.0 是上面图里的那一个。文章自己的结论有三条。</p>
   <ul>
-    <li><b>运行框架对成功率影响小，对花费影响大。</b>同一个模型可以用相差最多 5 倍的花费达到相近的成功率。</li>
-    <li><b>简单的运行框架有竞争力。</b>只有四个工具的 Pi，在两个基准测试上都处在「同样花费下成功率最高」的那条边界上。</li>
+    <li><b>运行框架对成功率影响小，对花费影响大。</b>同一个模型可以用相差最多 5 倍的花费达到相近的成功率。「最多 5 倍」说的是这项研究全部组合里最大的差距。上面的表只列了 Terminal-Bench 2.0 上的四个模型，它们换运行框架之后，花费最多相差约 1.6 倍。</li>
+    <li><b>简单的运行框架有竞争力。</b>只有四个工具的 Pi，在两个基准测试上都到了 Pareto 前沿（Pareto frontier）。每个「模型加运行框架」的组合有花费和成功率两个数。如果没有别的组合比它便宜、成功率还不比它低，这个组合就在 Pareto 前沿上。</li>
     <li><b>模型在别家的运行框架里可能表现更好。</b>每个 Anthropic 或 OpenAI 的模型在每个基准测试上算一组比较，6 个模型、2 个基准测试共 12 组。其中 9 组里，成功率最高的是别家的运行框架：对 Anthropic 的模型来说是 Codex 或 Pi，对 OpenAI 的模型来说是 Claude Code 或 Pi。</li>
   </ul>
-  <p>第一条结论在 Terminal-Bench 2.0 上有两个具体的数。换运行框架对成功率的平均影响在正负 5% 左右以内，原文没有写明这是百分点还是相对比例。Claude Code 的花费大约是 Pi 的 1.5 倍，这个倍数是先在每个模型上算出两者花费的比值，再对这些比值取几何平均得到的。几何平均是把 n 个数相乘、再开 n 次方的平均办法。</p>
+  <p>第一条结论在 Terminal-Bench 2.0 上有两个具体的数。第一个数是成功率：换运行框架对成功率的平均影响大约在正负 5% 以内，原文没有写明这是百分点还是相对比例。</p>
+  <p>第二个数是花费：Claude Code 的花费大约是 Pi 的 1.5 倍。这个倍数是先在每个模型上算出两者花费的比值，再对这些比值取几何平均得到的。几何平均是把 n 个数相乘、再开 n 次方的平均办法。这项研究的 7 个模型都配了 3 种运行框架，上面的表只列了其中 4 个 Claude 模型。这 4 个模型各自的倍数在 1.0 到 1.44 之间，都低于 1.5 倍，所以 1.5 倍里还算进了表里没有列的另外 3 个模型。</p>
   <p>文章也提醒，这些结果只来自两个公开的基准测试，模型在训练时可能见过它们。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这张图能读出多少。</b>图里四个模型，Pi 的成功率在 Sonnet 4.6 和 Haiku 4.5 上最高，在 Opus 4.8 上和 Codex 并列，在 Fable 5 上最低。但每个数只来自 30 个任务，图上每根柱子都带着误差线，也就是结果可能波动的范围。从图上看，同一个模型的三根柱子的误差线都互相重叠，差距最大的一组也是这样：Haiku 4.5 上 Pi 比 Codex 高 16.7 个百分点。所以不宜读成「Pi 在几乎所有模型上都最好」。更稳妥的读法是文章的第一条结论：成功率差不多，花费差得多。</div></div>
   <p>Anthropic 的文章对工具给了同样方向的建议：最常见的失败之一是工具集过于庞大，功能重叠，让人说不清某个情况该用哪个工具。如果一个人类工程师都没法明确说出该用哪个，就不能指望 agent 做得更好。</p>
@@ -132,7 +133,7 @@
   </ul>
   {{fig 171 | 上面是 compaction 要考虑的四点。下面是一条 2026 年 2 月 23 日的帖子，转述了一起 agent 没等确认就成批删除邮件的事故，经过见下面的正文。图片来源：<a href="https://www.threads.com/@therundownai">therundownai</a>。}}
   <h3>这起事故的经过</h3>
-  <p>当事人 Summer Yue 是 Meta 超级智能实验室里负责 AI 安全和对齐研究的一位负责人。她用的是开源的 agent 程序 OpenClaw。2026 年 2 月 23 日她发帖讲了这次的经过。下面的经过出自<a href="https://rits.shanghai.nyu.edu/ai/metas-alignment-director-lost-control-of-openclaw-it-deleted-her-inbox/">上海纽约大学的一篇报道</a>，其中引用了她的帖子。</p>
+  <p>当事人 Summer Yue 是 Meta 超级智能实验室里 AI 安全和对齐研究的一位负责人。她用的是开源的 agent 程序 OpenClaw。2026 年 2 月 23 日她发帖讲了这次的经过。下面的经过出自<a href="https://rits.shanghai.nyu.edu/ai/metas-alignment-director-lost-control-of-openclaw-it-deleted-her-inbox/">上海纽约大学的一篇报道</a>，其中引用了她的帖子。</p>
   <p>此前几周她一直在一个测试用的小收件箱上试这个流程，都正常。之后她让它接着处理自己真实的收件箱，指示是：也检查这个收件箱，建议哪些该归档或删除，在她说可以之前不要动手。</p>
   <p>按她自己的说法，真实的收件箱太大，触发了 compaction，她原来的那条指示在这个过程中丢了。之后 agent 成批地删除和归档邮件。她在手机上连发几条停止的指令都没有用，最后跑到运行这个程序的电脑前把进程结束掉。</p>
   <p>丢失指示这个原因是当事人自己的判断。摘要里实际留下了什么，这篇报道没有给出。<a href="https://techcrunch.com/2026/02/23/a-meta-ai-security-researcher-said-an-openclaw-agent-ran-amok-on-her-inbox/">TechCrunch 对这件事的报道</a>说明，它没能独立核实她的邮箱里实际发生了什么。</p>
@@ -193,8 +194,8 @@
       <tbody>
         <tr><th scope="row"><a href="lm.html">语言模型是什么</a></th><td>给 token 序列算概率，可以从中抽样</td><td>每次调用模型都是在抽样，temperature 和解码策略按任务来定</td></tr>
         <tr><th scope="row">模型结构<br><span class="muted small"><a href="transformer.html">二</a>、<a href="linear.html">三</a></span></th><td>Transformer 的注意力，线性注意力，两者混用</td><td>长上下文贵；选模型时要看它用哪种注意力</td></tr>
-        <tr><th scope="row"><a href="training.html">训练</a></th><td>预训练、中期训练、后训练、agent 训练</td><td>模型会什么、不会什么，取决于它在哪些数据和环境上练过</td></tr>
-        <tr><th scope="row">推理<br><span class="muted small"><a href="inference.html">五</a>、<a href="scaling.html">六</a></span></th><td>prefill 和 decode，KV cache，推理时多花算力</td><td>输入便宜、输出贵；缓存只认相同的开头；难的任务可以多花 token</td></tr>
+        <tr><th scope="row"><a href="training.html">训练</a></th><td>预训练、中期训练、后训练，以及为 agent 准备的训练</td><td>模型会什么、不会什么，取决于它在哪些数据和环境上练过</td></tr>
+        <tr><th scope="row">推理<br><span class="muted small"><a href="inference.html">五</a>、<a href="scaling.html">六</a></span></th><td>prefill 和 decode，KV cache，推理时多花算力</td><td>输入便宜、输出贵；开头相同时缓存才能接着用；难的任务可以多花 token</td></tr>
         <tr><th scope="row">agent 里的 LLM<br><span class="muted small"><a href="structured.html">七</a>、八</span></th><td>结构化的输入输出，上下文工程</td><td>输出要能被程序解析；上下文要小而精，并用实验来验证</td></tr>
       </tbody>
     </table>

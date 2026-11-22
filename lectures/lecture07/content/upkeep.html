@@ -87,7 +87,7 @@
   <p>整个小镇层面的结果是另外统计的。两天的模拟结束时，知道派对的 agent 从 1 个增加到 13 个，占 25 个 agent 的 52%。被邀请的 12 个 agent 里，有 5 个在情人节当天到了场。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这类系统的三个代价。</b>第一，概括可能出错。论文观察到 agent 有时会给记忆加上原本没有的细节。小镇里除了派对还有一件事在居民之间传开：一个叫 Sam 的居民要竞选镇长。Isabella 知道 Sam 要竞选，却又补了一句「他明天要发表声明」，而两人从没谈过这件事。把模型的推断当成记忆存下来，这类没有依据的内容就可能留在记忆里被反复引用。第二，检索会漏。有的 agent 明明听说过竞选的事，被问到时却说自己没怎么关注。第三，这套系统很贵。论文说模拟 25 个 agent 两天花了几千美元的 token 费用。</div></div>
   <h3>两个例子的差别</h3>
-  <p>两个例子生成反思的时机不同。Reflexion 在每次尝试失败之后写一段反思，再把反思存起来。Generative Agents 先把观察原样存进记忆，积累到一定数量之后，再从已经存下的记录里生成反思。如果把这种模式概括成「存之前先反思」，这个说法只符合前一个例子，后一个例子是先存下观察、之后再反思。</p>
+  <p>两个例子生成反思的时机不同。Reflexion 在每次尝试失败之后写一段反思，再把反思存起来。Generative Agents 先把观察原样存进记忆，积累到一定数量之后，再从已经存下的记录里生成反思。所以反思和存的先后在两个例子里是相反的：前一个先反思再存，后一个先存下观察、之后再反思。</p>
 </section>
 
 <section class="sec" id="maintain">
@@ -104,7 +104,7 @@
 
 <section class="sec" id="sleep">
   <h2>Sleep-time compute：趁空闲提前把记忆整理好</h2>
-  <p>Sleep-time compute 由 Letta 公司和加州大学伯克利分校的研究者在 2025 年 4 月提出，作者里有好几位也是 MemGPT 的作者。它的出发点是：agent 在两次交互之间有大量空闲时间，这段时间可以用来提前推理。</p>
+  <p>Sleep-time compute 由 Letta 公司和加州大学伯克利分校的研究者在 2025 年 4 月提出，作者里有好几位也是 MemGPT 的作者。MemGPT 是<a href="tiers.html">第四部分</a>讲的一个让模型自己用函数读写记忆的系统。Sleep-time compute 的出发点是：agent 在两次交互之间有大量空闲时间，这段时间可以用来提前推理。</p>
   {{fig 58 | 上半部分是通常的做法：用户每问一个问题，模型都从原始的上下文开始推理。下半部分是 sleep-time compute：空闲时，模型先对原始的上下文做推理，写出一份整理过的上下文；用户提问时，模型看的是这份整理过的版本，很快就能回答。图片来源：<a href="https://arxiv.org/abs/2504.13171">Lin 等，2025</a>。}}
   <p>图里的例子是一道应用题。原始的上下文说：一个杂耍演员能同时抛 800 个球，其中四分之一是网球，网球里一半是靛蓝色的，靛蓝色的网球里十分之一有标记。空闲时，模型把能算的先算出来：网球 200 个，靛蓝色的网球 100 个，有标记的 10 个。之后用户问「有标记的靛蓝色网球有几个」，模型不用再推一遍，直接回答 10。</p>
   <p>难处在于空闲时并不知道用户会问什么，只能猜哪些推理以后可能有用。猜不中，这部分计算就白花了。</p>
@@ -222,7 +222,7 @@
         <tr><th scope="row"><a href="skills.html">从经验里学做法</a><br><span class="muted small">Voyager、Agent Workflow Memory、技能文件</span></th><td>可以再用的代码、工作流或做法</td><td>得到一条有用的轨迹之后，或者事先离线归纳</td><td>遇到相关的任务、需要一个做法时</td><td>再用可以省力，但做法会过时</td></tr>
         <tr><th scope="row"><a href="tiers.html">分层的记忆</a><br><span class="muted small">MemGPT、MemoryOS</span></th><td>一小块常驻的信息，加上存在外面的细节</td><td>信息进来时，以及上下文窗口快满时</td><td>常驻的部分一直在读，外面的部分按需读</td><td>上下文变小了，但要靠可靠的记忆管理</td></tr>
         <tr><th scope="row"><a href="#reflect">反思式整理</a><br><span class="muted small">Reflexion、Generative Agents</span></th><td>从经历里得出的教训和更概括的推断</td><td>得到反馈之后，或者观察积累到一定数量时</td><td>做相关的推理和计划时</td><td>概括之后更容易再用，但可能引入没有依据的结论</td></tr>
-        <tr><th scope="row"><a href="#maintain">记忆维护</a><br><span class="muted small">Sleep-time compute、<br>A-Mem、Mem0</span></th><td>修订过的事实、链接、索引，以及空闲时提前整理好的上下文</td><td>有新的证据时，写入时，或者在后台</td><td>读的就是维护过的那份存储</td><td>组织得更好，但要花计算，也可能丢信息</td></tr>
+        <tr><th scope="row"><a href="#maintain">记忆维护</a><br><span class="muted small">Sleep-time compute、<br>A-Mem、Mem0</span></th><td>修订过的事实、链接、索引，以及空闲时提前整理好的上下文</td><td>有新的证据时，写入时，或者在后台</td><td>读的就是维护过的那份存储</td><td>记忆组织得更好，但维护要多调用模型，也可能丢信息</td></tr>
       </tbody>
     </table>
   </figure>

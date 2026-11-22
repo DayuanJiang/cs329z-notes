@@ -2,7 +2,7 @@
   <h2>先看结论</h2>
   <ul class="takeaways">
     <li>agent（能自己调用工具、分很多步完成任务的语言模型系统）能完成的任务越来越长，一次运行里随便哪一步都可能失败：接口限流、超时、网络抖动、机器重启。承载它的基础设施必须可靠，出了问题还要查得出原因。</li>
-    <li>这里有两类工具。管可靠性的工具做的是编排（orchestration）：安排多个步骤按什么顺序执行，并在出错时自动处理，也就是重试，或者在进程挂掉之后接着跑。管可观测性（observability，能从外面看到系统内部每一步发生了什么）的工具把运行记录摆出来，供人去查。</li>
+    <li>这里有两类工具。管可靠性的工具做的是编排（orchestration）：安排多个步骤按什么顺序执行，并在出错时自动处理，也就是重试，或者在进程中断之后接着跑。管可观测性（observability，能从外面看到系统内部每一步发生了什么）的工具把运行记录摆出来，供人去查。</li>
     <li>Temporal 是第一类的代表。它把程序拆成两种东西：Activity 是可能失败的一步，Workflow 把这些步骤按顺序连起来。每一步的结果都记在服务端，所以失败的步骤可以自动重试，进程换了一个也能从记录里接着往下跑。</li>
     <li>MLflow、LangSmith、Langfuse 是第二类的代表。它们记录每次模型调用和工具调用的输入、输出、耗时和花费。</li>
   </ul>
@@ -57,7 +57,7 @@
     </table>
     <figcaption>定义按 <a href="https://docs.temporal.io/workflows">Temporal 的文档</a>整理。</figcaption>
   </figure>
-  <p class="lead-in">整套设计的核心是一句话：<mark>你的代码在 Worker 上跑，跑到哪一步、每一步的结果是什么，记在服务端</mark>。Worker 挂了，记录还在。</p>
+  <p class="lead-in">整套设计的核心是一句话：<mark>你的代码在 Worker 上跑，跑到哪一步、每一步的结果是什么，记在服务端</mark>。Worker 崩溃或者被关掉，记录都还在。</p>
   <p>恢复的办法叫重放（replay）。一个 Worker 接手一次没跑完的 Workflow 时，它把 Workflow 的代码从头再执行一遍。每遇到一个 Activity 调用，它先查执行历史，这一步已经完成过的话，直接取出当时记下的结果，不再真的执行。这样代码很快就回到了上次中断的位置，然后继续往下。Workflow 必须是确定性的，原因就在这里：重放时它得走和上次完全相同的路，才能和记录对得上。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>图里的两种 Worker 是两种角色。</b>图上把执行 Activity 的 Worker 和执行 Workflow 的 Worker 分开画了。在实际的代码里，一个 Worker 进程可以同时担任这两种角色，后面的演示就是这样。服务端的任务队列则确实按任务的种类分开存放。</div></div>
 </section>
@@ -145,7 +145,7 @@ def flaky_select_emoji(title: str) -&gt; str:
 </section>
 
 <section class="sec" id="timer">
-  <h2>进程挂了也能接着跑</h2>
+  <h2>进程被关掉也能接着跑</h2>
   <p>最后一个演示把两件事放在一起：由服务端计时的等待，和 Worker 中途被关掉。先写一个新的 Workflow：把日程加到日历，然后等一段时间，再发一条提醒。</p>
   <pre class="code"><code>@workflow.defn(sandboxed=False)
 class ReminderWorkflow:
@@ -177,7 +177,7 @@ print("workflow status:", (await handle.describe()).status.name)      # still RU
   </figure>
   <p>最后查 10 月 8 日的日程，得到 <code>['Lab meeting', 'Office hours']</code>。Office hours 是前面 <code>calendar-1</code> 那次运行加的。Lab meeting 只有一个。Worker 换过一次，提取日程和挑表情符号的两次模型调用没有重做，日历也没有被写第二遍。</p>
   {{fig 117 | reminder-1 这次运行的时间线。最上面是整个 Workflow，前后大约 20 秒。黄色的长条是那个 20 秒的计时器，它下面是子 Workflow CalendarWorkflow，在一开始就完成了。}}
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「只加了一次」是因为 Worker 是在两步之间被关掉的。</b>Worker 被关的时候，写日历的那个 Activity 已经完成，并且已经向服务端报告了结果，所以重放时不会再执行。Temporal 对 Activity 的保证是「至少执行一次」。如果 Worker 恰好在日历已经写进去、但还没来得及报告的那一刻挂掉，服务端不知道这一步做完了，会让它重做，日历上就会出现两个 Lab meeting。所以 Temporal 的文档要求 Activity 做成幂等的（idempotent，同一个操作执行一次和执行多次，效果一样），比如写日历之前先查一下同样的日程是否已经存在。出处：<a href="https://docs.temporal.io/activity-definition">Temporal 文档的 Activity Definition 一节</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「只加了一次」是因为 Worker 是在两步之间被关掉的。</b>Worker 被关的时候，写日历的那个 Activity 已经完成，并且已经向服务端报告了结果，所以重放时不会再执行。Temporal 对 Activity 的保证是「至少执行一次」。如果 Worker 恰好在日历已经写进去、但还没来得及报告的那一刻崩溃，服务端不知道这一步做完了，会让它重做，日历上就会出现两个 Lab meeting。所以 Temporal 的文档要求 Activity 做成幂等的（idempotent，同一个操作执行一次和执行多次，效果一样），比如写日历之前先查一下同样的日程是否已经存在。出处：<a href="https://docs.temporal.io/activity-definition">Temporal 文档的 Activity Definition 一节</a>。</div></div>
   <p>把 Temporal 的版本和 DSPy 的版本放在一起看。流程没有变，三个步骤做的事也没有变。多出来的是三样：每一步的结果记在服务端，失败的步骤按规定自动重试，执行代码的进程换了也能接着跑。代价是多了一个要部署的服务端，以及「Workflow 必须是确定性的」这条写代码时要守的规矩。按这一部分开头的考虑，一个合理的判断是：一次运行要很久、中途失败就得从头重做的任务，值得付这个代价。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>agent 放在哪里。</b>把一个 agent 放进 Temporal 时，常见的做法是把 agent 的循环（下一步做什么、选哪个工具）写在 Workflow 里，把每一次模型调用和工具调用各写成一个 Activity。模型的回答是 Activity 的结果，会记进执行历史，重放时 Workflow 直接读到当时的回答。所以由模型决定下一步，和「Workflow 必须是确定性的」不冲突。Temporal 和 OpenAI 合作的 Agents SDK 集成就是这样做的，它在 2025 年 7 月发布预览版，2026 年 3 月正式可用。这样，一个跑了几个小时的 agent 中途遇到进程重启，已经做过的模型调用不必重来。出处：<a href="https://docs.temporal.io/develop/python/integrations/openai-agents">Temporal 文档</a>；<a href="https://temporal.io/blog/announcing-openai-agents-sdk-integration">Temporal 的公告</a>。</div></div>
 </section>
@@ -210,7 +210,7 @@ print("workflow status:", (await handle.describe()).status.name)      # still RU
   <h2>这一部分的小结</h2>
   <ul>
     <li>编排让 agent 保持可靠。</li>
-    <li>可观测性让调试和监控成为可能。</li>
+    <li>有了可观测性，才能调试和监控。</li>
     <li>软件工程里的最佳实践和工具，同样适用于 agent 的工程。</li>
     <li>搭好评估、监控、持久化执行这些东西，是「搭一个 agent」和「把 agent 当工程来做」的分界。</li>
   </ul>

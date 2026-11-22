@@ -33,7 +33,7 @@
         <tr><th scope="row">每次调用模型时，上下文窗口里放什么</th><td>事件日志、把信息存到记忆里、compaction（把旧的历史压缩成摘要）、屏蔽旧的观察结果、上下文隔离</td><td><a href="context.html">六</a></td></tr>
       </tbody>
     </table>
-    <figcaption>英文的模式名在各自的页面里解释。表里的「观察结果」指工具执行之后返回给模型的内容。最后一部分用 <a href="pi.html">Pi</a> 这个真实的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序），看这三组决定在一个产品里是怎样取舍的。</figcaption>
+    <figcaption>英文的模式名在各自的页面里解释。表里的「观察结果」指工具执行之后返回给模型的内容。「事件日志」是一份只追加、不修改的记录，发生过的每件事都记在里面，每次调用模型时从它重新生成输入。「上下文隔离」指把一部分工作交给另一个 agent 在它自己的上下文窗口里做，或者把暂时用不到的说明留到需要时再放进上下文。最后一部分用 <a href="pi.html">Pi</a> 这个真实的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序），看这三组决定在一个产品里是怎样取舍的。</figcaption>
   </figure>
 </section>
 
@@ -51,7 +51,7 @@
       </tbody>
     </table>
   </figure>
-  <p>Anthropic 在《Building Effective Agents》这篇文章里给的定义和这条线是一致的。它把两类系统统称为 agentic system，也就是这一讲说的 agent 系统，再按架构分成两种。workflow 是语言模型和工具按预先写好的代码路径来编排的系统。agent 是语言模型自己动态地决定流程和工具用法、自己掌握怎样完成任务的系统。出处：<a href="https://www.anthropic.com/engineering/building-effective-agents">Schluntz 和 Zhang，2024</a>。</p>
+  <p>Anthropic 在《Building Effective Agents》这篇文章里给的定义和这条线是一致的。它把两类系统统称为 agentic system，也就是这一讲说的 agent 系统，再按架构分成两种。workflow 是语言模型和工具按预先写好的代码路径来编排的系统。agent 是由语言模型自己动态地决定流程和工具用法的系统，任务怎样完成始终由模型来定。出处：<a href="https://www.anthropic.com/engineering/building-effective-agents">Schluntz 和 Zhang，2024</a>。</p>
 </section>
 
 <section class="sec" id="tradeoff">

@@ -1,8 +1,9 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>工具使用可以分三层来评估：单次调用写得对不对，多步调用能不能把一件事办成，一边和用户对话一边调用工具时是否守规矩、是否每次都可靠。BFCL、ToolBench 和 τ-bench 这三个基准测试（benchmark，一组题目加一个打分的办法）各自侧重一层。</li>
-    <li>BFCL 主要用语法树匹配来判单次调用：把模型写的调用按语法结构拆开，和参考答案比较函数名和各个参数。这种判法不需要真的执行函数，只有一部分题另外真的去执行。多轮的题目还要检查环境最后的状态，以及必要的函数有没有调用过。</li>
+    <li>工具使用可以分三层来评估：单次调用写得对不对，多步调用能不能把一件事办成，一边和用户对话一边调用工具时是否按公司的规定办事、是否每次都可靠。BFCL、ToolBench 和 τ-bench 这三个基准测试（benchmark，一组题目加一个打分的办法）各自侧重一层。</li>
+    <li>BFCL 主要用语法树匹配来判单次调用：把模型写的调用按语法结构拆开，和参考答案比较函数名和各个参数。这种判法不需要真的执行函数，只有一部分题另外真的去执行。</li>
+    <li>BFCL 多轮题里的函数运行在一个模拟的系统上，比如文件系统，调用会改动系统里的内容。这类题要检查全部调用做完之后系统里的内容和标注的是否一致，还要检查必要的函数有没有调用过。</li>
     <li>τ-bench 提出了 pass^k：同一个任务独立做 k 次，k 次全部成功才算数。按这个指标，单次成功率超过 60% 的 agent（能自己调用工具、分很多步去完成任务的语言模型系统），连做 8 次全对的比例不到 25%。</li>
     <li>这些基准测试自己也有问题。ToolBench 用的真实 API（应用程序接口，一个程序提供给别的程序调用的入口），后来重新调用时只有 44.4% 能成功。τ-bench 的航空任务里，什么都不做的 agent 成功率也能达到 38%。</li>
     <li>常见的失败可以归成三组八种：单次调用的三种，多步调用的两种，对话中的三种。</li>
@@ -56,6 +57,7 @@
   </ul>
   <h3>题目从哪来，怎么判分</h3>
   <p>BFCL 是分几个版本逐步扩充的。第一版只有单轮的题，用语法树来判分。第二版加入了用户和企业贡献的真实函数。第三版加入多轮对话。第四版加入网页搜索、记忆这类 agent 任务。</p>
+  <p>下表列出各类题目的内容和判分办法。其中多轮题的函数运行在一个模拟的系统上，例如文件系统、股票交易系统或订票系统。有的函数会改动系统里的内容，例如新建一个文件、从自选股里删掉一只股票。表里说的系统的状态，指全部调用做完之后系统里的内容。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">题目类型</th><th scope="col">内容</th><th scope="col">怎么判分</th></tr></thead>
@@ -66,7 +68,7 @@
         <tr><th scope="row">agent 类</th><td>用搜索工具回答问题，在多次对话之间记住信息，把问题转成数据库查询</td><td>比较最后的答案</td></tr>
       </tbody>
     </table>
-    <figcaption>出处：<a href="https://icml.cc/virtual/2025/poster/46593">Patil 等，2025</a>。多轮题的过程检查按「标注是模型调用的子集」来判，见 <a href="https://gorilla.cs.berkeley.edu/blogs/13_bfcl_v3_multi_turn.html">BFCL 第三版的说明</a>。多轮题里，缺参数指用户的请求里少了必要的参数信息，缺函数指给出的函数里没有一个能完成用户的请求。这两种题要模型先向用户说明或追问，缺的参数或函数在下一轮补上之后再调用。</figcaption>
+    <figcaption>出处：<a href="https://icml.cc/virtual/2025/poster/46593">Patil 等，2025</a>。多轮题的过程检查按「标注是模型调用的子集」来判，见 <a href="https://gorilla.cs.berkeley.edu/blogs/13_bfcl_v3_multi_turn.html">BFCL 第三版的说明</a>。多轮题里，缺参数指用户的请求里少了必要的参数信息，缺函数指给出的函数里没有一个能完成用户的请求。这两种题要模型先向用户说明或追问，缺的参数或函数在下一轮补上之后再调用。agent 类的三种题按论文列出。前面排行榜的截图里只有网页搜索和记忆两个分项，没有「把问题转成数据库查询」这一项。</figcaption>
   </figure>
   <p>语法树匹配的好处是不用真的执行函数，所以能扩展到上千个函数。论文用一部分可执行的题目做了对照，两种判法的结果高度相关。</p>
   <p>多轮的题要做两项检查，是因为只看最后的状态，查不出模型有没有调用那些只读取、不改动状态的函数。例如应该先按城市查邮编、再按邮编查天气，模型如果直接猜一个结果，状态检查发现不了。</p>
@@ -216,13 +218,13 @@
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">层次</th><th scope="col">失败</th><th scope="col">表现</th><th scope="col">哪里能测到</th></tr></thead>
       <tbody>
-        <tr><th scope="row" rowspan="3">单次调用</th><td>选择<br><span class="muted small">Selection</span></td><td>选错了工具，或者不需要工具的时候也调用</td><td>BFCL 的「多个函数里选一个」和「判断是否相关」</td></tr>
-        <tr><td>参数<br><span class="muted small">Arguments</span></td><td>编出不存在的字段，类型错，单位错</td><td>BFCL 的语法树匹配</td></tr>
+        <tr><th scope="row" rowspan="3">单次调用</th><td>选错工具<br><span class="muted small">Selection</span></td><td>选错了工具，或者不需要工具的时候也调用</td><td>BFCL 的「多个函数里选一个」和「判断是否相关」</td></tr>
+        <tr><td>参数填错<br><span class="muted small">Arguments</span></td><td>编出不存在的字段，类型错，单位错</td><td>BFCL 的语法树匹配</td></tr>
         <tr><td>编造工具<br><span class="muted small">Hallucinated tool</span></td><td>调用一个根本不存在的 API</td><td><a href="scale.html#ast">Gorilla 的语法树匹配</a></td></tr>
-        <tr><th scope="row" rowspan="2">多步调用</th><td>顺序<br><span class="muted small">Sequencing</span></td><td>跳过了必须先做的调用，或者顺序错了</td><td>BFCL 多轮题。漏掉必要的调用由过程检查查出。顺序错了、结果跟着错的由状态检查查出</td></tr>
-        <tr><td>恢复<br><span class="muted small">Recovery</span></td><td>一次调用失败后，原样重试同一个调用，不退回去换一个做法</td><td>ToolBench 的通过率</td></tr>
-        <tr><th scope="row" rowspan="3">对话</th><td>规定<br><span class="muted small">Policy</span></td><td>规定不允许的事，它照做了</td><td>τ-bench 的数据库状态检查</td></tr>
-        <tr><td>交互<br><span class="muted small">Interaction</span></td><td>信息不够的时候自己假设，不去问用户</td><td>τ-bench，以及 BFCL 多轮题里缺参数的那一种</td></tr>
+        <tr><th scope="row" rowspan="2">多步调用</th><td>漏掉步骤或顺序错<br><span class="muted small">Sequencing</span></td><td>跳过了必须先做的调用，或者顺序错了</td><td>BFCL 多轮题。漏掉必要的调用由过程检查查出。顺序错了、结果跟着错的由状态检查查出</td></tr>
+        <tr><td>失败后不换做法<br><span class="muted small">Recovery</span></td><td>一次调用失败后，原样重试同一个调用，不退回去换一个做法</td><td>ToolBench 的通过率</td></tr>
+        <tr><th scope="row" rowspan="3">对话</th><td>违反规定<br><span class="muted small">Policy</span></td><td>规定不允许的事，它照做了</td><td>τ-bench 的数据库状态检查</td></tr>
+        <tr><td>该问用户时不问<br><span class="muted small">Interaction</span></td><td>信息不够的时候自己假设，不去问用户</td><td>τ-bench，以及 BFCL 多轮题里缺参数的那一种</td></tr>
         <tr><td>不稳定<br><span class="muted small">Non-determinism</span></td><td>这次做对了，重试一次又错了</td><td>pass^k</td></tr>
       </tbody>
     </table>

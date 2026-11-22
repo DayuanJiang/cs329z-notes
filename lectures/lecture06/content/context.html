@@ -14,7 +14,8 @@
   <p>agent 的循环里，模型每一轮看到的输入都要有人拼出来：哪些历史消息、哪些工具的说明、哪些文档。可以把负责这件事的部分叫作上下文管理器。上下文窗口（context window）是模型一次调用能接受的输入加输出的总长度，上下文管理要解决的就是往这个有限的窗口里放什么。</p>
   {{fig 57 | 左：prompt 工程。上下文窗口里只有 system prompt（放在最前面的固定指令）和一条用户消息，模型回答一次。右：agent 的上下文工程。左边一栏是可以给模型的东西：文档、工具、记忆文件、详细的指令、领域知识、消息历史。经过筛选，一部分进入上下文窗口。模型发出工具调用，工具的结果又回到消息历史里。图片来源：<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025</a>。}}
   <p>prompt（发给模型的输入文字）工程是 2022、2023 年前后大家最关心的事：怎样把一段指令写好，让模型按想要的方式回答。</p>
-  <p>按 Anthropic 2025 年 9 月那篇文章的定义，上下文工程的范围更大：它是在每次调用模型时挑选和维护最合适的那一组 token 的一整套办法，prompt 之外进入上下文的所有信息都算在内。原文给这张图配的说明点出了两者的差别：写 prompt 是做一次的事，筛选上下文则在每一次决定给模型什么的时候都要做。</p>
+  <p>上面的图出自 Anthropic 在 2025 年 9 月发表的文章《Effective context engineering for AI agents》，这一页后面把它叫作 Anthropic 的上下文工程文章。按这篇文章的定义，上下文工程的范围更大：它指一整套办法，用来在每次调用模型时挑出最该放进输入的内容，并随着任务的进行不断更新这些内容，prompt 之外进入上下文的所有信息都算在内。</p>
+  <p>文章给这张图配的说明点出了两者的差别：写 prompt 是做一次的事，筛选上下文则在每一次决定给模型什么的时候都要做。</p>
 </section>
 
 <section class="sec" id="rot">
@@ -26,9 +27,9 @@
   <p>在这次测试的两周前，他用 GPT-4 Turbo 做过同样的测试，结果类似：输入超过 7.3 万 token 之后开始变差，这句话落在文档 7% 到 50% 的位置时最容易被漏掉。</p>
   <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>这张图容易被读成「模型找不到长文档中间的信息」。图里的红格子有一部分另有原因：模型不愿意回答。</b>Anthropic 在 2023 年 12 月重做了这个测试。他们只是在 Claude 回答的开头预先填上一句「这是上下文里最相关的一句话：」，Claude 2.1 在整套测试上的总成绩就从 27% 升到了 98%。他们的解释是，那句话明显是被硬塞进文档的，模型不太愿意只凭这样一句话来回答。出处：<a href="https://www.anthropic.com/news/claude-2-1-prompting">Anthropic，2023</a>。</div></div>
   <p>这个测试对现在的模型已经太容易。Chroma 在 2025 年 7 月测了 18 个模型，报告说现在的模型在这种原始的测试上接近满分。</p>
-  <p>输入越长表现越差，这一点在更难的任务上仍然成立。Chroma 的同一份报告把任务换难一些（要按意思去匹配，文档里有干扰项，或者是很长的对话），所有实验里模型的表现都随输入变长而下降。Anthropic 的文章把这个现象叫作 context rot，并说它在所有模型上都会出现，只是下降得快慢不同。按这篇文章的说法，表现是随着输入变长逐渐下降的，没有到某个长度突然变差。出处：<a href="https://research.trychroma.com/context-rot">Chroma，2025</a>；<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025</a>。</p>
+  <p>输入越长表现越差，这一点在更难的任务上仍然成立。Chroma 的同一份报告把任务换难一些（要按意思去匹配，文档里有干扰项，或者是很长的对话），所有实验里模型的表现都随输入变长而下降。Anthropic 的上下文工程文章把这个现象叫作 context rot，并说它在所有模型上都会出现，只是下降得快慢不同。按这篇文章的说法，表现是随着输入变长逐渐下降的，没有到某个长度突然变差。出处：<a href="https://research.trychroma.com/context-rot">Chroma，2025</a>；<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025</a>。</p>
   <p>第二个原因是花费和延迟。模型的花费按输入和输出的 token 数计算，输入越长，每一次调用越贵，等的时间也越长。</p>
-  <p>模型在这方面一直在进步。但按上面 Chroma 的报告和 Anthropic 的文章，现在的模型在输入变长时表现仍然会下降，所以对最好的模型，把上下文管理好也仍然有帮助。两个原因合起来，要关心的是：让对的内容出现在上下文里，用不上的不放进去。</p>
+  <p>模型在这方面一直在进步。但按上面 Chroma 的报告和 Anthropic 的上下文工程文章，现在的模型在输入变长时表现仍然会下降，所以对最好的模型，把上下文管理好也仍然有帮助。两个原因合起来，要关心的是：让对的内容出现在上下文里，用不上的不放进去。</p>
 </section>
 
 <section class="sec" id="principles">
@@ -38,12 +39,12 @@
     <table class="tbl">
       <thead><tr><th scope="col">原则</th><th scope="col">意思</th><th scope="col">违反了会怎样</th></tr></thead>
       <tbody>
-        <tr><th scope="row">让上下文保持聚焦<br><span class="muted small">Focus the context</span></th><td>上下文窗口里只留当前任务需要的东西。完整的对话历史和所有的观察结果不必都在里面</td><td>多余的信息会让上下文臃肿，表现很可能变差，花费也更高</td></tr>
+        <tr><th scope="row">让上下文保持聚焦<br><span class="muted small">Focus the context</span></th><td>上下文窗口里只留当前任务需要的东西。完整的对话历史和所有的观察结果不必都在里面</td><td>多余的信息让上下文变长、无关的内容变多，表现很可能变差，花费也更高</td></tr>
         <tr><th scope="row">保持连续<br><span class="muted small">Preserve continuity</span></th><td>裁剪和改动上下文时，要留住需求、目标、约束和进度</td><td>丢了设计要求或约束，agent 的行为就会出乎意料：它会忘了不许做什么，或者把做过的事再做一遍</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>Anthropic 的文章对第一条的说法是：<mark>用尽可能少、但每个都有用的 token</mark>，让模型最有可能给出想要的结果。</p>
+  <p>Anthropic 的上下文工程文章对第一条的说法是：<mark>用尽可能少、但每个都有用的 token</mark>，让模型最有可能给出想要的结果。</p>
   <p>两条原则是互相牵制的。最简单的上下文是把全部历史原样留着，连续性最好，但不聚焦。一旦开始删减，就要小心别把不能丢的东西删掉。</p>
   <h3>还有一个实际的限制：别让缓存失效</h3>
   <p>除了两条原则，改动上下文时还要顾及一个实际的限制：缓存。模型处理一段输入时，会为每个 token 算出一些中间结果，叫 KV 缓存（key-value cache）。如果下一次请求的开头部分和上一次完全相同，服务商可以直接复用这部分中间结果，更快也更便宜。这个功能在接口上叫 prompt 缓存。</p>
@@ -108,7 +109,7 @@
     <li><b>更复杂的做法。</b>让 compaction 本身也成为一个 agent：它可以调用工具、搜索，把真正需要的上下文找齐再写摘要。</li>
     <li><b>取舍。</b>简单的做法比较快；复杂的做法摘要质量可能更好，但人要等它做完才能继续。</li>
   </ul>
-  <p>Anthropic 的文章以 Claude Code（Anthropic 的编程 agent）为例描述了摘要里留什么：保留架构上的决定、没解决的 bug 和实现细节，丢掉重复的工具输出。compaction 之后，agent 带着摘要和最近访问过的 5 个文件继续工作。一个具体的实现见<a href="pi.html#context">第七部分</a>里 Pi 的做法。</p>
+  <p>Anthropic 的上下文工程文章以 Claude Code（Anthropic 的编程 agent）为例描述了摘要里留什么：保留架构上的决定、没解决的 bug 和实现细节，丢掉重复的工具输出。compaction 之后，agent 带着摘要和最近访问过的 5 个文件继续工作。一个具体的实现见<a href="pi.html#context">第七部分</a>里 Pi 的做法。</p>
 </section>
 
 <section class="sec" id="masking">
@@ -143,8 +144,9 @@
         <tr><td>compaction</td><td class="r">24.8%</td><td class="r">0.51 美元</td></tr>
       </tbody>
     </table>
-    <figcaption>来自论文的表 1：SWE-agent 在 SWE-bench Verified 的 500 个任务上的结果。解决率的 95% 置信区间大约是正负 4 个百分点。前三种配置是图上画的，后两种图上没有。</figcaption>
+    <figcaption>来自论文的表 1：SWE-agent 在 SWE-bench Verified 的 500 个任务上的结果。解决率的 95% 置信区间大约是正负 4 个百分点，这个词的意思见表后的第一段。前三种配置是图上画的，后两种图上没有。</figcaption>
   </figure>
+  <p>读这张表要先知道误差有多大。500 道题只是一个样本，换一批题目再测，结果会上下浮动。95% 置信区间是对这个浮动范围的估计，表里每个解决率的浮动范围大约是正负 4 个百分点。两个数的差别小到落在浮动范围以内时，这个差别可能只是碰巧出现的，下面的「在误差范围以内」和「在统计上不显著」都是这个意思。</p>
   <ul>
     <li><b>五种配置里有四种，两种办法都把花费减了大约一半。</b>这四种配置下，花费比不做处理低 41% 到 57%。例如 Qwen3-32B 不开思考时，屏蔽观察结果让花费降了 51%，compaction 降了 55%。</li>
     <li><b>有一种配置花费几乎没降。</b>Qwen3-32B 开启思考时，屏蔽观察结果只让花费降了约 10%，compaction 降了 0%，这两个变化在统计上都不显著。</li>
@@ -160,11 +162,11 @@
 
 <section class="sec" id="isolation">
   <h2>上下文隔离：子 agent 和渐进式披露</h2>
-  <p>上下文隔离的意思是：别让所有东西都挤进同一个上下文窗口。有两种做法：把一部分工作交给子 agent，和渐进式披露。</p>
+  <p>上下文隔离的意思是：把内容分开放，一部分工作放到另一个上下文窗口里做，暂时用不到的说明等到需要时再放进上下文。有两种做法：把一部分工作交给子 agent，和渐进式披露。</p>
   <h3>子 agent</h3>
   <p>有些任务要大量地搜索、读很多文档，会把上下文撑得很满。可以让主 agent 派一个子 agent 去做。子 agent 是另一个 agent，它在自己的上下文窗口里装满完成这件事所需的信息，做完之后只向主 agent 交回一段简短的总结。</p>
   {{fig 69 | 上面的 Plan 是负责计划的主 agent，它把工作分给 Agent 1 和 Agent 2。每个虚线框是一个独立的上下文窗口。图片来源：<a href="https://www.langchain.com/blog/context-engineering-for-agents">LangChain 的文章</a>。}}
-  <p>Anthropic 的文章给过一个量级：一个子 agent 可能用掉几万个 token 去探索，交回来的浓缩总结通常是 1,000 到 2,000 个 token。</p>
+  <p>Anthropic 的上下文工程文章给过一个量级：一个子 agent 可能用掉几万个 token 去探索，交回来的浓缩总结通常是 1,000 到 2,000 个 token。</p>
   <p>代价是总的 token 花费更高。Anthropic 在介绍自己的多 agent 研究系统时说，多 agent 系统用掉的 token 大约是普通聊天的 15 倍。多 agent 的设计，第 8 讲会讲到。</p>
   <h3>渐进式披露</h3>
   <p>另一种做法是渐进式披露（progressive disclosure）：不必一开始就把所有工具和说明都放进 prompt，需要的时候再给模型看。</p>
@@ -200,7 +202,7 @@
         <tr><th scope="row">隔离<br><span class="muted small">Isolate</span></th><td>把上下文拆开</td><td>在状态里分区；放在环境或沙箱里；分给多个 agent</td><td>子 agent；渐进式披露</td></tr>
       </tbody>
     </table>
-    <figcaption>定义和操作来自文章原文，最后一列是这一部分的对应关系。「在状态里分区」指把一部分内容（比如工具返回的结果）存在程序保存的状态的某些字段里，要用的时候才给模型看。沙箱（sandbox）指把代码隔离起来运行的环境。「放在环境或沙箱里」指让模型写的代码在沙箱里运行，工具返回的内容留在沙箱里，只把挑出来的一部分（比如返回值）交回给模型。图片、音频这类很占 token 的内容尤其适合这样处理。这套分类最早见于 Lance Martin 2025 年 6 月的个人博客，7 月发表在 LangChain 的博客上。</figcaption>
+    <figcaption>定义和操作来自文章原文，最后一列是这一部分的对应关系。「草稿」（scratchpad）指 agent 在做一个任务的过程中记下的笔记，可以写进一个文件，也可以存在程序保存的状态的一个字段里，同一次会话里之后可以再取出来用。「在状态里分区」指把一部分内容（比如工具返回的结果）存在程序保存的状态的某些字段里，要用的时候才给模型看。沙箱（sandbox）指把代码隔离起来运行的环境。「放在环境或沙箱里」指让模型写的代码在沙箱里运行，工具返回的内容留在沙箱里，只把挑出来的一部分（比如返回值）交回给模型。图片、音频这类很占 token 的内容尤其适合这样处理。这套分类最早见于 Lance Martin 2025 年 6 月的个人博客，7 月发表在 LangChain 的博客上。</figcaption>
   </figure>
   <p>事件日志不属于四类里的任何一类，它是做这四类操作的基础。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>渐进式披露放在哪一类，有两种看法。</b>上面的表把它放在「隔离」下面：没用到的 skill 被隔在上下文之外。也可以这样理解：按 LangChain 文章自己的定义，按需把相关的工具和知识取进上下文，是「选」这一类里列出的操作。两种归法描述的是同一种做法，不影响怎么用它。</div></div>
@@ -208,10 +210,10 @@
 
 <section class="sec" id="combine">
   <h2>这些模式是一起用的</h2>
-  <p>五种模式互相兼容。可以先把知识存进记忆，再做 compaction。可以用事件日志来生成上下文，同时截短观察结果。真实的系统是其中多种甚至全部的组合。下表列出四种组合，以及它们为什么搭得上。</p>
+  <p>五种模式互相兼容。可以先把知识存进记忆，再做 compaction。可以用事件日志来生成上下文，同时截短观察结果。真实的系统是其中多种甚至全部的组合。下表列出四种组合，以及每种组合为什么可以一起用。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">组合</th><th scope="col">为什么搭得上</th></tr></thead>
+      <thead><tr><th scope="col">组合</th><th scope="col">为什么可以一起用</th></tr></thead>
       <tbody>
         <tr><th scope="row">事件日志，加 compaction 或屏蔽观察结果</th><td>日志保留原样，裁剪只发生在「日志转成输入」这一步，所以裁掉的东西随时可以找回来</td></tr>
         <tr><th scope="row">先存进记忆，再做 compaction</th><td>重要的事实已经存在别处，摘要丢了细节也不怕</td></tr>
@@ -233,6 +235,6 @@
   <h2>资料说明</h2>
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
-    <li><b>「大海捞针」测试里 27% 和 98% 这两个总成绩。</b>Anthropic 的文章写的是 Claude 2.1 在原来那套测试上的成绩从 27% 升到 98%。这个成绩怎样从各次测试的结果算出来，文章没有写明。出处：<a href="https://www.anthropic.com/news/claude-2-1-prompting">Anthropic，2023</a>。</li>
+    <li><b>「大海捞针」测试里 27% 和 98% 这两个总成绩。</b>Anthropic 2023 年 12 月重做这个测试的文章写的是 Claude 2.1 在原来那套测试上的成绩从 27% 升到 98%。这个成绩怎样从各次测试的结果算出来，文章没有写明。出处：<a href="https://www.anthropic.com/news/claude-2-1-prompting">Anthropic，2023</a>。</li>
   </ul>
 </section>

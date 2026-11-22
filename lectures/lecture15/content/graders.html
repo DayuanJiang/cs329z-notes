@@ -23,7 +23,7 @@
       <thead><tr><th scope="col">问题</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
         <tr><td>评分器有哪几种？各自什么时候用？</td><td>本页</td></tr>
-        <tr><td>什么时候需要用语言模型当评审？怎么搭一个？</td><td><a href="metrics.html">第二</a>、<a href="preference.html">第三</a>、<a href="actions.html">第四部分</a></td></tr>
+        <tr><td>什么时候需要用语言模型当评审？怎么搭一个？</td><td><a href="metrics.html">第二</a>、<a href="preference.html">第三</a>、<a href="actions.html">第四部分</a>讲它能用来评什么。怎么搭见<a href="bias.html#practice">第五部分</a>的检查表</td></tr>
         <tr><td>怎样确认语言模型评审的结论可信？</td><td><a href="bias.html">第五部分</a></td></tr>
         <tr><td>同一个任务跑很多次，结果有波动，怎么处理？</td><td><a href="variance.html">第六部分</a></td></tr>
       </tbody>
@@ -67,7 +67,7 @@
     </table>
     <figcaption>第三列的例子是为了说明而举的。</figcaption>
   </figure>
-  <p>轴最右边的「做一部好看的电视剧」，第 13 讲用它说明过「容易验证」这条性质有多难满足。</p>
+  <p>轴最右边的「做一部好看的电视剧」在第 13 讲出现过。第 13 讲列了好的基准测试应该有的几条性质，其中一条是容易验证，意思是任务做没做成可以自动地、正确地判出来。那一讲用这个任务说明这一条有多难满足：一部剧好不好看，让语言模型打分、看播出后的收视、看得奖和影评，三种办法各有问题。</p>
 </section>
 
 <section class="sec" id="errors">
@@ -158,7 +158,7 @@
       <tbody>
         <tr><th scope="row">规定了做法<br><span class="muted small">Prescriptive</span></th><td>测试如果检查了某个函数或某个类，解法里就必须有这个函数或这个类</td><td>把对的判成错的。第 13 讲讲过，OpenAI 2026 年抽查 SWE-bench Verified 里模型经常做不出来的 138 道题，其中至少 59.4% 的题，测试会拒绝功能正确的提交</td></tr>
         <tr><th scope="row">不会更新<br><span class="muted small">Static</span></th><td>测试写好之后就固定了，不会随时间变</td><td>按道理两种都可能。环境变了而测试没变，正确的做法可能通不过。模型学会了针对这些测试的做法，错误的结果可能通过</td></tr>
-        <tr><th scope="row">没查的都算过<br><span class="muted small">Reductive</span></th><td>测试没有覆盖到的地方，都默认记为通过</td><td>把错的判成对的。前面 Wang 等人查出的 7.8% 就是这一种</td></tr>
+        <tr><th scope="row">没查的都算通过<br><span class="muted small">Reductive</span></th><td>测试没有覆盖到的地方，都默认记为通过</td><td>把错的判成对的。前面 Wang 等人查出的 7.8% 就是这一种</td></tr>
       </tbody>
     </table>
   </figure>
@@ -219,6 +219,7 @@
   <h3>交给评审的判断有多开放</h3>
   <p>不同的基准测试，交给评审的判断有的很具体，有的很开放。一头是很具体的问题：答案对上了没有。另一头是开放的偏好：哪个更好。</p>
   {{fig 21 | 三组基准测试排在一条轴上。从左到右，交给评审的判断越来越开放。}}
+  <p>下表第一行有两个基准测试。BrowseComp 前面讲过，它让 agent 上网查资料来回答问题。Humanity's Last Exam 是一套 2,500 道很难的题，题目分两种：选择题，和要求给出一个确切答案的题。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">基准测试</th><th scope="col">评审看到什么</th><th scope="col">评审决定什么</th><th scope="col">细节</th></tr></thead>
@@ -248,10 +249,10 @@
   <h2>组合起来用</h2>
   <p>评估有时会把几种评分器组合起来。Anthropic 2026 年的文章给的建议是：能用确定的代码检查的地方用代码，必须判断或需要更多灵活性的地方用语言模型，人工评分要少用，用在需要多一道验证的地方。下面第一张表里的校准，也就是让人定期抽查语言模型评审的判定，就是这样一种用法。出处：<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic，2026</a>。</p>
   <p>下面的图和两张表讲两件事：几个评分器的结果怎么合起来，以及八个评估各用了哪种评分器。</p>
-  {{fig 23 | 左边的框是把几个评分器的结果合起来的三种办法。右边的点阵列出八个评估各用了哪种评分器：蓝色是代码，棕色是人，紫色是语言模型评审。}}
+  {{fig 23 | 左边的框列了三项：全部通过、加权、校准。前两项是把几个评分器的结果合起来的办法，第三项是让人定期抽查语言模型评审的判定。右边的点阵列出八个评估各用了哪种评分器：蓝色是代码，棕色是人，紫色是语言模型评审。}}
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">合起来的办法</th><th scope="col">怎么做</th><th scope="col">例子</th></tr></thead>
+      <thead><tr><th scope="col">图里左边的三项</th><th scope="col">怎么做</th><th scope="col">例子</th></tr></thead>
       <tbody>
         <tr><th scope="row">全部通过<br><span class="muted small">All must pass</span></th><td>每个评分器都判通过，任务才算通过</td><td>测试通过，并且语言模型按评分标准判定代码写得干净</td></tr>
         <tr><th scope="row">加权<br><span class="muted small">Weighted</span></th><td>各个评分器的分数加权相加，超过一个门槛算通过</td><td>测试占七成，代码质量占三成，总分过 0.8 算通过。这里的比例是为了说明而举的</td></tr>
@@ -259,8 +260,8 @@
       </tbody>
     </table>
   </figure>
-  <p>表里的前两种是把几个评分器的结果合成一个任务结果的办法。Anthropic 的文章说这样的办法有三种。二元指所有评分器都要通过，加权指各个评分器的分数加起来要过一个门槛，第三种是把两者混合。表里的全部通过和加权，对应文章的二元和加权。</p>
-  <p>表里的第三种校准讲的是另一件事：让人定期检查语言模型评审，使两者的判定保持一致。</p>
+  <p>表里的前两项是把几个评分器的结果合成一个任务结果的办法。Anthropic 的文章说这样的办法有三种。二元指所有评分器都要通过，加权指各个评分器的分数加起来要过一个门槛，第三种是把两者混合。表里的全部通过和加权，对应文章的二元和加权。</p>
+  <p>表里的第三项校准讲的是另一件事：让人定期检查语言模型评审，使两者的判定保持一致。</p>
   <p>下表是八个评估各用了哪种评分器。</p>
   <figure class="plate">
     <table class="tbl">

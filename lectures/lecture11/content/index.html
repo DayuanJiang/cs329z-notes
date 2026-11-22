@@ -43,7 +43,7 @@
         <tr><th scope="row"><a href="synth.html">四 能不能让<br>模型来造？</a></th><td>能。可以让模型直接写步骤，也可以让它先在环境里探索、事后再配上指令。更进一步是把沙盒、任务和验证器成批地造出来，其中搭沙盒这一步有的还要人参与</td><td>Synatra 每个单步样本 0.031 美元，没有一步真的执行过。SWE-smith 往 128 个仓库里注入 bug，得到 50,137 个任务，用了大约 20 小时人工</td></tr>
         <tr><th scope="row"><a href="sim.html">五 没有真人和<br>真实系统怎么办？</a></th><td>让语言模型扮演用户，或者扮演整个环境。练习没有上限，代价是模拟器的错误也会被学进去</td><td>τ-bench 用 GPT-4 扮演顾客。DreamGym 用一个语言模型预测下一个状态和奖励，agent 和这个模型交互得到的记录叫合成的经验。在 WebArena（一个网页任务的基准测试）上，只用合成的经验训练的 agent 成功率是 9.1%，在真实环境里训练的是 6.1%</td></tr>
         <tr><th scope="row"><a href="hacking.html">六 奖励有漏洞<br>会怎样？</a></th><td>模型可能学会不解决问题就拿到奖励的办法。堵漏洞要改环境；把检测器直接放进奖励，模型可能学会躲开检测器</td><td>SWE-bench 是让模型修复真实代码仓库里问题的基准测试。它的环境里曾经留着任务起点之后的 git 提交记录，修复问题的那次提交也在里面，模型能直接搜到答案。OpenAI 的实验里，监控器读模型的思维链，发现作弊的打算就扣奖励。结果剩下的作弊，监控器几乎都发现不了</td></tr>
-        <tr><th scope="row"><a href="harness.html">七 训练方式本身<br>会带来什么？</a></th><td>监督微调会学进运行框架的格式，还可能让别的能力下降。强化学习会训练过头。最强的模型不一定产出最好的训练数据</td><td>用 SWE-agent 这个运行框架产生的轨迹训练的模型，换到别的运行框架里成绩明显下降。一次强化学习训练里奖励从 0.51 掉到 0.13。五个老师模型里，最强的那个教出的学生排在最后</td></tr>
+        <tr><th scope="row"><a href="harness.html">七 训练方式本身<br>会带来什么？</a></th><td>监督微调会学进运行框架的格式，还可能让别的能力下降。强化学习会训练过头。最强的模型不一定产出最好的训练数据</td><td>用 SWE-agent 这个运行框架产生的轨迹训练的模型，换到别的运行框架里成绩明显下降。一次强化学习训练里，测试通过的运行奖励记 1，否则记 0，各次运行的平均奖励从 0.51 降到 0.13。五个老师模型里，最强的那个教出的学生排在最后</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
@@ -81,10 +81,10 @@
       <tbody>
         <tr><td>OpenThoughts-Agent 的论文用同一个基础模型，比较几份公开的训练数据</td><td>论文里比较训练集大小的那张图说明：同样多的轨迹，挑出最有效的子集，效果更好</td><td>图上比的是三份不同来源的数据集，各取同样的条数来训练。它说明的是数据集之间差别很大。怎样在一份数据里挑，是论文里另外的实验</td><td><a href="why.html#evidence">第一部分</a></td></tr>
         <tr><td>Synatra 让语言模型把教程和网页改写成网页操作的示范，不真正执行</td><td>Synatra 合成了 10 万条分步的示范，成本是人工的 3%</td><td>10 万条是 10 万个单步的例子。3% 比的是一个单步样本和一整条人工轨迹的价格，按论文的两个数算是 3.9%；按单步来比，粗略估算是 35% 左右</td><td><a href="synth.html#synatra">第四部分</a></td></tr>
-        <tr><td>OS-Genesis 让模型先在应用里探索，再反推出任务。R2E-Gym 把普通的代码提交变成编程任务</td><td>各篇论文报告的提升可以直接比，比如 OS-Genesis 让成功率接近翻倍，R2E-Gym 做到 51%</td><td>比较的对象各不相同。OS-Genesis 是和另一种合成办法比，训练后的模型仍低于不经训练的 GPT-4o。R2E-Gym 的 51% 是每道题跑 26 次再挑一个，只跑一次是 34.4%</td><td><a href="synth.html#os-genesis">第四部分</a></td></tr>
-        <tr><td>Anthropic 的论文研究模型在强化学习里学会骗过测试之后，别的行为会怎样变</td><td>Anthropic 的生产训练里，模型学会了用 sys.exit(0) 骗过测试，然后变得不对齐（misaligned，指模型的行为偏离开发者希望的样子）</td><td>这是一个对照实验：模型先被告知了作弊手法，再放到专门挑出的有漏洞的环境里训练。论文写明这些作弊在 Claude Sonnet 3.7 的实际训练里没有发生。sys.exit(0) 是三种手法里用得最少的</td><td><a href="hacking.html#tests">第六部分</a></td></tr>
+        <tr><td>OS-Genesis 让模型先在应用里探索，再反推出任务。R2E-Gym 把普通的代码提交变成编程任务</td><td>各篇论文报告的提升可以直接比，比如 OS-Genesis 让成功率接近翻倍，R2E-Gym 在 SWE-bench Verified 这个修复真实代码仓库里问题的基准测试上，解决率达到 51%</td><td>比较的对象各不相同。OS-Genesis 是和另一种合成办法比，训练后的模型仍低于不经训练的 GPT-4o。R2E-Gym 的 51% 是每道题跑 26 次、再从 26 个结果里挑一个交上去的解决率，每道题只跑一次的解决率是 34.4%</td><td><a href="synth.html#os-genesis">第四部分</a></td></tr>
+        <tr><td>Anthropic 的论文研究模型在强化学习里学会骗过测试之后，别的行为会怎样变</td><td>Anthropic 的生产训练里，模型学会了用 sys.exit(0) 骗过测试，然后变得不对齐（misaligned，指模型的行为偏离开发者希望的样子）</td><td>这是一个对照实验：模型先被告知了作弊手法，再放到专门挑出的有漏洞的环境里训练。论文写明这些作弊在 Claude 3.7 Sonnet 的实际训练里没有发生。sys.exit(0) 是三种手法里用得最少的</td><td><a href="hacking.html#tests">第六部分</a></td></tr>
         <tr><td>OpenAI 让一个监控器读模型的思维链，找作弊的迹象</td><td>OpenAI 用思维链监控发现了作弊，把监控加进奖励后，模型藏起意图继续作弊</td><td>这是两个实验。发现作弊的是对一个前沿模型的实时监控。把监控放进奖励的是另一个较弱的模型，在有意留了漏洞的任务上。后一个实验里作弊其实变少了，但剩下的几乎都发现不了</td><td><a href="hacking.html#monitor">第六部分</a></td></tr>
-        <tr><td>BrowseComp 是一个考上网查资料的基准测试，答案加密后公开存放。Anthropic 报告了 Claude Opus 4.6 在上面的表现</td><td>Claude Opus 4.6 在 BrowseComp 上破解了答案的密钥</td><td>没有破解。密钥和解密的代码都是公开的，模型读了代码照着做。1,266 道题里有 2 道这样取得了答案，另有 16 道题上尝试了但没有成功，分数从 86.81% 调整为 86.57%</td><td><a href="hacking.html#aware">第六部分</a></td></tr>
+        <tr><td>BrowseComp 是一个考上网查资料的基准测试，答案加密后公开存放。Anthropic 报告了 Claude Opus 4.6 在上面的表现</td><td>Claude Opus 4.6 在 BrowseComp 上破解了答案的密钥</td><td>没有破解。密钥和解密的代码都是公开的，模型读了代码照着做。1,266 道题里有 2 道这样取得了答案，另有 16 道题上尝试了但没有成功。另外还有 9 道题的答案已经出现在公开的网页上，被模型搜到了。Anthropic 屏蔽相关内容之后重跑了这 2 道加 9 道共 11 道题，其中 8 道仍然答对，分数从 86.81% 调整为 86.57%</td><td><a href="hacking.html#aware">第六部分</a></td></tr>
         <tr><td>SWE-RL 用强化学习训练模型修 bug，再用五类和修 bug 无关的任务来测，这样的任务叫域外任务</td><td>SWE-RL 证明强化学习让五类域外任务全部提高，监督微调让它们平均下降</td><td>强化学习的版本四类提高、一类持平。五类任务在论文的表里一共有 8 项测试，监督微调的版本 5 项下降、3 项上升，把 8 项直接平均还略高于原模型</td><td><a href="harness.html#trends">第七部分</a></td></tr>
       </tbody>
     </table>
@@ -102,7 +102,7 @@
         <tr><th scope="row">Tan 等，EMNLP 2024</th><td><a href="https://aclanthology.org/2024.emnlp-main.54/">Large Language Models for Data Annotation and Synthesis: A Survey</a>：用语言模型标注和合成数据的综述，分成怎样生成标注、怎样评估标注的质量、怎样使用这些标注三个方面</td><td>五</td></tr>
       </tbody>
     </table>
-    <figcaption>这两份材料是从搭应用的人的角度看数据。这一讲的正文是从训练模型的人的角度看数据。两者的交点在<a href="sim.html#five">第五部分</a>最后的绿色框里。</figcaption>
+    <figcaption>这两份材料是从搭应用的人的角度看数据。这一讲的正文是从训练模型的人的角度看数据。这两份材料和正文的关系，写在<a href="sim.html#five">第五部分</a>最后的两个绿色框里。</figcaption>
   </figure>
   <h3>各部分的主要出处</h3>
   <figure class="plate">

@@ -43,7 +43,7 @@
     <table class="tbl">
       <thead><tr><th scope="col">依据</th><th scope="col">说了什么</th></tr></thead>
       <tbody>
-        <tr><th scope="row">James Betker 的博客文章<br><span class="muted small">2023 年 6 月，当时他在 OpenAI</span></th><td>文章标题是《The "it" in AI models is the dataset》。他训练过很多生成模型之后的观察是：在同一份数据上训练足够久，几乎所有参数够多的模型都会收敛到同一个结果。他由此认为，模型的行为由数据集决定，结构、超参数和优化器只是把算力有效地用来逼近这份数据的手段</td></tr>
+        <tr><th scope="row">James Betker 的博客文章<br><span class="muted small">2023 年 6 月，当时他在 OpenAI</span></th><td>文章标题是《The "it" in AI models is the dataset》。他训练过很多生成模型之后的观察是：在同一份数据上训练足够久，几乎所有参数够多的模型都会收敛到同一个结果。他由此认为，模型的行为由数据集决定，结构、超参数和优化器只是手段，作用是把算力有效地用起来，让模型产生的内容接近这份数据</td></tr>
         <tr><th scope="row">Stanford CS336 的数据一讲</th><td>开头第一句是：训练语言模型时，数据是最需要做对的东西。理由之一是看各家公司公开了什么：开放权重的模型（比如 Llama 3）对结构甚至训练过程完全透明，对数据却基本不提。它给出的两个保密原因是竞争和版权责任</td></tr>
         <tr><th scope="row">Llama 3 的论文</th><td>论文很长，讲预训练数据的那一节，开头的总述只有三句话：数据来自多种来源，包含截至 2023 年底的知识；做了去重和清洗；去掉了含有大量个人信息和成人内容的域名。没有给出数据的清单</td></tr>
       </tbody>
@@ -119,20 +119,26 @@
   <p>公开的对照实验里，最直接的一组来自 Raoof 等人 2026 年 6 月的论文《Data Recipes for Agentic Models》。这个项目叫 OpenThoughts-Agent，简称 OT-Agent。</p>
   <p>下面的图里有四个名字，先解释一下。</p>
   <ul>
-    <li>SWE-Bench Verified 是一个基准测试，让模型修复真实代码仓库里的问题，共 500 道经过人工筛选的题。</li>
+    <li>SWE-bench Verified 是一个基准测试，让模型修复真实代码仓库里的问题，共 500 道经过人工筛选的题。</li>
     <li>Terminal-Bench 2.0 是另一个基准测试，让模型在命令行（终端）里完成技术任务。</li>
     <li>SWE-agent 和 Terminus-2 是两个运行框架。运行框架（harness）是包在模型外面、给它工具并管理多轮对话的程序。模型要放进一个运行框架里才能做题，所以每个成绩都是在某一个框架里测出来的。</li>
   </ul>
-  {{fig 10 | 三张小图的横轴都是训练集的大小，从 316 条到 10 万条运行轨迹；纵轴是准确率。左：SWE-Bench Verified 里抽出的 100 道题。中：Terminal-Bench 2.0。右：七个基准测试的平均。红线和橙线是用 OT-Agent 的数据训练的 Qwen3-32B 和 Qwen3-8B，蓝线和青线是用 Nemotron-Terminal-Corpus 训练的同样两个模型，紫线是用 SERA 的数据训练的 Qwen3-32B。左边和中间两张小图里各有两条紫线，实线是在 SWE-agent 里测的，虚线是在 Terminus-2 里测的。右边的小图里只有一条紫线，取两者里较高的成绩。两条水平虚线是没有微调过的基础模型。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。}}
+  <p>图上比较的是三份公开的训练数据，每一份都是一批运行轨迹。</p>
+  <ul>
+    <li>OT-Agent 的数据是这篇论文自己整理出来的，目标是让模型在多个 agent 基准测试上都变好。</li>
+    <li>Nemotron-Terminal-Corpus 是 NVIDIA 公开的一份数据，里面是在命令行里完成任务的运行轨迹。</li>
+    <li>SERA 是 Allen Institute for AI 的一项工作。这个名字指一套训练写代码 agent 的办法，也指用这套办法训练出的模型，比如下面表里的 SERA-32B。它公开的训练数据是让一个模型在 SWE-agent 里修改代码仓库得到的运行轨迹，下面叫 SERA 的数据。</li>
+  </ul>
+  {{fig 10 | 三张小图的横轴都是训练集的大小，从 316 条到 10 万条运行轨迹；纵轴是准确率。左：SWE-bench Verified 里抽出的 100 道题。中：Terminal-Bench 2.0。右：七个基准测试的平均。红线和橙线是用 OT-Agent 的数据训练的 Qwen3-32B 和 Qwen3-8B，蓝线和青线是用 Nemotron-Terminal-Corpus 训练的同样两个模型，紫线是用 SERA 的数据训练的 Qwen3-32B。左边和中间两张小图里各有两条紫线，实线是在 SWE-agent 里测的，虚线是在 Terminus-2 里测的。右边的小图里只有一条紫线，取两者里较高的成绩。两条水平虚线是没有微调过的基础模型。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。}}
   <p>读这张图，只比较基础模型相同的线。每条线是一份数据集配一个基础模型：红线、蓝线和紫线的基础模型都是 Qwen3-32B，橙线和青线都是 Qwen3-8B。同一个横坐标上，基础模型相同的几个点，训练样本的条数也相同，只有数据集不同，所以它们之间的高低差主要来自数据。</p>
   <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>这张图容易被读成「同样多的轨迹，挑出最有效的子集效果更好」。</b>图上的横轴确实是训练集大小，但几条线是三份不同来源的数据集（OT-Agent、Nemotron-Terminal-Corpus、SERA），各自取同样条数来训练，比的是数据集之间的差别。怎样从一份数据里挑出该用的部分，是论文里另外一百多个对照实验研究的问题，也是第 12 讲的主题。</div></div>
   <p>紫线和别的线之间还多一处不同：运行框架。SERA 的数据是用 SWE-agent 产生的，所以用它训练的模型在这两个框架里各测了一次，左边和中间的小图上各有两条紫线。紫线和别的线之间的差距里，也就有运行框架的影响。</p>
-  <p>运行框架的影响有多大，看这两条紫线就知道。同一个模型，在产生训练数据的那个框架里，SWE-Bench Verified 的成绩高出很多：从图上读，数据量最大时在 SWE-agent 里大约是 52%，在 Terminus-2 里大约是 23%。<a href="harness.html">第七部分</a>专门讲这件事。</p>
-  <p>OT-Agent 的线没有在每张小图、每个数据量上都领先。左边那张图里，数据量较小时，在 SWE-agent 里测的那条 SERA 的线明显更高。中间那张图里，3.16 万条附近蓝线略高于红线。论文给这张图写的图注，说的是 OT-Agent 在数据量大时领先。论文摘要说，在控制算力的比较里，他们的训练数据在每一个训练集大小上都超过其他开放数据集，这句话大致对应右边「七个基准测试的平均」那张小图。</p>
+  <p>运行框架的影响有多大，看这两条紫线就知道。同一个模型，在产生训练数据的那个框架里，SWE-bench Verified 的成绩高出很多：从图上读，数据量最大时在 SWE-agent 里大约是 52%，在 Terminus-2 里大约是 23%。<a href="harness.html">第七部分</a>专门讲这件事。</p>
+  <p>OT-Agent 的线没有在每张小图、每个数据量上都领先。左边那张图里，数据量较小时，在 SWE-agent 里测的那条 SERA 的线明显更高。中间那张图里，3.16 万条附近蓝线略高于红线。论文给这张图写的图注，说的是 OT-Agent 在数据量大时领先。论文摘要说，在让各份数据用同样多的算力来训练的比较里（原文是 compute-controlled comparisons），他们的训练数据在每一个训练集大小上都超过其他开放数据集，这句话大致对应右边「七个基准测试的平均」那张小图。</p>
   <p>下表把基础模型都是 Qwen3-32B 的四个模型放在一起比。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">模型<br><span class="muted small">基础模型都是 Qwen3-32B</span></th><th scope="col">训练数据</th><th scope="col" class="r">七个基准测试的<br>平均准确率</th><th scope="col" class="r">SWE-Bench<br>Verified</th><th scope="col" class="r">Terminal-Bench<br>2.0</th></tr></thead>
+      <thead><tr><th scope="col">模型<br><span class="muted small">基础模型都是 Qwen3-32B</span></th><th scope="col">训练数据</th><th scope="col" class="r">七个基准测试的<br>平均准确率</th><th scope="col" class="r">SWE-bench<br>Verified</th><th scope="col" class="r">Terminal-Bench<br>2.0</th></tr></thead>
       <tbody>
         <tr><th scope="row">没有微调的 Qwen3-32B</th><td>无</td><td class="r">22.8%</td><td class="r">29.1%</td><td class="r">7.5%</td></tr>
         <tr><th scope="row">SERA-32B</th><td>SERA，2.5 万条</td><td class="r">28.1%</td><td class="r">49.4%</td><td class="r">9.7%</td></tr>
@@ -140,7 +146,7 @@
         <tr><th scope="row">OpenThinkerAgent-32B</th><td>OT-Agent，10 万条</td><td class="r">44.8%</td><td class="r">54.0%</td><td class="r">26.2%</td></tr>
       </tbody>
     </table>
-    <figcaption>数字来自论文的表 1，是各模型用完自己的全部训练数据之后的成绩，SWE-Bench Verified 一列用的是全部 500 道题。每个模型分别在 Terminus-2 和它原本的运行框架里测，取较高的一个。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</figcaption>
+    <figcaption>数字来自论文的表 1，是各模型用完自己的全部训练数据之后的成绩，SWE-bench Verified 一列用的是全部 500 道题。每个模型分别在 Terminus-2 和它原本的运行框架里测，取较高的一个。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</figcaption>
   </figure>
   <p>四行用的是同一个基础模型。只做监督微调，平均准确率从 22.8% 到 44.8%，相差 22 个百分点。三份数据之间也差得很多：OT-Agent 只用了 Nemotron-Terminal-Corpus 不到四成的样本数，平均成绩反而高 3.9 个百分点。</p>
 </section>

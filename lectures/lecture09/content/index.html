@@ -2,6 +2,7 @@
   <h2>一句话的结论</h2>
   <p class="lead-in">优化就是<mark>用数据和评估说明你想要什么，再让算法去改系统</mark>。能改的主要有两样。一样是上下文，也就是发给语言模型的那段输入文字（prompt）里的指令和示例。另一样是模型的权重，也就是模型内部的参数。</p>
   <p>改上下文便宜、快、需要的运行次数少，适合先做。它不够用时再改权重。不管用哪一种，算法只会把你给的那个评估分数做高，所以评估本身最要紧。</p>
+  <h3>两类优化放在一起比</h3>
   <p>改上下文的一类叫上下文优化，改权重的一类叫权重优化。下面的表把这两类优化并排放在一起。表里有六个词先交代一下。</p>
   <ul>
     <li><b>token</b> 是模型处理文字的最小单位，大致是一个词或半个词。</li>
@@ -20,7 +21,7 @@
         <tr><th scope="row">需要多少数据<br><span class="muted small">粗略归纳</span></th><td>几千次运行</td><td>监督微调从几百条到十万条轨迹，强化学习通常要几万次运行</td></tr>
         <tr><th scope="row">一个结果</th><td>在一个 8B（约 80 亿个参数）的开源模型上，GEPA 在六个任务上的平均分比不优化高 9.62 个百分点，每个任务用 1,839 到 7,051 次运行</td><td>用 10 万条教师的轨迹微调 Qwen3-32B，七个 agent 基准测试（benchmark，一组题目加一个打分的办法）的平均成绩从 22.8% 升到 44.8%</td></tr>
         <tr><th scope="row">什么时候选它</th><td>模型只能通过 API 调用，需要经常、快速地重新优化，或者每次运行都很贵</td><td>改 prompt 不起作用，有强的教师又想要更便宜的模型，或者 prompt 已经太长</td></tr>
-        <tr><th scope="row">在哪一页</th><td><a href="fewshot.html">第二</a>、<a href="instructions.html">第三部分</a></td><td><a href="sft.html">第四</a>、<a href="rl.html">第五部分</a></td></tr>
+        <tr><th scope="row">在哪一部分</th><td><a href="fewshot.html">第二</a>、<a href="instructions.html">第三部分</a></td><td><a href="sft.html">第四</a>、<a href="rl.html">第五部分</a></td></tr>
       </tbody>
     </table>
     <figcaption>「需要多少数据」一行是根据这一讲的几个实验粗略归纳的。GEPA 每个任务用 1,839 到 7,051 次运行。监督微调的两个例子分别用 500 条和 10 万条轨迹。GEPA 的论文说强化学习通常需要几万次运行，它的对照实验用了 24,000 次。「一个结果」一行的两个结果分别来自 Agrawal 等人的 GEPA 论文和 Raoof 等人的 OpenThoughts-Agent 论文，细节见<a href="choose.html#efficiency">第七部分</a>和<a href="sft.html#ota">第四部分</a>。</figcaption>
@@ -29,7 +30,7 @@
 
 <section class="sec" id="story">
   <h2>七个问题</h2>
-  <p>这一讲按七个问题展开，每个问题一页。下表给出每个问题的答案和一条依据。</p>
+  <p>这一讲分七个部分，每个部分一页，各回答一个问题。下表给出每个问题的答案和一条依据。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
@@ -40,7 +41,7 @@
         <tr><th scope="row"><a href="sft.html">四 怎样让小模型<br>学会大模型的做法？</a></th><td>监督微调：让强的教师模型去做任务，把运行轨迹当训练数据。数据怎么造比用多少更要紧，其中任务从哪里来影响最大</td><td>500 条 GPT-4 的轨迹让 Llama-2-13B 在多步问答数据集 HotpotQA 上的成绩从 21.2 升到 34.4，成绩是答案和标准答案完全一致的题所占的百分比。这比只用 prompt 的 GPT-3.5 的 31.4 高 3.0 分。粗略估算，这个差距只有大约一个标准误（标准误量的是一个成绩的不确定程度），还谈不上确定的领先</td></tr>
         <tr><th scope="row"><a href="rl.html">五 没有现成的示范<br>怎么办？</a></th><td>强化学习：学生自己做任务，做成了给奖励。通常先用监督微调给一个起点。训练最强的那一批模型时没有更强的教师可以模仿，进一步提高主要靠强化学习。PPO 和 GRPO 是两种强化学习算法。GRPO 用同一个问题的一组输出互相比，省掉了 PPO 里的价值模型（一个预测后面还能拿到多少奖励的模型）。有强的教师时，on-policy 蒸馏让教师逐个 token 地给学生反馈</td><td>Qwen3 的一组对照里，on-policy 蒸馏在 AIME 2024（一项数学竞赛 2024 年的题，Qwen3 的报告写作 AIME'24）上是 74.4%，强化学习是 67.6%，前者用的 GPU 时间约是后者的十分之一</td></tr>
         <tr><th scope="row"><a href="agents.html">六 能不能让 agent<br>来做优化？</a></th><td>能。给它一个可以读结果、改代码、跑实验的环境，它可以优化任何写成代码的东西。这时人能控制的主要是评估指标</td><td>Darwin Gödel Machine 让编程 agent 改自己的代码，80 轮后在 200 道题上的解决率从 20.0% 升到 50.0%。同一篇论文也记录了 agent 删掉检测代码来拿满分的例子</td></tr>
-        <tr><th scope="row"><a href="choose.html">七 改 prompt<br>还是改权重？</a></th><td>通常先改 prompt，不够再改权重，两者可以接着用</td><td>9 种模型和任务的搭配里，7 种是两者都用的做法最好。哪种先后顺序最好没有定论</td></tr>
+        <tr><th scope="row"><a href="choose.html">七 改 prompt<br>还是改权重？</a></th><td>通常先改 prompt，不够再改权重。两者可以搭配着用，一种做完再做另一种</td><td>9 种模型和任务的搭配里，7 种是两者都用的做法最好。哪种先后顺序最好没有定论</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
@@ -63,7 +64,7 @@
     <a href="sft.html"><span class="m">第四部分</span><span><b>监督微调：让学生模型照着教师的轨迹学</b><p>先讲训练时用的交叉熵损失和指令微调，再讲怎样用教师模型的运行轨迹训练学生模型去做 agent 的任务。例子是 OpenThoughts-Agent 和 FireAct 两项研究，最后讲这种办法的局限。</p></span></a>
     <a href="rl.html"><span class="m">第五部分</span><span><b>强化学习和 on-policy 蒸馏</b><p>先讲 agent 任务上的强化学习，再把 PPO 和 GRPO 两种算法拆开来看：PPO 用到的四个模型，GRPO 的目标函数逐块看，例子是 DeepSeek-R1。然后讲 on-policy 蒸馏，最后讲监督微调和强化学习怎样分工。</p></span></a>
     <a href="agents.html"><span class="m">第六部分</span><span><b>让 agent 来当优化器</b><p>三个让 agent 自己读结果、改代码、跑实验的系统：Darwin Gödel Machine、Meta-Harness 和 autoresearch。最后是评估指标出问题的三个例子。</p></span></a>
-    <a href="choose.html"><span class="m">第七部分</span><span><b>改 prompt 还是改权重：怎么选</b><p>先看两类优化接着用的实验 BetterTogether，再比较两类优化各需要多少次运行，以及数据多了以后怎样。然后把选择的理由列成两张表，最后是整讲的小结。</p></span></a>
+    <a href="choose.html"><span class="m">第七部分</span><span><b>改 prompt 还是改权重：怎么选</b><p>先看把两类优化先后搭配起来用的实验 BetterTogether，再比较两类优化各需要多少次运行，以及数据多了以后怎样。然后把选择的理由列成两张表，最后是整讲的小结。</p></span></a>
   </div>
 </section>
 
@@ -72,10 +73,10 @@
   <p>这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代。下面六件事，左列的说法都比实际情况简单。每一件在对应的页面里有出处和细节。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
       <tbody>
         <tr><td>让模型「深吸一口气」能提高它的数学成绩</td><td>这句话是一个语言模型（PaLM 2-L-IT）搜索出来的，它只是对另一个模型（PaLM 2-L）在 GSM8K 这个数据集上最好，准确率 80.2%。换一个做题的模型，搜出来的最好的句子是别的</td><td><a href="instructions.html#opro">第三部分</a></td></tr>
-        <tr><td>prompt 优化比强化学习省 35 倍的样本</td><td>这个说法出自 GEPA 这种上下文优化方法的论文，论文里把上下文优化叫 prompt 优化。35 倍是六个任务里最好的一个。按总预算算，强化学习用的运行次数是 GEPA 的 3.4 到 13 倍（粗略估算）。GEPA 的平均分比强化学习高约 6 个百分点，有一个任务上强化学习更高</td><td><a href="choose.html#efficiency">第七部分</a></td></tr>
+        <tr><td>prompt 优化比强化学习省 35 倍的样本</td><td>这个说法出自 GEPA 这种上下文优化方法的论文，论文里把上下文优化叫 prompt 优化。35 倍只在六个任务里的一个上成立，算法是拿强化学习用的运行次数，除以 GEPA 找到最后选中的那个 prompt 时已经用掉的次数。改用 GEPA 在每个任务上总共用掉的运行次数来除，强化学习用的是 GEPA 的 3.4 到 13 倍（粗略估算）。GEPA 的平均分比强化学习高约 6 个百分点，有一个任务上强化学习更高</td><td><a href="choose.html#efficiency">第七部分</a></td></tr>
         <tr><td>GRPO 的效果比 PPO 好</td><td>DeepSeek-R1 论文里的对照显示，PPO 的一个参数仔细调过之后，成绩接近 GRPO。GRPO 的主要好处是不用训练和存放价值模型，也不用调这个参数</td><td><a href="rl.html#r1">第五部分</a></td></tr>
         <tr><td>教师模型越强，训练出来的学生越好</td><td>OpenThoughts-Agent 比较了五个教师，基准测试分数最高的那个模型训练出来的学生最差</td><td><a href="sft.html#ota">第四部分</a></td></tr>
         <tr><td>on-policy 蒸馏比强化学习又好又省</td><td>它需要一个已经会做这件事的教师，还要能拿到教师给每个 token 的概率。它的目标是追上教师。在 Qwen3 的例子里，教师自己是经过强化学习训练出来的</td><td><a href="rl.html#opd">第五部分</a></td></tr>

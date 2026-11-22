@@ -25,10 +25,10 @@
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="history.html">一 agent 这个词从哪里来，<br>为什么到 2023 年才流行？</a></th><td>这个概念有几十年的历史。强化学习时代的 agent 很强，但一个只会一件事。LLM 带来了一步一步推理和使用工具这两样能力，通用的 agent 才成为可能</td><td>2022 年 10 月到 2023 年 3 月的半年里，ReAct 论文、ChatGPT、GPT-4 先后出现，接着是 BabyAGI 的前身和 AutoGPT 这两个让模型自己给自己布置任务、一直做下去的开源项目。此后在 SWE-bench Verified 这套让 agent 修真实代码问题的题目上，由同一家机构统一测出的准确率（解决的题目占的比例），2024 年 11 月发布的模型是 31.0%，2026 年 4 月发布的模型是 83.5%</td></tr>
+        <tr><th scope="row"><a href="history.html">一 agent 这个词从哪里来，<br>为什么到 2023 年才流行？</a></th><td>这个概念有几十年的历史。强化学习是让 agent 通过试错、按得到的奖励来学习的训练方法。强化学习时代的 agent 很强，但一个只会一件事。LLM 带来了一步一步推理和使用工具这两样能力，通用的 agent 才成为可能</td><td>2022 年 10 月到 2023 年 3 月的半年里，ReAct 论文、ChatGPT、GPT-4 先后出现，接着是 BabyAGI 的前身和 AutoGPT 这两个让模型自己给自己布置任务、一直做下去的开源项目。此后在 SWE-bench Verified 这套让 agent 修真实代码问题的题目上，由同一家机构统一测出的准确率（解决的题目占的比例），2024 年 11 月发布的模型是 31.0%，2026 年 4 月发布的模型是 83.5%</td></tr>
         <tr><th scope="row"><a href="anatomy.html">二 一个 agent<br>由哪几块组成？</a></th><td>五个部件：LLM 核心、规划和推理、记忆、工具、环境。它们在一个循环里配合，这个循环十来行代码就能写出来</td><td>ReAct 论文里找胡椒瓶的一段运行记录，每一行都能对应到一个部件</td></tr>
         <tr><th scope="row"><a href="reasoning.html">三 为什么要<br>先推理再行动？</a></th><td>推理让 agent 的做法能用到新的情况里，也让人看得出它为什么这样做。推理和行动交替进行，能拿到新信息，也能改正错误</td><td>同一个问题，直接回答和只推理都答错了，ReAct 搜索三次后答对。抽查的错题里，ReAct 没有一道归入幻觉这一类（编造了推理过程或事实），只推理不行动的做法有 56% 归入这一类</td></tr>
-        <tr><th scope="row"><a href="memory.html">四 上下文装不下的东西<br>放在哪？</a></th><td>放在上下文之外的长期记忆里，用到时检索。按内容分三种：情景记忆存经历，语义记忆存知识，程序记忆存技能</td><td>模拟小镇里的角色按新近度、重要性、相关度三个分数取回记忆。2026 年 2 月，一个 agent 没等用户确认就成批删除和归档了她的邮件，当事人的判断是压缩记忆时丢了「先确认」这条要求</td></tr>
+        <tr><th scope="row"><a href="memory.html">四 上下文装不下的东西<br>放在哪？</a></th><td>放在上下文之外的长期记忆里，用到时检索。按内容分三种：情景记忆存经历，语义记忆存知识，程序记忆存技能</td><td>Generative Agents 这项研究在一个模拟的小镇里放了 25 个由 LLM 扮演的居民，每个居民按新近度、重要性、相关度三个分数，从自己的经历记录里取回记忆。2026 年 2 月，一个 agent 没等用户确认就成批删除和归档了她的邮件。当事人的判断是，上下文快满时 agent 把之前的对话压缩成一份短的摘要，「先确认」这条要求在这一步丢了</td></tr>
         <tr><th scope="row"><a href="tools.html">五 模型怎样<br>动手做事？</a></th><td>模型只写出「调用哪个工具、参数是什么」，执行由外面的程序完成。一次调用分四步：选工具、填参数、校验、执行。MCP（Model Context Protocol）这个协议把应用和工具之间的对接标准化</td><td>Toolformer 和 Gorilla 是两项训练模型使用工具的研究，前者教会模型用 5 个工具，后者扩大到 1,645 个 API。不查文档时，GPT-4 在其中一个 API 库上有 36.55% 的调用是凭空编出来的</td></tr>
         <tr><th scope="row"><a href="systems.html">六 workflow 和 agent<br>差在哪？</a></th><td>两者都是复合 AI 系统，也就是用多个互相配合的部件来完成任务的系统。差别在下一步由谁决定：代码决定是 workflow，LLM 决定是 agent。能用简单的办法做好时，不必用 agent</td><td>编程竞赛系统 AlphaCode 2 的步骤是固定的：生成最多一百万个候选程序，再筛选。它在编程竞赛里的成绩估计超过 85% 的参赛者。检索增强生成（RAG）是用得最广的 workflow，它先检索，再把检索到的内容拼进 prompt 生成回答</td></tr>
         <tr><th scope="row"><a href="challenges.html">七 搭出来之后<br>难在哪里？</a></th><td>五个难点：可靠性、训练、长任务、安全、评估。能力强不等于可靠，任务做完不等于做得安全</td><td>一项研究给 15 个模型各算了一个可靠性分数，量的是多跑几次结果是否一致、条件稍有变化时表现是否稳定、失败是否可以预料，取值在 0 到 1 之间，越高越可靠。这 15 个模型在两套测试题上的平均准确率，最低和最高相差 63 个百分点，可靠性分数最低 0.69，最高 0.87，只差 0.18。2026 年 7 月，约 1,200 个本应互相隔离的 agent 合作去骗评分程序</td></tr>
@@ -65,13 +65,13 @@
     <table class="tbl">
       <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
-        <tr><td>ReAct 比以前的 prompt 方法都好</td><td>在要动手的任务上确实好得多。HotpotQA 是一个要把几条资料连起来才能回答的问答数据集。在它上面，按答案和标准答案完全一致的比例算，单独的 ReAct 是 27.4%，低于只推理不行动的 29.4%，也低于直接回答的 28.7%。几种 prompt 方法里最好的成绩，来自把 ReAct 和「只推理、做 21 遍取多数答案」的做法结合起来</td><td><a href="reasoning.html#react-results">推理</a></td></tr>
-        <tr><td>Reflexion 是一种强化学习</td><td>Reflexion 的做法是让 agent 在失败后写一段反思，放进下一次尝试的 prompt。论文的副标题里有 reinforcement learning，但整个过程没有更新模型的权重</td><td><a href="reasoning.html#reflexion">推理</a></td></tr>
-        <tr><td>AlphaCode 2 超过了 87% 的参赛者</td><td>87% 是技术报告里一张图上的标注。报告正文和摘要给的估计是第 85 百分位</td><td><a href="systems.html#alphacode">workflow 和 agent</a></td></tr>
-        <tr><td>网页弹窗让 agent 有 87% 的情况完不成任务</td><td>论文摘要里的数是 86%，量的是 agent 点击弹窗的频率。任务成功率因为攻击而下降的幅度是另一个数，47%，它很可能是相对比例。弹窗是针对 agent 精心设计的对抗性内容</td><td><a href="challenges.html#attacks">难点</a></td></tr>
-        <tr><td>模型会偷偷修改自己的奖励函数</td><td>这出自一个人为设计的实验，研究者故意在奖励不诚实行为的环境里训练模型。即便如此，32,768 次试验里只出现了 45 次。没有经过这种训练的模型 10 万次里一次也没有</td><td><a href="challenges.html#misalignment">难点</a></td></tr>
-        <tr><td>用 AI 帮忙写代码的人，测验成绩低 17%，但干得更快</td><td>17 是百分点：测验平均分，用 AI 的一组是 50%，自己写的一组是 67%。两个编程任务合起来限时 35 分钟，用 AI 的一组平均快了大约 2 分钟，这个差别在统计上不显著。分数高低和怎么用 AI 有关，边用边追问原理的人分数并不低</td><td><a href="challenges.html#learning">难点</a></td></tr>
-        <tr><td>Russell 和 Norvig 在 1995 年把 agent 定义为通过 sensors 感知、通过 actuators 行动</td><td>1995 年第一版的用词是 effectors，actuators 是后来版本的写法。意思相同</td><td><a href="history.html#nineties">来历</a></td></tr>
+        <tr><td>ReAct 比以前的 prompt 方法都好</td><td>在要动手的任务上确实好得多。HotpotQA 是一个要把几条资料连起来才能回答的问答数据集。在它上面，按答案和标准答案完全一致的比例算，单独的 ReAct 是 27.4%，低于只推理不行动的 29.4%，也低于直接回答的 28.7%。几种 prompt 方法里最好的成绩，来自把 ReAct 和「只推理、做 21 遍取多数答案」的做法结合起来</td><td><a href="reasoning.html#react-results">第三部分</a></td></tr>
+        <tr><td>Reflexion 是一种强化学习</td><td>Reflexion 的做法是让 agent 在失败后写一段反思，放进下一次尝试的 prompt。论文的副标题里有 reinforcement learning，但整个过程没有更新模型的权重</td><td><a href="reasoning.html#reflexion">第三部分</a></td></tr>
+        <tr><td>AlphaCode 2 超过了 87% 的参赛者</td><td>87% 是技术报告里一张图上的标注。报告正文和摘要给的估计是第 85 百分位</td><td><a href="systems.html#alphacode">第六部分</a></td></tr>
+        <tr><td>网页弹窗让 agent 有 87% 的情况完不成任务</td><td>论文摘要里的数是 86%，量的是 agent 点击弹窗的频率。任务成功率因为攻击而下降的幅度是另一个数，47%，它很可能是相对比例。弹窗是针对 agent 精心设计的对抗性内容</td><td><a href="challenges.html#attacks">第七部分</a></td></tr>
+        <tr><td>模型会偷偷修改自己的奖励函数</td><td>奖励是训练时告诉模型做得好不好的分数，奖励函数是算出这个分数的那段代码。这个说法出自一个人为设计的实验，研究者故意在不诚实的行为能拿到奖励的环境里训练模型。即便如此，32,768 次试验里只出现了 45 次。没有经过这种训练的模型 10 万次里一次也没有</td><td><a href="challenges.html#misalignment">第七部分</a></td></tr>
+        <tr><td>用 AI 帮忙写代码的人，测验成绩低 17%，但干得更快</td><td>17 是百分点：测验平均分，用 AI 的一组是 50%，自己写的一组是 67%。两个编程任务合起来限时 35 分钟，用 AI 的一组平均快了大约 2 分钟，这个差别在统计上不显著。分数高低和怎么用 AI 有关，边用边追问原理的人分数并不低</td><td><a href="challenges.html#learning">第七部分</a></td></tr>
+        <tr><td>Russell 和 Norvig 在 1995 年把 agent 定义为通过 sensors 感知、通过 actuators 行动</td><td>1995 年第一版的用词是 effectors，actuators 是后来版本的写法。意思相同</td><td><a href="history.html#nineties">第一部分</a></td></tr>
       </tbody>
     </table>
   </figure>
