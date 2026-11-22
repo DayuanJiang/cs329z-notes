@@ -1,33 +1,34 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>复合 AI 系统（compound AI system）指用多个互相配合的部件来完成任务的系统：多次调用模型，再加上检索器、外部工具这类部件。实际的 AI 产品几乎都是这样的系统，单独一个模型只是其中一个部件。</li>
+    <li>复合 AI 系统（compound AI system）指用多个互相配合的部件来完成任务的系统：完成一个任务要多次调用模型、检索器或外部工具。检索器是按问题从一批资料里找出相关内容的部件。实际的 AI 产品通常是这样的系统，单独一个模型只是其中一个部件。</li>
     <li>复合 AI 系统里有一个关键的设计选择：下一步做什么由谁决定。由事先写好的代码决定，叫 workflow；由 LLM 自己决定，叫 agent。</li>
-    <li>workflow 可以很强。AlphaCode 2 的步骤是固定的：生成最多一百万个候选程序，再过滤、聚类、打分。它在编程竞赛里的成绩估计超过 85% 的参赛者。</li>
-    <li>检索增强生成（RAG）是用得最广的一种 workflow：先检索，再把检索到的内容拼进 prompt，最后生成回答。</li>
+    <li>workflow 可以很强。编程竞赛系统 AlphaCode 2 的步骤是固定的：生成最多一百万个候选程序，再过滤、聚类（把行为相似的程序归成一类）、打分。它在编程竞赛里的成绩估计超过 85% 的参赛者。</li>
+    <li>基本的检索增强生成（RAG）是用得很广的一种 workflow：先检索，再把检索到的内容拼进 prompt，最后生成回答。</li>
     <li>agent 工程可以分成三层：系统、数据、评估。agent 表现不好时，先问问题出在哪一层。</li>
   </ul>
 </section>
 
 <section class="sec" id="compound">
   <h2>复合 AI 系统是什么</h2>
-  <p><a href="anatomy.html">第二部分</a>把一个 agent 拆成了五个部件。真实的产品里，LLM 总是和别的部件组合在一起用。ChatGPT Plus 就是一个例子：除了 LLM，它还有上网浏览的插件、执行 Python 的插件和 DALL-E 图像生成器，回答时由 LLM 决定什么时候调用它们。这种组合有一个名字，叫复合 AI 系统。</p>
-  <p>这个词出自 Matei Zaharia 等 11 位作者 2024 年 2 月发表在伯克利 BAIR 博客上的文章。文章的主要判断是：最好的 AI 成果越来越多地来自由多个部件组成的系统，单靠一个模型拿到的越来越少。</p>
-  <p class="lead-in">文章的定义是：<mark>复合 AI 系统用多个互相配合的部件来完成 AI 任务，包括多次调用模型、检索器或外部工具</mark>。与之相对的是 AI 模型，它只是一个统计模型，比如一个预测下一个 token（模型处理文字的最小单位，大致是一个词或半个词）的 Transformer。</p>
+  <p><a href="anatomy.html">第二部分</a>把一个 agent 拆成了五个部件：LLM 核心、规划和推理、记忆、工具、环境。这一部分看这些部件组合起来之后的整个系统。真实的产品里，LLM 通常和别的部件组合在一起用。ChatGPT Plus 就是一个例子：除了 LLM，它还有上网浏览的插件、执行 Python 的插件和 DALL-E 图像生成器，回答时由 LLM 决定什么时候调用它们。这种组合有一个名字，叫复合 AI 系统。</p>
+  <p>这个词出自 Matei Zaharia 等 11 位作者 2024 年 2 月发表的一篇文章，登在伯克利人工智能研究实验室（Berkeley Artificial Intelligence Research，简称 BAIR）的博客上。文章的主要判断是：AI 领域最好的成绩，越来越多是由多个部件组成的系统做出来的，单靠一个模型做出来的越来越少。</p>
+  <p class="lead-in">文章的定义是：<mark>复合 AI 系统用多个互相配合的部件来完成 AI 任务，包括对模型、检索器或外部工具的多次调用</mark>。</p>
+  <p>与之相对的是单独一个 AI 模型。文章说它只是一个统计模型（statistical model），也就是从数据里学出概率规律的数学模型，比如一个预测下一个 token（模型处理文字的最小单位，大致是一个词或半个词）的 Transformer。Transformer 是 GPT 这类模型采用的模型结构。单独一个模型在复合 AI 系统里只是其中一个部件。</p>
   <p>文章举了下面这些例子。表里有四个词先说明一下。采样指让模型生成一次回答，生成带有随机性，所以同一道题多次采样会得到不同的回答。基准测试（benchmark）是一组题目加一个打分的办法。MMLU 是一个基准测试，题目是 57 个学科的知识选择题。符号数学引擎是按写好的数学规则推导结论的程序。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">系统</th><th scope="col">有哪些部件</th><th scope="col">怎么配合</th></tr></thead>
       <tbody>
-        <tr><th scope="row">AlphaCode 2</th><td>fine-tuning（在预训练模型的基础上，用特定任务的数据继续训练）过的 LLM，分别负责生成程序和给程序打分；代码执行模块；聚类模型</td><td>为一道编程题生成最多一百万个解答，再过滤和打分</td></tr>
+        <tr><th scope="row">AlphaCode 2</th><td>fine-tuning（在已经训练好的模型的基础上，用特定任务的数据继续训练）过的 LLM，分别负责生成程序和给程序打分；代码执行模块；聚类模型</td><td>为一道编程题生成最多一百万个解答，再过滤和打分</td></tr>
         <tr><th scope="row">AlphaGeometry</th><td>fine-tuning 过的 LLM；符号数学引擎</td><td>LLM 提出在几何图形上添加什么辅助构造，符号数学引擎检查由此能推出哪些事实，反复进行</td></tr>
-        <tr><th scope="row">Medprompt</th><td>GPT-4；在一个存有正确例题的数据库里做最近邻搜索；让模型自己写出每道例题的推理过程；多次采样后合并</td><td>回答医学问题时，先找相似的例题拼成 prompt，再生成最多 11 个答案并从中评选</td></tr>
-        <tr><th scope="row">Gemini 做 MMLU<br>题目的办法</th><td>Gemini；一段定制的推理逻辑</td><td>对每道题采样 32 个带推理过程的答案，足够多的答案一致时就返回这个答案，否则改用不带推理过程的生成</td></tr>
+        <tr><th scope="row">Medprompt</th><td>GPT-4；一个存有正确例题的数据库，用最近邻搜索从里面找例题；模型自己为每道例题写出的推理过程；多次采样、再从这些答案里评选的环节</td><td>回答医学问题时，先找相似的例题拼成 prompt，再生成最多 11 个答案并从中评选</td></tr>
+        <tr><th scope="row">Gemini 做 MMLU<br>题目的办法</th><td>Gemini；一段专门写的程序逻辑，规定采样多少次、怎样从这些答案里取出最终答案</td><td>对每道题采样 32 个带推理过程的答案，足够多的答案一致时就返回这个答案，否则改用不带推理过程的生成</td></tr>
         <tr><th scope="row">ChatGPT Plus</th><td>LLM；上网浏览的插件；执行 Python 的插件；DALL-E 图像生成器</td><td>回答时可以调用工具，什么时候调用、怎么调用由 LLM 决定</td></tr>
-        <tr><th scope="row">RAG 一类的系统</th><td>LLM（有时调用多次）；检索系统</td><td>用各种办法把 LLM 和检索结合起来，例如让 LLM 生成搜索用的查询</td></tr>
+        <tr><th scope="row">RAG 一类的系统</th><td>LLM（有时调用多次）；检索器</td><td>用各种办法把 LLM 和检索结合起来，例如让 LLM 生成搜索用的查询</td></tr>
       </tbody>
     </table>
-    <figcaption>整理自 <a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">Zaharia 等，2024</a> 的表。表里是 2024 年初的情况。</figcaption>
+    <figcaption>整理自 <a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">Zaharia 等，2024</a> 的表。表里是 2024 年初的情况。聚类指把相似的东西归成一类，这里归的是行为相似的程序。最近邻搜索指在一批内容里找出和给定内容最相近的几条。</figcaption>
   </figure>
   <h3>为什么要用系统，只把模型做大不行吗</h3>
   <p>文章给了四个理由。</p>
@@ -35,15 +36,15 @@
     <table class="tbl">
       <thead><tr><th scope="col">理由</th><th scope="col">意思</th><th scope="col">文章举的例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row">有些任务靠设计系统<br>更容易提高</th><td>把模型做大的回报有限，换一种系统设计带来的提高可能大得多，而且改系统比等一轮训练快</td><td>一个假设的例子：最好的 LLM 能做对 30% 的编程竞赛题，训练预算增加到三倍也只到 35%；让模型多次采样、逐个测试，用现有的模型就可能到 80%。这几个数是文章为了说明道理假设的，没有实测</td></tr>
-        <tr><th scope="row">系统可以随时更新</th><td>模型的知识停在训练数据截止的那一天。系统可以接上搜索和检索，用上最新的数据，也可以按用户的权限决定能看哪些文件</td><td>只根据提问的用户有权访问的文件来回答</td></tr>
+        <tr><th scope="row">有些任务上的成绩，<br>靠设计系统更容易提高</th><td>把模型做大的回报有限，换一种系统设计带来的提高可能大得多，而且改系统比等一轮训练快</td><td>一个假设的例子：最好的 LLM 能做对 30% 的编程竞赛题，训练预算增加到三倍也只到 35%；让模型多次采样、逐个测试，用现有的模型就可能到 80%。这几个数是文章为了说明道理假设的，没有实测</td></tr>
+        <tr><th scope="row">系统接的数据<br>可以随时更新</th><td>模型的知识停在训练数据截止的那一天。系统可以接上搜索和检索，用上最新的数据，也可以按用户的权限决定能看哪些文件</td><td>只根据提问的用户有权访问的文件来回答</td></tr>
         <tr><th scope="row">系统更容易控制，<br>也更容易让人信任</th><td>很难保证一个模型绝不做某件事。在系统这一层可以过滤模型的输出，也可以给回答附上出处</td><td>把 LLM 和检索结合起来，给出引用，或者自动核对事实</td></tr>
-        <tr><th scope="row">不同应用对质量和花费<br>的要求差别很大</th><td>一个模型的质量和价格是固定的，应用的需求却各不相同</td><td>代码补全要又快又便宜，所以用精心调过的小模型。很多人愿意为一份正确的法律意见付几美元，问一次 GPT-4 却只要几美分。要让这笔更高的预算换来更好的回答，就需要专门设计一个系统</td></tr>
+        <tr><th scope="row">不同应用对质量和花费<br>的要求差别很大</th><td>一个模型的质量和价格是固定的，应用的需求却各不相同</td><td>代码补全要又快又便宜，最好的模型太贵，所以 GitHub Copilot 这类工具用的是仔细调整过的较小的模型（原文是 carefully tuned smaller models）。很多人愿意为一份正确的法律意见付几美元，问一次 GPT-4 却只要几美分。要让这笔更高的预算换来更好的回答，就需要专门设计一个系统</td></tr>
       </tbody>
     </table>
     <figcaption>出处：<a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">Zaharia 等，2024</a>。</figcaption>
   </figure>
-  <p>文章还引用了 Databricks 的一个统计：在企业里，60% 的 LLM 应用用了某种形式的 RAG，30% 用了多步的调用链。这是 2024 年初的数。RAG 是先检索资料、再让模型根据资料回答的做法，<a href="#rag">下面有一节</a>专门讲。</p>
+  <p>文章还引用了数据平台公司 Databricks 的一个统计：在企业的 LLM 应用里，60% 用了某种形式的 RAG，30% 用了多步的调用链（multi-step chains），也就是把几次模型调用按顺序串起来。这是 2024 年初的数，文章没有写明统计的是哪些企业。RAG 是先检索资料、再让模型根据资料回答的做法，<a href="#rag">下面有一节</a>专门讲。</p>
 </section>
 
 <section class="sec" id="who-decides">
@@ -57,17 +58,17 @@
         <tr><th scope="row">LLM 做什么</th><td>完成每个阶段内部的工作，比如在一个专门找问题位置的阶段里判断哪个文件有问题。下一个阶段是哪个，由代码决定</td><td>既完成每一步的工作，也决定这些工作的先后顺序</td></tr>
         <tr><th scope="row">修 GitHub 上的 bug<br>时的例子</th><td>Agentless：固定的三个阶段，定位、修复、验证补丁</td><td>SWE-agent：由模型自己选择打开哪些文件、运行什么命令、什么时候提交</td></tr>
         <tr><th scope="row">好处</th><td>行为可以预期，可能走的路径都写在代码里；出了错容易找到是哪一步</td><td>灵活，能处理事先没有料到的情况</td></tr>
-        <tr><th scope="row">代价</th><td>任务不符合预设的步骤时就做不了</td><td>把更多的责任交给了模型。步数不固定，花费和耗时难以预估，出错的方式也更多</td></tr>
+        <tr><th scope="row">代价</th><td>任务不符合预设的步骤时就做不了</td><td>把更多的责任交给了模型。要走几步由模型自己决定，花费和耗时难以预估，出错的方式也更多</td></tr>
       </tbody>
     </table>
   </figure>
   <p>表里的两个例子都来自修真实代码仓库里的 bug 这个任务。下面给出它们各自的成绩，一个是在 SWE-bench Lite 上测的，一个是在完整的 SWE-bench 上测的。SWE-bench 是一个基准测试，题目是真实代码仓库里的 bug。SWE-bench Lite 是它的一个子集，有 300 道题。</p>
   <ul>
-    <li><b>Agentless。</b>名字的意思是不用 agent：不让 LLM 决定后面的动作，也不让它操作复杂的工具。流程固定为三个阶段：定位（找出要改的文件和位置）、修复（生成补丁）、验证补丁（用测试挑出最可信的一个）。论文报告它在 SWE-bench Lite 上修对了 300 道题里的 96 道，也就是 32.00%，平均每道题花费 0.70 美元。按论文的说法，这个成绩当时比所有开源的 agent 方案都高，花费也低。</li>
-    <li><b>SWE-agent。</b>它给模型一套专门设计的命令（论文叫 agent-computer interface），用来浏览仓库、查看和编辑文件、运行测试。用哪条命令、按什么顺序用，由模型决定。论文报告它在完整的 SWE-bench 上解决了 12.5% 的题。</li>
+    <li><b>Agentless。</b>名字的意思是不用 agent：不让 LLM 决定后面的动作，也不让它操作复杂的工具。流程固定为三个阶段：定位（找出要改的文件和位置）、修复（生成补丁）、验证补丁（用测试挑出最可信的一个）。论文报告它用 GPT-4o 作模型，在 SWE-bench Lite 上修对了 300 道题里的 96 道，也就是 32.00%，平均每道题花费 0.70 美元。按论文的说法，这个成绩当时比所有开源的 agent 方案都高，花费比此前的大多数 agent 方案低。</li>
+    <li><b>SWE-agent。</b>它给模型一套专门设计的命令（论文叫 agent-computer interface），用来浏览仓库、查看和编辑文件、运行测试。用哪条命令、按什么顺序用，由模型决定。论文报告它用 GPT-4 Turbo 作模型，在完整的 SWE-bench 上解决了 2,294 道题里的 12.5%。</li>
   </ul>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这两个数不能直接比。</b>32.00% 是在 SWE-bench Lite 上测的，12.5% 是在完整的 SWE-bench 上测的，题目不同，用的模型和时间也不同。这里列出它们只是为了说明两种设计都拿得出成绩。出处：<a href="https://arxiv.org/abs/2407.01489">Xia 等，2024</a>；<a href="https://arxiv.org/abs/2405.15793">Yang 等，2024</a>。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>这两个词的出处。</b>Zaharia 等人的文章提出了这个问题，但没有用 workflow 这个词。原文问的是：系统的控制逻辑，应该用传统的代码来写（比如调用 LLM 的 Python 代码），还是由 AI 模型来驱动（比如会调用外部工具的 LLM agent）。把前一种叫 workflow、后一种叫 agent 的说法，常被引用的出处是 Anthropic 2024 年 12 月的文章《Building effective agents》。它的定义是：workflow 是按事先写好的代码路径来安排 LLM 和工具的系统；agent 是由 LLM 自己决定每一步做什么、用哪个工具、怎样把任务做完的系统。这和本节开头说的区别是同一个意思。两类合起来，那篇文章统称为 agentic systems。出处：<a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic，2024</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这两个数不能直接比。</b>32.00% 是在 SWE-bench Lite 上测的，12.5% 是在完整的 SWE-bench 上测的，题目不同。用的模型也不同，Agentless 用的是 GPT-4o，SWE-agent 用的是 GPT-4 Turbo，测的时间也不同。这里列出它们，只是为了说明两种设计各自做到了什么程度。出处：<a href="https://arxiv.org/abs/2407.01489">Xia 等，2024</a>；<a href="https://arxiv.org/abs/2405.15793">Yang 等，2024</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>workflow 和 agent 这两个词的出处。</b>Zaharia 等人的文章提出了「下一步由谁决定」这个问题，但没有用 workflow 这个词。原文问的是：系统的控制逻辑，应该用传统的代码来写（比如调用 LLM 的 Python 代码），还是由 AI 模型来驱动（比如会调用外部工具的 LLM agent）。把前一种叫 workflow、后一种叫 agent 的说法，常被引用的出处是 Anthropic 2024 年 12 月的文章《Building effective agents》。它的定义是：workflow 是按事先写好的代码路径来安排 LLM 和工具的系统；agent 是由 LLM 自己决定每一步做什么、用哪个工具、怎样把任务做完的系统。这和本节开头说的区别是同一个意思。两类合起来，那篇文章统称为 agentic system。出处：<a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic，2024</a>。</div></div>
   <p>workflow 的步骤由代码规定，每次运行的步数仍然可以不同：代码里可以有条件分支、重试和循环。只要走哪条路是按写好的规则判断的，它就还是 workflow。</p>
   <p>实际的系统不一定是纯粹的 workflow 或纯粹的 agent，两者之间还有很多中间的做法。很多系统大体上是固定的流程，只在其中一两步让模型自己决定要不要多查一次、多试一次。判断一个系统更接近 workflow 还是更接近 agent，就看有多少步是由模型决定的。</p>
 </section>
@@ -75,7 +76,7 @@
 <section class="sec" id="alphacode">
   <h2>workflow 可以很强：AlphaCode 2</h2>
   <p>既然 agent 更灵活，为什么还要 workflow？因为在步骤可以事先想清楚的任务上，workflow 能做到非常好的成绩。AlphaCode 2 是一个例子。</p>
-  {{fig 56 | 横轴是参赛者的百分位，纵轴是按每场比赛的最高分折算后的平均得分，黑线是人类参赛者。蓝色的点是 AlphaCode 2，灰色的点是上一代 AlphaCode 的估计值。图片来源：<a href="https://storage.googleapis.com/deepmind-media/AlphaCode2/AlphaCode2_Tech_Report.pdf">AlphaCode 2 技术报告</a>。}}
+  {{fig 56 | 横轴是参赛者的百分位，也就是成绩好于百分之多少的参赛者。纵轴是得分：每场比赛里，把参赛者的得分折算成这场比赛人类最高分的百分之多少，再对评测用的 12 场比赛取平均。黑线是人类参赛者。蓝色的点是 AlphaCode 2，灰色的点是上一代 AlphaCode 的估计值。图片来源：<a href="https://storage.googleapis.com/deepmind-media/AlphaCode2/AlphaCode2_Tech_Report.pdf">AlphaCode 2 技术报告</a>。}}
   <p>AlphaCode 2 是 Google DeepMind 2023 年 12 月发布的编程竞赛系统。它解一道题的步骤是固定的，一共四步。</p>
   <figure class="plate">
     <table class="tbl">
@@ -92,16 +93,17 @@
   <p>四步的顺序固定写在代码里。LLM 负责第一步的生成和第四步的打分，接下来该聚类还是该再采样一批，由代码决定。</p>
   <p>报告的评测是在编程竞赛网站 Codeforces 上做的：选了 12 场参赛人数超过 8,000 的近期比赛，一共 77 道题。</p>
   <p>AlphaCode 2 在 10 次提交以内解出了 43% 的题，上一代 AlphaCode 是 25%。按比赛排名折算，报告估计它平均处在第 85 百分位，也就是成绩好于 85% 的参赛者。上一代大致是中位数的水平。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>87% 还是 85%。</b>有的介绍说 AlphaCode 2 超过了 87% 的参赛者，这个数来自上面那张图横轴上的标注。报告正文和摘要给出的估计都是第 85 百分位，Zaharia 等人的文章引用的也是 85。引用时用正文的 85%。核对的经过见<a href="#notes">资料说明</a>。</div></div>
-  <p>这个例子也对应复合 AI 系统的第一条理由：同样的模型，采样越多，筛选之后的成绩越高。报告里画了每道题的采样数和解题率的关系：采样数每扩大到十倍，解题率提高的幅度大致相同。AlphaCode 2 每道题只采样大约 100 次时，成绩和上一代采样一百万次时相当。采样到一百万次，就是上面说的 43%，上一代是 25%。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>87% 还是 85%。</b>有的介绍说 AlphaCode 2 超过了 87% 的参赛者，这个数来自上面那张图横轴上的标注。报告正文和摘要给出的估计都是第 85 百分位，Zaharia 等人的文章引用的也是 85。引用时用正文的 85%。报告里和这两个数有关的原话，见<a href="#notes">资料说明</a>。</div></div>
+  <p>这个例子也对应复合 AI 系统的第一条理由，也就是有些任务上的成绩靠设计系统更容易提高：模型不变，采样越多，筛选之后的成绩越高。报告里画了 AlphaCode 2 每道题的采样数和解题率的关系：采样数每扩大到十倍，解题率提高的幅度大致相同。采样到一百万次，就是上面说的 43%。</p>
+  <p>模型本身也起作用。AlphaCode 2 每道题只采样大约 100 次时，成绩就和上一代采样一百万次时相当，上一代采样一百万次的解题率就是上面说的 25%。报告说，达到这个成绩的关键，是各个部件的模型都改成了在 Gemini 的基础上训练出来的。</p>
   <p>代价是算力，一道题最多一百万次采样的花费远高于一次调用。</p>
 </section>
 
 <section class="sec" id="rag">
-  <h2>RAG：用得最广的一种 workflow</h2>
-  <p>检索增强生成（Retrieval-Augmented Generation，简称 RAG）在回答问题时把 LLM 和外部的知识来源连起来。模型的参数里没有的知识、训练之后才出现的知识、只存在于某家公司内部的知识，都可以用这个办法接进来。</p>
+  <h2>RAG：用得很广的一种 workflow</h2>
+  <p>检索增强生成（Retrieval-Augmented Generation，简称 RAG）在回答问题时把 LLM 和外部的知识来源连起来。模型的权重（模型内部由训练定下来的那些数值，也叫参数）里没有的知识、训练之后才出现的知识、只存在于某家公司内部的知识，都可以用这个办法接进来。</p>
   <p>下图的上半部分是一个例子，下半部分是 RAG 的三个步骤。图后的表用另一个例子把三步再走一遍。</p>
-  {{fig 57 | 上面是一个例子：问题是「是什么保护消化系统不受感染」，检索器从文本库里找到一段讲胃酸和蛋白酶的维基百科文字，阅读器根据这段文字给出答案并标出出处。下面是 RAG 的三个步骤。}}
+  {{fig 57 | 上面是一个例子：问题是「是什么保护消化系统不受感染」，检索器从文本库里找到一段讲胃酸和蛋白酶的维基百科文字，阅读器根据这段文字给出答案并标出出处。阅读器（图上标作 Reader）指读了检索到的文字再回答的模型，对应下面三步里的 LLM。下面是 RAG 的三个步骤。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">步骤</th><th scope="col">做什么</th><th scope="col">例子：用户问今天本地的天气</th></tr></thead>
@@ -112,62 +114,67 @@
       </tbody>
     </table>
   </figure>
-  <p>三步的顺序是固定的，每个问题都先检索再生成，所以基本的 RAG 是一个 workflow。它在工业界用得很广，和开放域问答（不限定主题、需要查资料才能回答的问答任务）的研究关系很深。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>RAG 这个名字的来历。</b>这个名字出自 Lewis 等人 2020 年的论文。那篇论文里的 RAG 是一个要一起 fine-tuning 的模型：一个生成模型加一个检索器，检索的对象是维基百科的稠密向量索引（把每段文字变成一个向量，按向量的相似度来找）。现在说的 RAG 范围宽得多，通常不训练模型，只是在调用 LLM 之前加一步检索。出处：<a href="https://arxiv.org/abs/2005.11401">Lewis 等，2020</a>。</div></div>
-  <p>RAG 也可以做成 agent 的样子：把「检索」做成一个工具交给模型，由模型自己决定要不要查、查什么、查几次。<a href="reasoning.html#react-example">第三部分</a>里 ReAct（让模型交替推理和行动的做法）回答问题的例子就是这样做的，模型连续搜索了三次才找到答案。</p>
+  <p>三步的顺序是固定的，每个问题都先检索再生成，所以基本的 RAG 是一个 workflow。它在工业界用得很广。它和开放域问答（不限定主题、需要查资料才能回答的问答任务）的研究直接相关：提出 RAG 这个名字的论文，就在三个开放域问答任务上做到了当时最好的成绩。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>RAG 这个名字的来历。</b>这个名字出自 Lewis 等人 2020 年的论文。那篇论文里的 RAG 是一个模型：把一个生成模型和一个检索器接在一起，两者一起 fine-tuning。检索器查的是维基百科的稠密向量索引（dense vector index）。建这种索引时，先用一个模型把每段文字变成一串数字，叫作向量，意思相近的文字得到的向量也相近。检索时按向量的相似度来找。现在说的 RAG 范围宽得多，通常不训练模型，只是在调用 LLM 之前加一步检索。出处：<a href="https://arxiv.org/abs/2005.11401">Lewis 等，2020</a>。</div></div>
+  <p>检索也可以交给模型来决定：把「检索」做成一个工具交给模型，由模型自己决定要不要查、查什么、查几次。这时下一步由模型决定，系统就是 agent。<a href="reasoning.html#react-example">第三部分</a>里 ReAct（让模型交替推理和行动的做法）回答问题的例子就是这样做的，模型连续搜索了三次才找到答案。</p>
   <p>检索该怎么做、检索到的内容怎么排序、常见的失败方式，是第 3 讲的内容。</p>
 </section>
 
 <section class="sec" id="choose">
   <h2>什么时候用哪一种</h2>
-  <p>Anthropic 的《Building effective agents》给了一条简单的建议：先找最简单的办法，只在需要时才增加复杂度。这可能意味着根本不用搭 agentic system，也就是那篇文章对 workflow 和 agent 的统称。理由是 agentic system 通常是拿更长的耗时和更高的花费去换更好的任务表现，要想清楚这笔交换值不值。</p>
+  <p>Anthropic 的《Building effective agents》给了一条简单的建议：先找最简单的办法，只在需要时才增加复杂度。那篇文章把 workflow 和 agent 合称 agentic system。它说，最简单的办法有时是 workflow 和 agent 都不用：对很多应用来说，把一次 LLM 调用做好，配上检索和几个例子，通常就够了。理由是 agentic system 通常是拿更长的耗时和更高的花费去换更好的任务表现，要想清楚这笔交换值不值。</p>
+  <p>配了检索的一次 LLM 调用，那篇文章没有算作 workflow。这和上一节把基本 RAG 算作 workflow 的分法不同，两种分法的差别在下表后面说明。</p>
+  <p>下表按三种情况列出更合适的选择。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">情况</th><th scope="col">更合适的选择</th><th scope="col">原因</th></tr></thead>
       <tbody>
-        <tr><th scope="row">一次调用 LLM，加上检索<br>和几个例子，就能做好</th><td>就用这一次调用，不再加步骤，也不用 agent。调用前固定加一步检索，就是上一节说的基本 RAG，属于最简单的 workflow</td><td>部件越少，越便宜，越容易查错</td></tr>
-        <tr><th scope="row">任务可以清楚地<br>拆成固定的几步</th><td>多步的 workflow</td><td>行为可以预期，结果前后一致</td></tr>
+        <tr><th scope="row">一次调用 LLM，加上检索<br>和几个例子，就能做好</th><td>就用这种做法，不再增加步骤</td><td>部件越少，越便宜，越容易查错</td></tr>
+        <tr><th scope="row">任务可以清楚地<br>拆成固定的几步</th><td>多步的 workflow，按代码写好的步骤多次调用 LLM</td><td>行为可以预期，结果前后一致</td></tr>
         <tr><th scope="row">事先说不清要几步、<br>每一步做什么，要边做边看</th><td>agent</td><td>需要灵活，需要由模型根据情况来决定</td></tr>
       </tbody>
     </table>
     <figcaption>整理自 <a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic，2024</a>。</figcaption>
   </figure>
+  <p>第一行的做法算不算 workflow，上一节和那篇文章的分法不同。这种做法在调用前有一步固定的检索，就是上一节说的基本 RAG。上一节按「步骤由代码决定」把它算作 workflow。那篇文章把配了检索的单次 LLM 调用叫作搭建 agentic system 用的基本构件，没有把它算进 workflow。两种分法给出的建议相同：一次调用加检索就能做好时，不必再加步骤。</p>
   <p>把 workflow 的几种常见模式和 agent 的设计模式逐个展开，是第 6 讲的内容。</p>
 </section>
 
 <section class="sec" id="layers">
   <h2>agent 工程的三层：系统、数据、评估</h2>
-  <p>一个 agent 有 LLM、推理、记忆、工具、环境这么多部件，做起工程来容易顾此失彼。可以把所有的工作分成三层来想。</p>
+  <p><a href="anatomy.html">第二部分</a>讲的五个部件是 LLM 核心、规划和推理、记忆、工具和环境。部件这么多，做起工程来容易顾此失彼。可以把所有的工作分成三层来想。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">层</th><th scope="col">管什么</th><th scope="col">具体的事</th><th scope="col" class="nw">后面哪几讲</th></tr></thead>
       <tbody>
         <tr><th scope="row">系统<br><span class="muted small">System</span></th><td>架构：agent 有哪些部件，它们怎样连起来</td><td>选模型，设计工具，设计记忆，决定用 workflow 还是 agent，决定用一个 agent 还是多个</td><td>第 2 到 9 讲</td></tr>
-        <tr><th scope="row">数据<br><span class="muted small">Data</span></th><td>agent 从什么里学，prompt 里放什么</td><td>用来训练的例子，任务的示范，交给 agent 的上下文</td><td>第 11、12 讲</td></tr>
+        <tr><th scope="row">数据<br><span class="muted small">Data</span></th><td>agent 用什么数据来学，prompt 里放什么内容</td><td>用来训练的例子，任务的示范，交给 agent 的上下文</td><td>第 11、12 讲</td></tr>
         <tr><th scope="row">评估<br><span class="muted small">Evals</span></th><td>怎样知道 agent 做得好不好，包括用哪个指标</td><td>选基准测试，定指标，搭评估的工具</td><td>第 10、13、15 讲</td></tr>
       </tbody>
     </table>
+    <figcaption>「后面哪几讲」一列是按各讲的主题大致对应的。数据层管的 prompt 和上下文，在系统层的讲次里也会讲到：第 2 讲讲怎样决定往上下文里放什么，第 9 讲讲怎样优化 prompt 和上下文。</figcaption>
   </figure>
-  <p>指标本身要仔细选。选错了指标，一个弱的 agent 也能显得不错。<a href="challenges.html#evaluation">第七部分</a>会看到几个例子。</p>
-  <p>这三层最直接的用处是查问题。agent 表现不如预期时，先问问题出在哪一层：是架构不对（系统），是给它的例子和上下文不对（数据），还是量的办法不对、它其实没有那么差或者没有那么好（评估）。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>复合 AI 系统自己的三个难题。</b>Zaharia 等人的文章从另一个角度列了搭建复合 AI 系统的三个难题。
+  <p>指标本身要仔细选。选错了指标，一个弱的 agent 也能显得不错。<a href="challenges.html">第七部分</a>有两个相近的例子。一个是按准确率排在前面的 agent，按可靠性排不一定在前面。另一个出自一项安全审计：任务完成率最高的那个系统，在过程是否守规矩这一项上只得了 0.43，没有违规时这一项是 1。</p>
+  <p>这三层最直接的用处是查问题。agent 表现不如预期时，先问问题出在哪一层：是架构不对（系统），是给它的例子和上下文不对（数据），还是评估的办法不对，它实际上没有测出来的那么差（评估）。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>搭建复合 AI 系统的三个难题。</b>这三个难题是 Zaharia 等人的文章从另一个角度列出来的。
     <ul>
       <li><b>设计空间太大。</b>哪怕只是 RAG，也要选检索器、选模型、决定要不要重排（检索之后把结果再排一次序）、决定时间和花费的预算怎么分给各个部件。</li>
-      <li><b>优化。</b>一个模型可以从头到尾用梯度来训练，也就是按误差自动算出每个参数该怎样调。复合系统里有搜索引擎、代码解释器这类没法求梯度的部件，需要新的优化办法。文章举的例子是 DSPy，一个按给定的指标自动调整各个环节的 prompt 和示例的框架。</li>
-      <li><b>运维。</b>一个 agent 每次运行的步数都不一样，怎样记录、分析和调试它的运行轨迹（trajectory，每一步的动作和看到的结果的完整记录），怎样保证安全，都是新问题。</li>
+      <li><b>优化。</b>一个模型可以从头到尾用梯度来训练，也就是按误差自动算出每个权重该怎样调。复合系统里有搜索引擎、代码解释器这类没法求梯度的部件，需要新的优化办法。文章举的例子是 DSPy，一个按给定的指标自动调整各个环节的 prompt 和示例的框架。</li>
+      <li><b>运维。</b>一个 agent 每次运行的步数可能都不一样，怎样记录、分析和调试它的运行轨迹（trajectory，每一步的动作和看到的结果的完整记录），怎样保证安全，都是新问题。</li>
     </ul>
     出处：<a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">Zaharia 等，2024</a>。</div></div>
 </section>
 
 <section class="sec" id="roadmap">
   <h2>后面各讲讲什么</h2>
-  <p>后面各讲的安排大体上也按这三层来分：第 2 到 9 讲讲系统的各个部件，第 10 讲起讲评估和数据。这一讲把所有的题目都点到了，每个题目后面都有专门的一讲或几讲。</p>
-  <p>表里有几个词先说明一下。第 2 讲题目里的搭建者，指搭 agent 的人。解码指模型算出下一个 token 的概率之后，从里面挑一个接到后面的过程，文字就是这样一步一步生成的。上下文工程指决定往上下文里放什么、怎么放。第 5 讲的编排，指安排一个系统里的各个步骤和各个 agent 按什么顺序运行、怎样配合。</p>
+  <p>后面各讲的安排大体上也按这三层来分：第 2 到 9 讲讲系统的各个部件，第 10 讲起讲评估和数据。这一讲提到的每个题目，后面都有专门的一讲或几讲来讲，对应关系见本节最后的表。</p>
+  <p>那张表里有几个词先说明一下。第 2 讲题目里的搭建者，指搭 agent 的人。解码指模型算出下一个 token 的概率之后，从里面挑一个接到后面的过程，文字就是这样一步一步生成的。结构化输出指让模型按规定的格式输出，比如 JSON，方便程序读取。上下文工程指决定往上下文里放什么、怎么放。第 5 讲的编排，指安排一个系统里的各个步骤和各个 agent 按什么顺序运行、怎样配合。</p>
+  <p>还有四个词。第 4 讲的函数调用（function calling），指模型按规定的格式输出一个函数名和一组参数。MCP 是连接 AI 应用和外部工具的标准协议。第 6 讲的 Reflexion，是让 agent 在失败后写一段反思、留给下一次尝试的做法。第 15 讲的用 LLM 当评审，指让一个 LLM 来给 agent 的输出打分。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">讲次</th><th scope="col">主题</th><th scope="col">接着这一讲的哪一部分</th></tr></thead>
       <tbody>
-        <tr><th scope="row">第 2 讲</th><td>给搭建者讲的 LLM：解码、上下文长度、推理时多花算力换更好的答案（test-time scaling）、结构化输出、上下文工程</td><td><a href="anatomy.html">第二部分</a>里的 LLM 核心</td></tr>
+        <tr><th scope="row">第 2 讲</th><td>给搭建者讲的 LLM：解码、上下文长度、在模型生成回答的时候多花算力换更好的答案（test-time scaling）、结构化输出、上下文工程</td><td><a href="anatomy.html">第二部分</a>里的 LLM 核心</td></tr>
         <tr><th scope="row">第 3 讲</th><td>检索增强生成（RAG）</td><td>本页的 <a href="#rag">RAG</a></td></tr>
         <tr><th scope="row">第 4 讲</th><td>工具使用和函数调用，包括 MCP</td><td><a href="tools.html">第五部分</a></td></tr>
         <tr><th scope="row">第 5、6 讲</th><td>框架与编排；agent 的设计模式，包括 ReAct、Reflexion 和几种 workflow 模式</td><td><a href="reasoning.html">第三部分</a>和本页</td></tr>
@@ -176,19 +183,19 @@
         <tr><th scope="row">第 9 讲</th><td>优化：优化 prompt 和上下文，优化模型权重</td><td><a href="challenges.html#training">第七部分</a>里的训练</td></tr>
         <tr><th scope="row">第 10 讲</th><td>Terminal-Bench：怎样评测 agent 在终端里完成真实任务的能力</td><td><a href="challenges.html#evaluation">第七部分</a>里的评估</td></tr>
         <tr><th scope="row">第 11、12 讲</th><td>agent 需要什么数据；数据的挑选和质量</td><td>上一节三层里的数据层</td></tr>
-        <tr><th scope="row">第 13、15 讲</th><td>评估基础与基准测试设计；用 LLM 当评审和评估的基础设施</td><td><a href="challenges.html#evaluation">第七部分</a>里的评估</td></tr>
+        <tr><th scope="row">第 13、15 讲</th><td>评估基础与基准测试设计；用 LLM 当评审，以及评估用的基础设施</td><td><a href="challenges.html#evaluation">第七部分</a>里的评估</td></tr>
       </tbody>
     </table>
-    <figcaption>表里的 orchestrator 指负责把任务分给几个 agent 的协调者。讲次和主题依据<a href="https://cs329z.stanford.edu/">课程主页</a>的日程。第 14 讲是一次对谈，这里没有列。之后的讲次还会讲 SWE-bench 和代码能力的评估、agent 的安全和防护、coding agent，以及不等用户吩咐就主动做事的个人 agent（proactive personal agent）。</figcaption>
+    <figcaption>表里的 orchestrator 指负责拆任务、派任务的 agent。讲次和主题依据<a href="https://cs329z.stanford.edu/">这门课的主页</a>上的日程。第 14 讲是一次对谈，这里没有列。之后的讲次还会讲 SWE-bench 和代码能力的评估、agent 的安全和防护、coding agent（替人写代码的 agent），以及不等用户吩咐就主动做事的个人 agent（proactive personal agent）。</figcaption>
   </figure>
 </section>
 
 <section class="sec" id="summary">
   <h2>这一部分的小结</h2>
   <ul>
-    <li>复合 AI 系统是多个部件配合完成任务的系统。四个理由让它成为主流：有些任务靠系统设计更容易提高，系统可以接上最新的数据，系统更好控制，系统可以按应用的需要调整质量和花费。</li>
+    <li>复合 AI 系统是多个部件配合完成任务的系统。提出这个词的文章用四个理由解释为什么要用这样的系统：有些任务上的成绩靠设计系统更容易提高，系统接的数据可以随时更新，系统更好控制，系统可以按应用的需要调整质量和花费。</li>
     <li>workflow 和 agent 的区别在于谁决定下一步。代码决定的是 workflow，LLM 决定的是 agent。</li>
-    <li>workflow 在步骤固定的任务上可以很强，例子是 AlphaCode 2 和 RAG。能用简单的办法做好时，就不必用 agent。</li>
+    <li>workflow 在步骤固定的任务上可以很强，例子是 AlphaCode 2。基本的 RAG 也是一种 workflow，用得很广。一次 LLM 调用配上检索和几个例子就能做好时，多步的 workflow 和 agent 都不必用。</li>
     <li>agent 工程分系统、数据、评估三层，查问题时先定位到层。后面各讲也大体按这三层排列。</li>
   </ul>
   <p>把这样的系统搭出来之后，还有哪些没有解决的问题，见<a href="challenges.html">第七部分</a>。</p>
@@ -198,6 +205,6 @@
   <h2>资料说明</h2>
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
-    <li><b>AlphaCode 2 的 87% 和 85%。</b>87% 是技术报告那张排名图横轴上的标注，报告正文和摘要写的都是第 85 百分位。报告里没有找到对这 2 个百分点差别的解释。出处：<a href="https://storage.googleapis.com/deepmind-media/AlphaCode2/AlphaCode2_Tech_Report.pdf">AlphaCode 2 技术报告</a>。</li>
+    <li><b>AlphaCode 2 的 87% 和 85%。</b>87% 是技术报告那张排名图横轴上的标注。报告的摘要写的是成绩好于 85% 的参赛者，正文写的是平均处在第 85 百分位。那张图的图注说，AlphaCode 2 的平均得分对应到排名轴上，位置明显高于第 85 百分位。报告里没有找到对这 2 个百分点差别的解释。出处：<a href="https://storage.googleapis.com/deepmind-media/AlphaCode2/AlphaCode2_Tech_Report.pdf">AlphaCode 2 技术报告</a>。</li>
   </ul>
 </section>

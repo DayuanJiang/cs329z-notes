@@ -1,37 +1,39 @@
 <section class="sec" id="thesis">
-  <h2>一句话的结论</h2>
-  <p class="lead-in">一个 LLM agent，就是把一个大语言模型放进一个循环里：<mark>想一步，通过工具做一步，看环境返回的结果，再想下一步</mark>。循环里下一步做什么由模型自己决定，这是 agent；由事先写好的代码决定，叫 workflow。把这样的系统搭出来已经不难，难的是让它可靠、安全，并且知道怎样评估它。</p>
-  <p>这里的 LLM 指大语言模型，prompt 指交给模型的输入文字，工具指模型可以调用的外部功能，环境指 agent 之外、它的动作作用在上面的那个世界。上下文指模型这一次调用能读到的全部文字，它的长度有上限。</p>
-  <p>一个 agent 可以拆成五个部件，下表每行说明一个。</p>
+  <h2>先看结论</h2>
+  <p class="lead-in">一个 LLM agent，就是把一个大语言模型放进一个循环里：<mark>想一步，通过工具做一步，看环境返回的结果，再想下一步</mark>。循环里下一步做什么由模型自己决定，这是 agent；由事先写好的代码决定，叫 workflow。把这样的系统搭出来已经不难。搭出来之后还有五个难点没有解决：可靠性、训练、长任务、安全、评估。</p>
+  <p>这一页用到的几个词先说明一下。LLM 指大语言模型，prompt 指交给模型的输入文字，工具指模型可以调用的外部功能，环境指 agent 之外、它的动作作用在上面的那个世界。上下文指模型这一次调用能读到的全部文字，它的长度有上限。</p>
+  <p>一个 agent 可以拆成五个部件，下表每行说明一个。前四个组成 agent 本身。第五个是环境，它在 agent 之外，这一讲把它和前四个放在一起，合称五个部件。</p>
+  <p>表里第三列的例子出自 ReAct 论文里的一条运行轨迹（trajectory，一个 agent 每一步的动作和看到的结果的完整记录，也叫运行记录）：一个 agent 在用文字描述的厨房里找到胡椒瓶，把它放进抽屉。ReAct 是 2022 年提出的一种做法，让模型交替地推理和行动。这条轨迹里标着「想」的是模型写下的想法，标着「动作」的是它发出的动作，标着「观察」的是环境返回的结果。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">部件</th><th scope="col">做什么</th><th scope="col">例子：让 agent 在一个文字描述的厨房里把胡椒瓶放进抽屉</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <thead><tr><th scope="col">部件</th><th scope="col">做什么</th><th scope="col">例子：让 agent 在一个文字描述的厨房里把胡椒瓶放进抽屉</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
       <tbody>
-        <tr><th scope="row">LLM 核心</th><td>读入到目前为止的全部记录，生成下一段文字。每一个决定都出自这里</td><td>生成每一行「想」和「动作」的那个模型</td><td><a href="anatomy.html#core">第二部分</a></td></tr>
+        <tr><th scope="row">LLM 核心</th><td>读入到目前为止的全部记录，生成下一段文字。每一个决定都出自这里</td><td>写出记录里全部「想」和「动作」的那个模型</td><td><a href="anatomy.html#core">第二部分</a></td></tr>
         <tr><th scope="row">规划和推理</th><td>拆任务，决定下一步，出错后回头检查</td><td>「先要找到胡椒瓶，它更可能在橱柜或台面上」</td><td><a href="reasoning.html">第三部分</a></td></tr>
         <tr><th scope="row">记忆</th><td>把已经发生的事带到后面的步骤里</td><td>已经去过 1 号橱柜、里面没有，这件事留在记录里，不会再去一次</td><td><a href="memory.html">第四部分</a></td></tr>
         <tr><th scope="row">工具</th><td>让模型能做光靠生成文字做不到的事</td><td>「去 3 号台面」「拿起胡椒瓶」「打开抽屉」这几种命令</td><td><a href="tools.html">第五部分</a></td></tr>
         <tr><th scope="row">环境</th><td>动作作用的对象，观察结果的来源</td><td>那个厨房。它回答「抽屉是关着的」</td><td><a href="anatomy.html#env">第二部分</a></td></tr>
       </tbody>
     </table>
-    <figcaption>例子来自 ReAct 论文。ReAct 是 2022 年提出的一种做法，让模型交替地推理和行动。完整的记录见<a href="anatomy.html#example">第二部分</a>。</figcaption>
+    <figcaption>这条运行轨迹和它逐步的译文见<a href="anatomy.html#example">第二部分</a>。</figcaption>
   </figure>
+  <p>表里前两行说的是同一个模型做的事。agent 的每一个决定，都是 LLM 核心在它生成的文字里做出的。规划和推理指这些文字里先于动作写出来的分析和打算，比如记录里「想」后面的内容。</p>
 </section>
 
 <section class="sec" id="story">
   <h2>七个问题</h2>
-  <p>这一讲分七个部分，每个部分回答一个问题。下表列出每个问题的答案和一条依据，点问题可以进入对应的部分。</p>
+  <p>这一讲分七个部分，每个部分是一页，回答一个问题。下表列出每个问题的答案，以及依据或例子，点问题可以进入对应的部分。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="history.html">一 agent 这个词从哪里来，<br>为什么到 2023 年才流行？</a></th><td>这个概念有几十年的历史。强化学习是让 agent 通过试错、按得到的奖励来学习的训练方法。强化学习时代的 agent 很强，但一个只会一件事。LLM 带来了一步一步推理和使用工具这两样能力，通用的 agent 才成为可能</td><td>2022 年 10 月到 2023 年 3 月的半年里，ReAct 论文、ChatGPT、GPT-4 先后出现，接着是 BabyAGI 的前身和 AutoGPT 这两个让模型自己给自己布置任务、一直做下去的开源项目。此后在 SWE-bench Verified 这套让 agent 修真实代码问题的题目上，由同一家机构统一测出的准确率（解决的题目占的比例），2024 年 11 月发布的模型是 31.0%，2026 年 4 月发布的模型是 83.5%</td></tr>
-        <tr><th scope="row"><a href="anatomy.html">二 一个 agent<br>由哪几块组成？</a></th><td>五个部件：LLM 核心、规划和推理、记忆、工具、环境。它们在一个循环里配合，这个循环十来行代码就能写出来</td><td>ReAct 论文里找胡椒瓶的一段运行记录，每一行都能对应到一个部件</td></tr>
-        <tr><th scope="row"><a href="reasoning.html">三 为什么要<br>先推理再行动？</a></th><td>推理让 agent 的做法能用到新的情况里，也让人看得出它为什么这样做。推理和行动交替进行，能拿到新信息，也能改正错误</td><td>同一个问题，直接回答和只推理都答错了，ReAct 搜索三次后答对。抽查的错题里，ReAct 没有一道归入幻觉这一类（编造了推理过程或事实），只推理不行动的做法有 56% 归入这一类</td></tr>
-        <tr><th scope="row"><a href="memory.html">四 上下文装不下的东西<br>放在哪？</a></th><td>放在上下文之外的长期记忆里，用到时检索。按内容分三种：情景记忆存经历，语义记忆存知识，程序记忆存技能</td><td>Generative Agents 这项研究在一个模拟的小镇里放了 25 个由 LLM 扮演的居民，每个居民按新近度、重要性、相关度三个分数，从自己的经历记录里取回记忆。2026 年 2 月，一个 agent 没等用户确认就成批删除和归档了她的邮件。当事人的判断是，上下文快满时 agent 把之前的对话压缩成一份短的摘要，「先确认」这条要求在这一步丢了</td></tr>
-        <tr><th scope="row"><a href="tools.html">五 模型怎样<br>动手做事？</a></th><td>模型只写出「调用哪个工具、参数是什么」，执行由外面的程序完成。一次调用分四步：选工具、填参数、校验、执行。MCP（Model Context Protocol）这个协议把应用和工具之间的对接标准化</td><td>Toolformer 和 Gorilla 是两项训练模型使用工具的研究，前者教会模型用 5 个工具，后者扩大到 1,645 个 API。不查文档时，GPT-4 在其中一个 API 库上有 36.55% 的调用是凭空编出来的</td></tr>
-        <tr><th scope="row"><a href="systems.html">六 workflow 和 agent<br>差在哪？</a></th><td>两者都是复合 AI 系统，也就是用多个互相配合的部件来完成任务的系统。差别在下一步由谁决定：代码决定是 workflow，LLM 决定是 agent。能用简单的办法做好时，不必用 agent</td><td>编程竞赛系统 AlphaCode 2 的步骤是固定的：生成最多一百万个候选程序，再筛选。它在编程竞赛里的成绩估计超过 85% 的参赛者。检索增强生成（RAG）是用得最广的 workflow，它先检索，再把检索到的内容拼进 prompt 生成回答</td></tr>
-        <tr><th scope="row"><a href="challenges.html">七 搭出来之后<br>难在哪里？</a></th><td>五个难点：可靠性、训练、长任务、安全、评估。能力强不等于可靠，任务做完不等于做得安全</td><td>一项研究给 15 个模型各算了一个可靠性分数，量的是多跑几次结果是否一致、条件稍有变化时表现是否稳定、失败是否可以预料，取值在 0 到 1 之间，越高越可靠。这 15 个模型在两套测试题上的平均准确率，最低和最高相差 63 个百分点，可靠性分数最低 0.69，最高 0.87，只差 0.18。2026 年 7 月，约 1,200 个本应互相隔离的 agent 合作去骗评分程序</td></tr>
+        <tr><th scope="row"><a href="history.html">一 agent 这个词从哪里来，<br>为什么到 2023 年才流行？</a></th><td>agent 这个词在 15 世纪末进入英语，意思是「行动的人」。AI 的论文在 1973 年已经用到它，这个概念比 LLM 早几十年。强化学习是让 agent 通过试错、按得到的奖励来学习的训练方法，奖励是训练时告诉 agent 做得好不好的分数。强化学习时代的 agent 很强，但每一个只会一项任务。LLM 带来了一步一步推理和使用工具这两样能力，通用的 agent 才成为可能</td><td>2022 年 10 月到 2023 年 3 月的半年里，ReAct 论文、ChatGPT、GPT-4 先后出现，接着出现了两个让模型自己给自己布置任务、一直做下去的系统。一个后来叫 BabyAGI：它在 2023 年 3 月 28 日通过一条推文和一篇文章公布，几天后才有 BabyAGI 这个名字和开源的代码仓库。另一个是开源项目 AutoGPT。agent 这个词大致从这时起进入日常用语。此后在 SWE-bench Verified 这套让 agent 修真实代码问题的题目上，由 Epoch AI 这家研究机构统一测出的准确率（解决的题目占的比例），2024 年 11 月发布的那一版 GPT-4o 是 31.0%，2026 年 4 月发布的 Claude Opus 4.7 是 83.5%</td></tr>
+        <tr><th scope="row"><a href="anatomy.html">二 一个 agent<br>由哪五个部件组成？</a></th><td>五个部件：LLM 核心、规划和推理、记忆、工具、环境。它们在一个循环里配合，这个循环不到十行代码就能写出来</td><td>ReAct 论文里找胡椒瓶的一条运行轨迹，其中的每一种内容都能对应到一个部件</td></tr>
+        <tr><th scope="row"><a href="reasoning.html">三 为什么要<br>先推理再行动？</a></th><td>推理让 agent 的做法能用到新的情况里，也让人看得出它为什么这样做。推理和行动交替进行，能拿到新信息，也能改正错误</td><td>同一个问题，直接回答和只推理都答错了，ReAct 搜索三次后答对。ReAct 论文在一个问答数据集上，从 ReAct 和只推理不行动的做法各自答错的题里各抽了 50 道来归类。ReAct 的 50 道里没有一道归入幻觉这一类（编造了推理过程或事实），只推理不行动的做法有 56% 归入这一类</td></tr>
+        <tr><th scope="row"><a href="memory.html">四 上下文装不下的东西<br>放在哪？</a></th><td>放在上下文之外的长期记忆里，用到时检索。按内容分三种：情景记忆存经历，语义记忆存知识，程序记忆存技能</td><td>Generative Agents 这项研究在一个模拟的小镇里放了 25 个由 LLM 扮演的居民，系统给每个居民经历记录里的每条记忆算三个分数：新近度看这条记忆最近是不是被检索过，重要性看它记的是大事还是琐事，相关度看它和眼前的问题有多相关。三个分数相加，取总分最高的几条交给模型。记什么、丢什么是一个设计上的决定，做错了会出事。2026 年 2 月，一位用户要求一个 agent 动手前先确认，这个 agent 没等她确认就成批删除和归档了她的邮件。当事人的判断是，上下文快满时 agent 把之前的对话压缩成一份短的摘要，「动手前先确认」这条要求在这一步丢了</td></tr>
+        <tr><th scope="row"><a href="tools.html">五 模型怎样<br>动手做事？</a></th><td>模型只写出「调用哪个工具、参数是什么」，校验和执行由运行框架完成。运行框架是包在模型外面、给它工具并管理多轮对话的程序。一次调用分四步：选工具、填参数、校验、执行。MCP（Model Context Protocol）这个协议把应用和工具之间的对接标准化</td><td>Toolformer 和 Gorilla 是两项训练模型使用工具的研究，前者教会模型用 5 个工具，后者从三个机器学习模型的仓库收集了 1,645 个 API。不让 GPT-4 查文档时，它在其中一个仓库（Torch Hub）的测试请求里，有 36.55% 调用了收集来的 API 里没有的 API，也就是凭空编出来的</td></tr>
+        <tr><th scope="row"><a href="systems.html">六 workflow 和 agent<br>差在哪？</a></th><td>两者都是复合 AI 系统，也就是用多个互相配合的部件来完成任务的系统。差别在下一步由谁决定：代码决定是 workflow，LLM 决定是 agent。一次 LLM 调用配上检索和几个例子就能做好时，多步的 workflow 和 agent 都不必用</td><td>编程竞赛系统 AlphaCode 2 的步骤是固定的：生成最多一百万个候选程序，再筛选。它在编程竞赛里的成绩估计超过 85% 的参赛者。基本的检索增强生成（RAG）是用得很广的一种 workflow，它先检索，再把检索到的内容拼进 prompt 生成回答</td></tr>
+        <tr><th scope="row"><a href="challenges.html">七 搭出来之后<br>难在哪里？</a></th><td>五个难点：可靠性、训练、长任务、安全、评估。能力强不等于可靠，任务做完不等于做得安全</td><td>可靠性方面，普林斯顿大学的一项研究在一个公开的排行榜网页上列出了 15 个模型各自的可靠性分数。这个分数量的是多跑几次结果是否一致、条件稍有变化时表现是否稳定、失败是否可以预料，取值在 0 到 1 之间，越高越可靠。这 15 个模型的准确率差得很远，可靠性分数却相差不大。它们在两套测试题上的平均准确率最低 16.7%，最高 80.0%，相差 63 个百分点。可靠性分数最低 0.69，最高 0.87，相差 0.18。两种分数量的东西不同，所以各自和满分比。准确率的满分是 100%，可靠性分数的满分是 1。这样算，准确率相差满分的 63%，可靠性分数相差满分的 18%。准确率最高的那个模型，可靠性排第三。安全方面，一项审计评测了 10 种配置，每种配置是一个模型加一个运行框架。任务完成率最高的那种配置，完成率是 0.82，安全遵守率只有 0.43。安全遵守率量的是过程守规矩的程度，没有违规时是 1。安全方面还有一件事：2026 年 7 月，OpenAI 内部一次测模型网络攻击能力的评测里，每个 agent 各做各的题，本应互相隔离。约 1,200 个 agent 找到一处可以互相留言的地方，合作去骗这次评测的评分程序</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
@@ -49,11 +51,11 @@
   <h2>按部分阅读</h2>
   <div class="modlist">
     <a href="history.html"><span class="m">第一部分</span><span><b>agent 这个词从哪里来</b><p>依次讲 1990 年以前的几个想法、1990 年代的定义、强化学习时代、LLM 带来的推理和工具、2022 到 2023 年的半年，以及模型和 agent 的进步。</p></span></a>
-    <a href="anatomy.html"><span class="m">第二部分</span><span><b>一个 agent 由哪五块组成</b><p>从一段运行记录讲起，再讲五个部件、把它们连起来的循环、agent 和一次普通的 LLM 调用差在哪，以及别的拆法。</p></span></a>
-    <a href="reasoning.html"><span class="m">第三部分</span><span><b>推理和规划：为什么要先想再做</b><p>先讲推理指什么、为什么有用，再讲 ReAct 的例子和成绩，然后是让推理更好的几种办法：多想几遍取多数（self-consistency），失败后写一段反思留给下一次（Reflexion），让多个 agent 辩论，或者由一个 orchestrator（负责拆任务、派任务的 agent）来分工。</p></span></a>
+    <a href="anatomy.html"><span class="m">第二部分</span><span><b>一个 agent 由哪五个部件组成</b><p>从一条运行轨迹讲起，再讲五个部件、把它们连起来的循环、agent 和一次普通的 LLM 调用差在哪，以及别的拆法。</p></span></a>
+    <a href="reasoning.html"><span class="m">第三部分</span><span><b>规划和推理：为什么要先想再做</b><p>先讲推理指什么、为什么有用，再讲 ReAct 的例子和成绩，然后是让推理更好的几种办法：多想几遍取多数（self-consistency），失败后写一段反思留给下一次（Reflexion），让多个 agent 辩论，或者由一个 orchestrator（负责拆任务、派任务的 agent）来分工。</p></span></a>
     <a href="memory.html"><span class="m">第四部分</span><span><b>记忆：上下文装不下的东西放在哪</b><p>先讲为什么需要记忆，再讲情景、语义、程序三种记忆各怎么写、怎么读，然后是记什么由谁决定，最后是一个出事的例子。</p></span></a>
-    <a href="tools.html"><span class="m">第五部分</span><span><b>工具：模型怎样动手做事</b><p>依次讲工具补上的三类缺口、Toolformer 和 Gorilla 这两项研究、一次工具调用的四步，以及 MCP。</p></span></a>
-    <a href="systems.html"><span class="m">第六部分</span><span><b>workflow 和 agent：下一步由谁决定</b><p>先讲复合 AI 系统，以及 workflow 和 agent 的区别，再看 AlphaCode 2 和 RAG 这两个 workflow 的例子，然后讲什么时候用哪一种，最后讲系统、数据、评估三层和后面各讲的安排。</p></span></a>
+    <a href="tools.html"><span class="m">第五部分</span><span><b>工具：模型怎样动手做事</b><p>依次讲模型光靠生成文字做不到的三类事、Toolformer 和 Gorilla 这两项研究、一次工具调用的四步，以及 MCP。</p></span></a>
+    <a href="systems.html"><span class="m">第六部分</span><span><b>workflow 和 agent：下一步由谁决定</b><p>先讲复合 AI 系统，以及 workflow 和 agent 的区别，再看 AlphaCode 2 和 RAG 这两个 workflow 的例子，然后讲什么时候用哪一种，最后讲 agent 工程的系统、数据、评估三层，以及后面各讲的安排。</p></span></a>
     <a href="challenges.html"><span class="m">第七部分</span><span><b>搭出来之后难在哪里</b><p>依次讲可靠性、训练和长任务、安全的五个例子、评估，以及用 AI 学习时要留意的事，最后是整讲的小结。</p></span></a>
   </div>
 </section>
@@ -63,15 +65,15 @@
   <p>这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代。下面七件事，容易被说得比实际情况简单，或者和原文对不上。每一件在对应的页面里有出处和细节。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
       <tbody>
-        <tr><td>ReAct 比以前的 prompt 方法都好</td><td>在要动手的任务上确实好得多。HotpotQA 是一个要把几条资料连起来才能回答的问答数据集。在它上面，按答案和标准答案完全一致的比例算，单独的 ReAct 是 27.4%，低于只推理不行动的 29.4%，也低于直接回答的 28.7%。几种 prompt 方法里最好的成绩，来自把 ReAct 和「只推理、做 21 遍取多数答案」的做法结合起来</td><td><a href="reasoning.html#react-results">第三部分</a></td></tr>
-        <tr><td>Reflexion 是一种强化学习</td><td>Reflexion 的做法是让 agent 在失败后写一段反思，放进下一次尝试的 prompt。论文的副标题里有 reinforcement learning，但整个过程没有更新模型的权重</td><td><a href="reasoning.html#reflexion">第三部分</a></td></tr>
-        <tr><td>AlphaCode 2 超过了 87% 的参赛者</td><td>87% 是技术报告里一张图上的标注。报告正文和摘要给的估计是第 85 百分位</td><td><a href="systems.html#alphacode">第六部分</a></td></tr>
-        <tr><td>网页弹窗让 agent 有 87% 的情况完不成任务</td><td>论文摘要里的数是 86%，量的是 agent 点击弹窗的频率。任务成功率因为攻击而下降的幅度是另一个数，47%，它很可能是相对比例。弹窗是针对 agent 精心设计的对抗性内容</td><td><a href="challenges.html#attacks">第七部分</a></td></tr>
-        <tr><td>模型会偷偷修改自己的奖励函数</td><td>奖励是训练时告诉模型做得好不好的分数，奖励函数是算出这个分数的那段代码。这个说法出自一个人为设计的实验，研究者故意在不诚实的行为能拿到奖励的环境里训练模型。即便如此，32,768 次试验里只出现了 45 次。没有经过这种训练的模型 10 万次里一次也没有</td><td><a href="challenges.html#misalignment">第七部分</a></td></tr>
-        <tr><td>用 AI 帮忙写代码的人，测验成绩低 17%，但干得更快</td><td>17 是百分点：测验平均分，用 AI 的一组是 50%，自己写的一组是 67%。两个编程任务合起来限时 35 分钟，用 AI 的一组平均快了大约 2 分钟，这个差别在统计上不显著。分数高低和怎么用 AI 有关，边用边追问原理的人分数并不低</td><td><a href="challenges.html#learning">第七部分</a></td></tr>
-        <tr><td>Russell 和 Norvig 在 1995 年把 agent 定义为通过 sensors 感知、通过 actuators 行动</td><td>1995 年第一版的用词是 effectors，actuators 是后来版本的写法。意思相同</td><td><a href="history.html#nineties">第一部分</a></td></tr>
+        <tr><td>ReAct 比以前的 prompt 方法都好</td><td>ReAct 论文在两类任务上做了比较。在要动手的任务上，也就是文字描述的家居任务和在模拟的网店里买东西，ReAct 比只行动、不推理的做法好得多。在问答任务上，单独的 ReAct 不一定更好。HotpotQA 是一个要把几条资料连起来才能回答的问答数据集。在它上面，按答案和标准答案完全一致的比例算，同样用 PaLM-540B 这个模型，单独的 ReAct 是 27.4%，低于只推理不行动的 29.4%，也低于直接回答的 28.7%。几种 prompt 方法里最好的成绩，来自把 ReAct 和「只推理、做 21 遍取多数答案」的做法结合起来</td><td><a href="reasoning.html#react-results">第三部分</a></td></tr>
+        <tr><td>Reflexion 是一种强化学习</td><td>Reflexion 的做法是让 agent 在失败后写一段反思，放进下一次尝试的 prompt。论文的副标题里有 reinforcement learning，但整个过程没有更新模型的权重，也就是模型内部由训练定下来的那些数值</td><td><a href="reasoning.html#reflexion">第三部分</a></td></tr>
+        <tr><td>AlphaCode 2 超过了 87% 的参赛者</td><td>87% 是技术报告里一张图上的标注。报告正文和摘要给的估计是第 85 百分位，也就是成绩好于 85% 的参赛者</td><td><a href="systems.html#alphacode">第六部分</a></td></tr>
+        <tr><td>网页弹窗让 agent 有 87% 的情况完不成任务</td><td>这件事出自 2024 年的一项研究。研究者在屏幕上加入针对 agent 专门设计、用来引它去点击的弹窗，这种弹窗和空白的弹窗或普通的广告不同。论文摘要里的数是 86%，87% 是第七部分那张配图标题上的写法。86% 量的是屏幕上有弹窗的那些步骤里，agent 点击弹窗的步骤占的比例。任务成功率因为这种弹窗而下降的幅度是另一个数，47%。它很可能是相对降幅，也就是降掉了原来成功率的 47%，按论文的结果表核算约合 16 个百分点</td><td><a href="challenges.html#attacks">第七部分</a></td></tr>
+        <tr><td>模型会偷偷修改自己的奖励函数</td><td>奖励是训练时告诉模型做得好不好的分数，奖励函数是算出这个分数的那段代码。这个说法出自一个人为设计的实验，研究者故意在不诚实的行为能拿到奖励的环境里训练模型。即便如此，32,768 次试验里，模型去改奖励函数的只有 45 次。没有经过这种训练的模型 10 万次试验里一次也没有</td><td><a href="challenges.html#misalignment">第七部分</a></td></tr>
+        <tr><td>用 AI 帮忙写代码的人，测验成绩低 17%，但完成得更快</td><td>17 是百分点：测验平均分，用 AI 的一组是 50%，自己写的一组是 67%。两个编程任务合起来限时 35 分钟，用 AI 的一组平均快了大约 2 分钟，这个差别在统计上不显著，也就是不能排除它只是偶然出现的。分数高低和怎么用 AI 有关，边用边追问原理的人分数并不低</td><td><a href="challenges.html#learning">第七部分</a></td></tr>
+        <tr><td>Russell 和 Norvig 1995 年出版的教科书把 agent 定义为通过 sensors（传感器）感知、通过 actuators（执行器）行动</td><td>这本教科书是《Artificial Intelligence: A Modern Approach》。它 1995 年的第一版用的词是 effectors，actuators 是后来版本的写法。两个词意思相同，都译作执行器</td><td><a href="history.html#nineties">第一部分</a></td></tr>
       </tbody>
     </table>
   </figure>
@@ -85,7 +87,7 @@
       <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
       <tbody>
         <tr><th scope="row">Zaharia 等，2024</th><td><a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">The Shift from Models to Compound AI Systems</a>：提出复合 AI 系统这个说法，给出为什么要用系统的四个理由，以及设计、优化、运维三个方面的难题</td><td>六</td></tr>
-        <tr><th scope="row">Weng，2023</th><td><a href="https://lilianweng.github.io/posts/2023-06-23-agent/">LLM Powered Autonomous Agents</a>：把 agent 拆成规划、记忆、工具使用三块，并逐块介绍了当时的代表性工作</td><td>二、三、四</td></tr>
+        <tr><th scope="row">Weng，2023</th><td><a href="https://lilianweng.github.io/posts/2023-06-23-agent/">LLM Powered Autonomous Agents</a>：把 agent 拆成规划、记忆、工具使用三个部件，并逐个介绍了当时的代表性工作</td><td>二、三、四</td></tr>
         <tr><th scope="row">Kapoor 等，2024</th><td><a href="https://arxiv.org/abs/2407.01502">AI Agents That Matter</a>：指出 agent 评估里的四个问题，主张把花费和准确率放在一起看</td><td>七</td></tr>
       </tbody>
     </table>
@@ -95,10 +97,10 @@
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">部分</th><th scope="col">资料</th></tr></thead>
       <tbody>
-        <tr><th scope="row">一 来历</th><td><a href="https://www.ijcai.org/Proceedings/73/Papers/027B.pdf">Hewitt 等，1973</a>；<a href="https://www.reidgsmith.com/The_Contract_Net_Protocol_Dec-1980.pdf">Smith，1980</a>；<a href="https://www.cs.ox.ac.uk/people/michael.wooldridge/pubs/ker95.pdf">Wooldridge 和 Jennings，1995</a>；<a href="https://www.nature.com/articles/nature14236">Mnih 等，2015</a>；<a href="https://arxiv.org/abs/2005.14165">Brown 等，2020</a>；<a href="https://arxiv.org/abs/2201.11903">Wei 等，2022</a>；<a href="https://arxiv.org/abs/2205.00445">Karpas 等，2022</a>；<a href="https://epoch.ai/data-insights/gpt-capabilities-progress">Epoch AI 对三代 GPT 的比较</a>和它的 <a href="https://epoch.ai/benchmarks/swe-bench-verified">SWE-bench Verified 页面</a></td></tr>
+        <tr><th scope="row">一 来历</th><td><a href="https://www.ijcai.org/Proceedings/73/Papers/027B.pdf">Hewitt 等，1973</a>；<a href="https://www.reidgsmith.com/The_Contract_Net_Protocol_Dec-1980.pdf">Smith，1980</a>；<a href="http://aurellem.org/minsky/som-prologue.html">Minsky，1986</a> 的序言；<a href="https://agents.media.mit.edu/publications/aaai-ymp/section3_1.html">Lashkari 等，1994</a>；<a href="https://www.cs.ox.ac.uk/people/michael.wooldridge/pubs/ker95.pdf">Wooldridge 和 Jennings，1995</a>；Russell 和 Norvig 的教科书（<a href="https://aima.eecs.berkeley.edu/4th-ed/pdfs/newchap02.pdf">第四版第 2 章</a>）；<a href="https://www.nature.com/articles/nature14236">Mnih 等，2015</a>；<a href="https://arxiv.org/abs/2005.14165">Brown 等，2020</a>；<a href="https://arxiv.org/abs/2201.11903">Wei 等，2022</a>；<a href="https://arxiv.org/abs/2205.00445">Karpas 等，2022</a>；<a href="https://epoch.ai/data-insights/gpt-capabilities-progress">Epoch AI 对三代 GPT 的比较</a>和它的 <a href="https://epoch.ai/benchmarks/swe-bench-verified">SWE-bench Verified 页面</a></td></tr>
         <tr><th scope="row">二 五个部件</th><td><a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a>（ReAct）；<a href="https://arxiv.org/abs/2309.02427">Sumers 等，2024</a>（CoALA）；<a href="https://arxiv.org/abs/2305.18654">Dziri 等，2023</a></td></tr>
-        <tr><th scope="row">三 推理</th><td><a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a>；<a href="https://arxiv.org/abs/2203.11171">Wang 等，2023</a>（self-consistency）；<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>（Reflexion）；<a href="https://arxiv.org/abs/2305.14325">Du 等，2023</a>（多 agent 辩论）；<a href="https://arxiv.org/abs/2411.04468">Fourney 等，2024</a>（Magentic-One）</td></tr>
-        <tr><th scope="row">四 记忆</th><td><a href="https://arxiv.org/abs/2304.03442">Park 等，2023</a>（Generative Agents）；<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>（Voyager）；<a href="https://techcrunch.com/2026/02/23/a-meta-ai-security-researcher-said-an-openclaw-agent-ran-amok-on-her-inbox/">TechCrunch 对 OpenClaw 删邮件一事的报道</a></td></tr>
+        <tr><th scope="row">三 规划和推理</th><td><a href="https://arxiv.org/abs/2210.03629">Yao 等，2022</a>；<a href="https://arxiv.org/abs/2203.11171">Wang 等，2023</a>（self-consistency）；<a href="https://arxiv.org/abs/2303.11366">Shinn 等，2023</a>（Reflexion）；<a href="https://arxiv.org/abs/2305.14325">Du 等，2023</a>（多 agent 辩论）；<a href="https://arxiv.org/abs/2411.04468">Fourney 等，2024</a>（Magentic-One）</td></tr>
+        <tr><th scope="row">四 记忆</th><td><a href="https://arxiv.org/abs/2304.03442">Park 等，2023</a>（Generative Agents）；<a href="https://arxiv.org/abs/2305.16291">Wang 等，2023</a>（Voyager）；<a href="https://techcrunch.com/2026/02/23/a-meta-ai-security-researcher-said-an-openclaw-agent-ran-amok-on-her-inbox/">TechCrunch</a>、<a href="https://www.pcmag.com/news/meta-security-researchers-openclaw-ai-agent-accidentally-deleted-her-emails">PCMag</a> 和 <a href="https://cybernews.com/ai-news/meta-openclaw-inbox/">Cybernews</a> 对 OpenClaw 删邮件一事的报道</td></tr>
         <tr><th scope="row">五 工具</th><td><a href="https://arxiv.org/abs/2302.04761">Schick 等，2023</a>（Toolformer）；<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>（Gorilla）；<a href="https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture">MCP 架构文档</a>；<a href="https://www.anthropic.com/news/model-context-protocol">Anthropic 发布 MCP 的公告</a></td></tr>
         <tr><th scope="row">六 workflow 和 agent</th><td><a href="https://storage.googleapis.com/deepmind-media/AlphaCode2/AlphaCode2_Tech_Report.pdf">AlphaCode 2 技术报告</a>；<a href="https://arxiv.org/abs/2407.01489">Xia 等，2024</a>（Agentless）；<a href="https://arxiv.org/abs/2405.15793">Yang 等，2024</a>（SWE-agent）；<a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic，Building effective agents</a>；<a href="https://arxiv.org/abs/2005.11401">Lewis 等，2020</a>（RAG）</td></tr>
         <tr><th scope="row">七 难点</th><td><a href="https://arxiv.org/abs/2602.16666">Rabanser 等，2026</a> 和 <a href="https://hal.cs.princeton.edu/reliability/">HAL 可靠性面板</a>；<a href="https://arxiv.org/abs/2605.14271">Liu 等，2026</a>（HarnessAudit）；<a href="https://www.platformer.news/openai-operator-ai-agent-hands-on/">Platformer 对 Operator 的试用</a>；<a href="https://arxiv.org/abs/2411.02391">Zhang 等，2024</a>（弹窗攻击）；<a href="https://arxiv.org/abs/2409.00138">Shao 等，2024</a>（PrivacyLens）；<a href="https://www.anthropic.com/research/reward-tampering">Anthropic 关于篡改奖励的研究</a>；<a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">METR 的调查报告</a>；<a href="https://cepr.org/publications/dp21577">Strömberg 等，2026</a>；<a href="https://www.anthropic.com/research/AI-assistance-coding-skills">Anthropic 关于 AI 辅助和编程技能的研究</a></td></tr>

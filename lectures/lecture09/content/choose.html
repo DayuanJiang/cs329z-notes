@@ -1,11 +1,11 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>这一讲的优化办法分两类。一类只改 prompt（发给语言模型的那段输入文字），不动权重，叫上下文优化，论文里常叫 prompt 优化。另一类改模型的权重，叫权重优化，靠 fine-tuning（微调，在已有模型上用新数据继续训练）。</li>
-    <li>改权重的办法前面讲了三种：监督微调让学生模型照着教师模型的运行轨迹学，强化学习让学生自己做任务、按结果给奖励，on-policy 蒸馏让教师给学生自己写下的每个 token（模型处理文字的最小单位）打分。教师指一个强的模型，学生指要训练的那个更小的模型，运行轨迹指一次运行里每一步的动作和看到的结果的完整记录。</li>
+    <li>按改的是什么，这一讲把优化办法分成两类。一类只改 prompt（发给语言模型的那段输入文字），不动权重，叫上下文优化，论文里常叫 prompt 优化。另一类改模型的权重，也就是模型内部的参数，叫权重优化，靠 fine-tuning（微调，在已有模型上用新数据继续训练）。第六部分另外讲了让 agent（能自己调用工具、分很多步去完成任务的语言模型系统）来做优化，这一页讲的是这两类怎么选。</li>
+    <li>改权重的办法前面讲了三种。监督微调让学生模型照着教师模型的运行轨迹学。强化学习让学生自己做任务、按结果给奖励。on-policy 蒸馏让学生自己写，再让教师给学生写下的每个 token（模型处理文字的最小单位）打分。这里的教师指一个更强的、已经能把任务做好的模型，学生指要训练的那个模型，运行轨迹指一次运行里每一步的动作和看到的结果的完整记录。蒸馏指让学生模型学习教师模型的行为，on-policy 指训练用的数据由学生模型自己产生。</li>
     <li>改 prompt 和改权重可以搭配着用，一种做完再做另一种。一项实验在 9 种模型和任务的搭配上比较了各种顺序，其中 7 种搭配上，最好的做法都同时用了两者。哪一种顺序最好，没有定论。</li>
-    <li>上下文优化需要的运行次数少得多。在一个 8B（约 80 亿个参数）的开源模型上，GEPA（第三部分讲的一种上下文优化方法）用几千次运行得到的平均分，比强化学习用 24,000 次运行得到的还高约 6 个百分点。</li>
-    <li>权重优化需要的数据更多，数据多了以后还能继续提高。一项监督微调的实验里，训练数据从 316 条加到 10 万条，从图上读，七个测试的平均成绩每一档都比前一档高，前提是新增的数据让任务的说法更多样。</li>
+    <li>上下文优化需要的运行次数少得多。把系统在一道题上从头到尾跑一次，算一次运行。在一个 8B（约 80 亿个参数）的开源模型上，GEPA（第三部分讲的一种上下文优化方法）在每个任务上用几千次运行，强化学习在每个任务上用 24,000 次运行。按六个任务的平均分算，GEPA 还比强化学习高约 6 个百分点。</li>
+    <li>权重优化需要的数据更多，数据多了以后还能继续提高。一项监督微调的实验用了从 316 条到 10 万条共六种大小的训练数据。Qwen3-32B 这个模型在七个基准测试（benchmark，一组题目加一个打分的办法）上的平均成绩，训练数据每大一级都比前一级高，这是从论文的图上读出来的。最后从 3.16 万条加到 10 万条的那一段提高有一个前提：新增的数据让任务的说法更多样。</li>
     <li>选上下文优化的理由：模型只能通过 API 调用，需要经常、快速地重新优化，或者每次运行都很贵。选权重优化的理由：上下文优化不起作用，手上有强的教师而想要更便宜的模型，或者 prompt 已经太长。</li>
   </ul>
 </section>
@@ -13,8 +13,8 @@
 <section class="sec" id="together">
   <h2>改 prompt 和改权重可以先后搭配：BetterTogether</h2>
   <p>先看一个把两类优化组合起来的实验。BetterTogether（Soylu 等，2024）优化的是语言模型程序：把一个语言模型系统写成一段程序，程序里每一次对语言模型的调用叫一个模块，每个模块有自己的 prompt。它对同一个模型交替做两件事：优化 prompt，和微调权重。</p>
-  <p>两个步骤用的数据都是程序自己生成的，办法是<a href="fewshot.html#bootstrap">第二部分</a>的 bootstrap：拿训练题去跑程序，把做对的那些运行记录留下来。</p>
-  <p>两个步骤拿这些记录各做一件事。优化 prompt 时，把记录当作候选示例，用随机搜索给每个模块挑出一组放进 prompt。微调权重时，把记录当作训练数据，用 LoRA（一种只训练少量附加参数的微调办法）训练模型。</p>
+  <p>两个步骤用的数据都是程序自己生成的，办法是<a href="fewshot.html#bootstrap">第二部分</a>的 bootstrap：拿训练题去跑程序，把做对的那些运行轨迹留下来。</p>
+  <p>两个步骤拿这些轨迹各做一件事。优化 prompt 时，把轨迹当作候选示例（放进 prompt 的做好了的例子），用随机搜索给每个模块挑出一套放进 prompt，做法是随机试很多套示例、留下分数最高的一套。微调权重时，把轨迹当作训练数据，用 LoRA（一种只训练少量附加参数的微调办法）训练模型。</p>
   <p>论文比较了八种做法。一种是什么都不做，两种是只做其中一种，两种是同一种做两遍，剩下三种是两者都做、先后顺序不同的做法：先 prompt 再权重，先权重再 prompt，以及先 prompt、再权重、再 prompt。</p>
   {{fig 118 | 左边是算法：先优化 prompt，再微调权重，再优化一次 prompt。右边是结果表：三个模型，每个模型三个任务，每一行是一种做法。表里的 Π 代表优化 prompt，Θ 代表微调权重，箭头表示先后。每一列里加粗的是最高分。图片来源：<a href="https://arxiv.org/abs/2407.10930">Soylu 等，2024</a>。}}
   <p>下面把这张表换一种排法：每一行是一种模型和任务的搭配，列出只用一种办法时的成绩，和这个搭配上最好的做法。</p>
@@ -22,35 +22,35 @@
     <table class="tbl">
       <thead><tr><th scope="col">模型</th><th scope="col">任务</th><th scope="col" class="r">什么都不做</th><th scope="col" class="r">只优化 prompt</th><th scope="col" class="r">只微调权重</th><th scope="col">这个搭配上最好的做法</th><th scope="col" class="r">它的成绩</th></tr></thead>
       <tbody>
-        <tr><th scope="row">mistral-7b</th><td>HotPotQA</td><td class="r">17.2</td><td class="r">33.8</td><td class="r">22.9</td><td>先 prompt，再权重，再 prompt</td><td class="r">37.6</td></tr>
+        <tr><th scope="row">mistral-7b</th><td>HotpotQA</td><td class="r">17.2</td><td class="r">33.8</td><td class="r">22.9</td><td>先 prompt，再权重，再 prompt</td><td class="r">37.6</td></tr>
         <tr><th scope="row">mistral-7b</th><td>GSM8K</td><td class="r">40.3</td><td class="r">46.4</td><td class="r">40.7</td><td>先权重，再 prompt</td><td class="r">48.3</td></tr>
         <tr><th scope="row">mistral-7b</th><td>Iris</td><td class="r">26.0</td><td class="r">57.3</td><td class="r">29.3</td><td>先权重，再 prompt</td><td class="r">66.7</td></tr>
-        <tr><th scope="row">llama-2-7b</th><td>HotPotQA</td><td class="r">13.2</td><td class="r">33.3</td><td class="r">12.2</td><td>先 prompt，再权重，再 prompt</td><td class="r">34.8</td></tr>
+        <tr><th scope="row">llama-2-7b</th><td>HotpotQA</td><td class="r">13.2</td><td class="r">33.3</td><td class="r">12.2</td><td>先 prompt，再权重，再 prompt</td><td class="r">34.8</td></tr>
         <tr><th scope="row">llama-2-7b</th><td>GSM8K</td><td class="r">24.0</td><td class="r">26.0</td><td class="r">24.0</td><td>先 prompt，再权重</td><td class="r">27.3</td></tr>
         <tr><th scope="row">llama-2-7b</th><td>Iris</td><td class="r">0.0</td><td class="r">56.7</td><td class="r">无法进行</td><td>先 prompt，再权重，再 prompt</td><td class="r">65.3</td></tr>
-        <tr><th scope="row">llama-3-8b</th><td>HotPotQA</td><td class="r">31.6</td><td class="r">46.9</td><td class="r">34.8</td><td>只优化 prompt</td><td class="r">46.9</td></tr>
+        <tr><th scope="row">llama-3-8b</th><td>HotpotQA</td><td class="r">31.6</td><td class="r">46.9</td><td class="r">34.8</td><td>只优化 prompt</td><td class="r">46.9</td></tr>
         <tr><th scope="row">llama-3-8b</th><td>GSM8K</td><td class="r">72.7</td><td class="r">77.9</td><td class="r">75.1</td><td>先权重，再 prompt</td><td class="r">78.9</td></tr>
         <tr><th scope="row">llama-3-8b</th><td>Iris</td><td class="r">48.0</td><td class="r">79.3</td><td class="r">37.3</td><td>优化 prompt 两遍</td><td class="r">82.0</td></tr>
       </tbody>
     </table>
-    <figcaption>测试集上的准确率（%），每个数是 3 次运行的平均。HotPotQA 是多步问答，GSM8K 是数学应用题，Iris 是鸢尾花分类。「无法进行」是因为模型不优化时在训练题上做对的太少，凑不出可以用来微调的数据。三个模型的全名是 mistral-7b-instruct-v0.2、llama-2-7b-chat 和 llama-3-8b-instruct。出处：<a href="https://arxiv.org/abs/2407.10930">Soylu 等，2024</a>的表 1。</figcaption>
+    <figcaption>测试集上的准确率（%），每个数是把整个实验重复做 3 次得到的平均。测试集是留出来、只用来测最后成绩的那部分题。HotpotQA 是多步问答，GSM8K 是数学应用题，Iris 是鸢尾花分类。「无法进行」是因为模型不优化时在训练题上做对的太少，凑不出可以用来微调的数据。三个模型的全名是 mistral-7b-instruct-v0.2、llama-2-7b-chat 和 llama-3-8b-instruct。出处：<a href="https://arxiv.org/abs/2407.10930">Soylu 等，2024</a>的表 1。</figcaption>
   </figure>
-  <p>从这张表可以读出四点。</p>
+  <p>这组结果可以归纳成四点，其中有的用到论文自己的说法和论文原表里的数。</p>
   <ul>
     <li><b>9 种搭配里，7 种是两者都用的做法最好。</b>这是论文自己的总结。</li>
-    <li><b>哪种顺序最好没有定论。</b>「先 prompt、再权重、再 prompt」在 3 种搭配上最好，「先权重、再 prompt」也在 3 种搭配上最好。论文的原话是，几种组合的做法之间没有明显的赢家。上面图里的算法用的是「先 prompt、再权重、再 prompt」，所以只能说：这个顺序在一部分搭配上是最好的。</li>
+    <li><b>哪种顺序最好没有定论。</b>「先 prompt、再权重、再 prompt」在 3 种搭配上最好，「先权重、再 prompt」也在 3 种搭配上最好。论文的原话是，几种组合的做法之间没有明显的赢家。上面图里左边画的算法用的是「先 prompt、再权重、再 prompt」这个顺序。读图时要记住，按表里的结果，这个顺序只在 9 种搭配里的 3 种上最好。</li>
     <li><b>只微调权重从来不是最好的。</b>论文说优化 prompt 在所有任务上都不可缺少。</li>
     <li><b>以微调结束的做法可能很差。</b>上面的表没有列出「先 prompt，再权重」这种做法在 Iris 上的成绩，论文的原表里有：mistral-7b、llama-2-7b、llama-3-8b 三个模型上依次是 30.7、26.7 和 44.0，远低于只优化 prompt 的 57.3、56.7 和 79.3。9 种搭配里，除了 llama-2-7b 的 GSM8K，最好的做法要么只优化了 prompt，要么最后一步是优化 prompt。</li>
   </ul>
   <p>论文对「为什么两者都做更好」提出了两点设想。先优化 prompt，程序做对的例子更多，可以用来微调的数据就更多、更好。微调之后再优化一次 prompt，可以针对变了的模型重新调整它的行为。论文也承认，还不清楚两者为什么都重要。</p>
-  <p>读这张表时还要注意，很多差距只有零点几到一两分，这些结果适合当作方向性的参考。</p>
+  <p>读这张表时还要注意，很多差距只有零点几到一两个百分点。这样小的差距不足以断定哪一种做法更好，表里谁高谁低只能当作大致的参考。</p>
 </section>
 
 <section class="sec" id="efficiency">
   <h2>需要多少次运行：上下文优化省得多</h2>
-  <p>改权重的强化学习需要大量的运行。把系统在一道题上从头到尾跑一次叫一次 rollout。GEPA 的论文专门把上下文优化和强化学习放在一起，比较它们各用了多少次 rollout。论文里把上下文优化叫 prompt 优化。</p>
-  {{fig 119 | 两个任务上，分数随 rollout 次数的变化，模型是 Qwen3-8B。蓝线是 GEPA，绿线是 MIPROv2（第三部分讲的另一种上下文优化方法），橙线是 GRPO（第五部分讲的强化学习算法）。曲线是验证集上的分数，五角星是最后在测试集上的分数。右图的验证分数看左边的纵轴，测试分数看右边的纵轴，两者刻度不同，曲线和星星的高低不能直接比。图片来源：<a href="https://arxiv.org/abs/2507.19457">Agrawal 等</a>的图 1。}}
-  <p>两条上下文优化的曲线在最初几千次 rollout 里就升到了高处。GRPO 的曲线一直延伸到 24,000 次，上升得很慢。下面是六个任务的完整结果。</p>
+  <p>改权重的强化学习需要大量的运行。这里的一次运行，指把系统在一道题上从头到尾跑一次。GEPA 的论文专门把上下文优化和强化学习放在一起，比较它们各用了多少次运行。论文里把一次运行叫一次 rollout，把上下文优化叫 prompt 优化。</p>
+  {{fig 119 | 两个任务上，分数随运行次数的变化，模型是 Qwen3-8B。蓝线是 GEPA，绿线是 MIPROv2（第三部分讲的另一种上下文优化方法），橙线是 GRPO（第五部分讲的强化学习算法）。曲线是验证集上的分数，验证集是优化过程中用来比较候选的那批题。五角星是最后在测试集上的分数。右图的验证分数看左边的纵轴，测试分数看右边的纵轴，两者刻度不同，曲线和星星的高低不能直接比。图片来源：<a href="https://arxiv.org/abs/2507.19457">Agrawal 等</a>的图 1。}}
+  <p>从图上读，两条上下文优化的曲线在几千次运行之内就结束了，这时它们的验证分数已经高过 GRPO 的曲线跑到 24,000 次时的验证分数。GRPO 的曲线一直延伸到 24,000 次，上升得很慢。下面是六个任务的完整结果。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">方法</th><th scope="col" class="r">HotpotQA</th><th scope="col" class="r">IFBench</th><th scope="col" class="r">HoVer</th><th scope="col" class="r">PUPA</th><th scope="col" class="r">AIME-2025</th><th scope="col" class="r">LiveBench-<br>Math</th><th scope="col" class="r">平均</th></tr></thead>
@@ -59,58 +59,62 @@
         <tr><th scope="row">MIPROv2</th><td class="r">55.33</td><td class="r">36.22</td><td class="r">47.33</td><td class="r">81.55</td><td class="r">20.00</td><td class="r">46.60</td><td class="r">47.84</td></tr>
         <tr><th scope="row">GRPO</th><td class="r">43.33</td><td class="r">35.88</td><td class="r">38.67</td><td class="r">86.66</td><td class="r">38.00</td><td class="r">51.26</td><td class="r">48.91</td></tr>
         <tr><th scope="row">GEPA</th><td class="r">62.33</td><td class="r">38.61</td><td class="r">52.33</td><td class="r">91.85</td><td class="r">32.00</td><td class="r">51.95</td><td class="r">54.85</td></tr>
-        <tr><th scope="row">GEPA 用的<br>rollout 次数</th><td class="r">6,871</td><td class="r">3,593</td><td class="r">7,051</td><td class="r">2,426</td><td class="r">1,839</td><td class="r">1,839</td><td class="r">3,936</td></tr>
-        <tr><th scope="row">GRPO 用的<br>rollout 次数</th><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td></tr>
+        <tr><th scope="row">GEPA 用的<br>运行次数</th><td class="r">6,871</td><td class="r">3,593</td><td class="r">7,051</td><td class="r">2,426</td><td class="r">1,839</td><td class="r">1,839</td><td class="r">3,936</td></tr>
+        <tr><th scope="row">GRPO 用的<br>运行次数</th><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td><td class="r">24,000</td></tr>
       </tbody>
     </table>
     <figcaption>模型是 Qwen3-8B，分数是测试集上的，百分制。HotpotQA 是多步问答，IFBench 考遵守指令，HoVer 是事实核查，PUPA 是把用户的问题转交给外部模型来回答、同时不泄露其中的隐私（第三部分里 PAPILLON 这个系统做的就是这个任务），AIME-2025 和 LiveBench-Math 是数学题。出处：<a href="https://arxiv.org/abs/2507.19457">Agrawal 等</a>的表 1（2026 年 2 月的版本）。</figcaption>
   </figure>
-  <p>GEPA 的平均分比 GRPO 高 5.94 个百分点，用的 rollout 次数平均约是 GRPO 的六分之一。论文摘要写的「平均高 6%」指的就是这 5.94 个百分点。六个任务里 GEPA 在五个上更高，AIME-2025 上 GRPO 更高。MIPROv2 的平均分略低于 GRPO，在三个任务上还低于不优化。</p>
+  <p>GEPA 的平均分比 GRPO 高 5.94 个百分点，用的运行次数平均约是 GRPO 的六分之一。论文摘要写的「平均高 6%」指的就是这 5.94 个百分点。六个任务里 GEPA 在五个上更高，AIME-2025 上 GRPO 更高。MIPROv2 的平均分略低于 GRPO，在三个任务上还低于不优化。</p>
   <p>这组对比里的强化学习是一种特定的配置：GRPO 用的是 LoRA，固定跑 24,000 次。论文说在一个任务上试过训练全部参数，结果相近。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「prompt 优化比强化学习省 35 倍的样本」只在一个任务上成立。</b>这个说法来自 GEPA 论文的摘要，原话是 up to 35x fewer rollouts，其中的 up to 表示这是最好的情况。按 GEPA 在每个任务上总共用掉的次数粗略估算，GRPO 用的 rollout 次数是 GEPA 的 3.4 到 13 倍。
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「强化学习用的运行次数是上下文优化的 35 倍」只在一个任务上成立。</b>这个说法来自 GEPA 论文的摘要，原话是 up to 35x fewer rollouts，其中的 up to 表示这是最好的情况。按 GEPA 在每个任务上总共用掉的次数粗略估算，GRPO 用的运行次数是 GEPA 的 3.4 到 13 倍。
     <ul>
-      <li><b>35 倍是六个任务里最好的一个。</b>它来自 IFBench：GEPA 在第 678 次 rollout 时就找到了最后选中的那个 prompt，24,000 除以 678 约等于 35。在这个任务上 GEPA 只比 GRPO 高 2.73 个百分点。</li>
-      <li><b>各个任务上的倍数不一样。</b>按论文的说法，GRPO 的 24,000 次是 GEPA 在各个任务上达到最好测试成绩所需次数的 4 到 35 倍。</li>
+      <li><b>35 倍是六个任务里最好的一个。</b>它来自 IFBench：GEPA 在第 678 次运行时就找到了最后选中的那个 prompt，24,000 除以 678 约等于 35。论文的说法是，这时找到的 prompt 达到了最好的测试成绩 38.61，也就是上面表里 GEPA 在 IFBench 上的分数。在这个任务上 GEPA 只比 GRPO 高 2.73 个百分点。</li>
+      <li><b>各个任务上的倍数不一样。</b>按论文的说法，在各个任务上照同样的办法算，倍数是 4 到 35 倍。</li>
       <li><b>按总共用掉的次数算，差距小一些。</b>GEPA 在各个任务上总共用了 1,839 到 7,051 次。粗略估算，GRPO 的 24,000 次是它的 3.4 到 13 倍。</li>
     </ul>
     出处：<a href="https://arxiv.org/abs/2507.19457">Agrawal 等</a>的摘要、表 1 的说明和第 4 节。</div></div>
-  <p>GEPA 的 rollout 次数还有两点要知道。它的大部分 rollout 花在验证上，真正用来产生学习信号的训练 rollout，论文说只要 79 到 737 次就能达到最好的成绩。另外可以这样理解：GEPA 每一步还要调用一次负责反思的语言模型，这些调用没有算在 rollout 里。</p>
-  <p>上下文优化需要的运行少，GEPA 论文的解释是：强化学习更新权重时，每次 rollout 只用到最后的一个分数。而一次 rollout 留下的运行记录和报错信息是大段的文字，语言模型读了之后可以直接总结出一条规则写进指令。同样一次运行，用文字来学能得到的信息多得多。</p>
+  <p>GEPA 的运行次数还有两点要知道。</p>
+  <ul>
+    <li><b>大部分运行花在验证上。</b>GEPA 把题分成两份。一份是训练题。每一轮抽一小批训练题来跑，把留下的运行轨迹和评估给出的文字反馈交给负责反思的语言模型去读，由它写出新的指令。另一份是验证集，在它上面的运行只用来给候选的 prompt 打分、决定选哪一个。论文说，只数训练题上的运行，GEPA 只要 79 到 737 次就能达到最好的成绩。前面讲 35 倍的那个框里，IFBench 上的 678 次是训练题和验证集上的运行合在一起数的。</li>
+    <li><b>调用反思模型的次数没有算在里面。</b>GEPA 每一轮还要调用一次这个负责反思的语言模型。按运行的定义，这些调用不算运行，上面的次数里没有它们。这一点是根据运行的定义作出的推断。</li>
+  </ul>
+  <p>上下文优化需要的运行少，GEPA 论文的解释是：强化学习更新权重时，每次运行只用到最后的一个分数。而一次运行留下的运行轨迹和报错信息是大段的文字，语言模型读了之后可以直接总结出一条规则写进指令。同样一次运行，用文字来学能得到的信息多得多。</p>
 </section>
 
 <section class="sec" id="scaling">
   <h2>数据多了以后：权重优化还能继续提高</h2>
   <p>反过来看权重优化。它需要的数据多，但数据多了之后还能继续提高。</p>
-  {{fig 120 | 监督微调的成绩随训练轨迹条数的变化，横轴从 316 条到 10 万条，是对数刻度。三张小图分别是 SWE-Bench Verified 的 100 题子集（修真实代码仓库里的 bug）、Terminal-Bench 2.0（在终端里完成任务）和七个基准测试的平均。基准测试（benchmark）是一组题目加一个打分的办法。红线是用 OpenThoughts-Agent 的数据微调的 Qwen3-32B，橙线是 Qwen3-8B。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>的图 1。}}
-  <p>红线总体上从左到右在升。从图上读，右边小图里七个基准测试的平均每一档都比前一档高。中间小图的 Terminal-Bench 2.0 上，从 316 条到 1,000 条有一次下降，从 3,160 条到 1 万条基本持平。</p>
-  <p>论文报告了 10 万条时 32B 模型（约 320 亿个参数）的三个成绩：SWE-Bench Verified 的 100 题子集上是 55.7%，Terminal-Bench 2.0 上是 26.2%，七个基准测试平均 44.8%。从 3.16 万条到 10 万条，前两项还分别提高了 7.7 和 5.0 个百分点。</p>
-  <p>最后这一段提高有一个前提。10 万条那一点用的是论文最终的配方，新增的数据来自改写已有任务的描述，让任务的说法更多样。论文也试过只给同样的任务多生成几条轨迹，这样从 3.16 万条加到 10 万条，成绩不再提高。<a href="sft.html#ota">第四部分</a>讲过这份数据是怎么做的。</p>
+  {{fig 120 | 监督微调的成绩随训练轨迹条数的变化，横轴从 316 条到 10 万条，是对数刻度。三张小图分别是 SWE-bench Verified 的 100 题子集（修真实代码仓库里的 bug）、Terminal-Bench 2.0（在终端里完成任务）和七个基准测试的平均。红线是用 OpenThoughts-Agent 的数据微调的 Qwen3-32B，橙线是 Qwen3-8B。OpenThoughts-Agent 是第四部分讲的一项研究，它造了一份监督微调用的训练数据。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>的图 1。}}
+  <p>红线总体上从左到右在升。横轴上一共有六种大小的训练数据。从图上读，右边小图里七个基准测试的平均，训练数据每大一级都比前一级高。中间小图的 Terminal-Bench 2.0 上，从 316 条到 1,000 条有一次下降，从 3,160 条到 1 万条基本持平。</p>
+  <p>论文报告了 10 万条时 32B 模型（约 320 亿个参数）的三个成绩：SWE-bench Verified 的 100 题子集上是 55.7%，Terminal-Bench 2.0 上是 26.2%，七个基准测试平均 44.8%。从 3.16 万条到 10 万条，前两项还分别提高了 7.7 和 5.0 个百分点。</p>
+  <p>最后这一段提高有一个前提。10 万条那一点用的是论文最终的配方，也就是论文最后定下来的那一套造数据的做法。按这个配方，论文在给同一个任务多生成轨迹之外，还改写了已有任务的描述，让任务的说法更多样。论文也试过只给同样的任务多生成几条轨迹，这样从 3.16 万条加到 10 万条，成绩不再提高。<a href="sft.html#ota">第四部分</a>讲过这份数据是怎么做的。</p>
   <p>把这张图和上一节的图放在一起，可以这样理解两类优化的差别。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">上下文优化</th><th scope="col">权重优化</th></tr></thead>
       <tbody>
-        <tr><th scope="row">见效需要的数据量</th><td>几千次运行。GEPA 的实验里每个任务总共用了 1,839 到 7,051 次，其中用来产生学习信号的训练运行是 79 到 737 次</td><td>监督微调从几百条到十万条轨迹。FireAct 里 Llama 系列用 100 或 200 条轨迹学不会，用 500 条才学会并拿到成绩；OpenThoughts-Agent 用到 10 万条。强化学习通常要几万次运行，GEPA 论文的对照实验里是 24,000 次</td></tr>
+        <tr><th scope="row">见效需要的数据量</th><td>几千次运行。GEPA 的实验里每个任务总共用了 1,839 到 7,051 次。论文说，只数训练题上的运行，79 到 737 次就能达到最好的成绩</td><td>监督微调从几百条到十万条轨迹。FireAct 里 Llama 系列的模型用 100 或 200 条轨迹连要求的输出格式都学不会，要到 500 条才学会。OpenThoughts-Agent 用到 10 万条。GEPA 的论文说强化学习通常要几万次运行，它的对照实验里是 24,000 次</td></tr>
         <tr><th scope="row">数据更多之后</th><td>学到的东西都要写进一段 prompt，能写进去的内容有限</td><td>到 10 万条还在提高，前提是新增的数据让任务的说法更多样</td></tr>
-        <tr><th scope="row">改动存在哪里</th><td>一段文字，人可以读、可以改，换模型时可以带走</td><td>模型的权重，人读不懂</td></tr>
+        <tr><th scope="row">改动存在哪里</th><td>一段文字，人可以读、可以改，换模型时可以直接拿给新的模型用</td><td>模型的权重，人读不懂</td></tr>
         <tr><th scope="row">需要的条件</th><td>能调用模型就行</td><td>要有微调模型的途径。自己训练时，要能拿到权重，要有 GPU 和训练的整套设施。有的服务商提供托管的微调服务，FireAct 微调 GPT-3.5 用的就是 OpenAI 的微调服务</td></tr>
       </tbody>
     </table>
-    <figcaption>第一行的范围是根据前面几个实验粗略归纳的。「数据更多之后」上下文优化那一格是根据方法本身的性质作出的判断，前面的论文没有直接测过。</figcaption>
+    <figcaption>FireAct 是第四部分讲的一项研究，用 GPT-4 的运行轨迹微调更小的模型。第一行的范围是根据前面几个实验粗略归纳的。「数据更多之后」上下文优化那一格是根据方法本身的性质作出的判断，前面的论文没有直接测过。</figcaption>
   </figure>
 </section>
 
 <section class="sec" id="reasons">
   <h2>选哪一种</h2>
-  <p>下面两张表各列三条理由，并指出前面哪一部分的内容支持它。</p>
+  <p>下面两张表各列三条理由，并写出前面哪一部分的内容可以作为依据。「上下文优化不起作用」这一条，前面的论文没有专门测过，表里照实写明。</p>
   <h3>选上下文优化的理由</h3>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">情况</th><th scope="col">为什么这时改 prompt</th><th scope="col">前面的依据</th></tr></thead>
       <tbody>
         <tr><th scope="row">模型只能通过 API 调用</th><td>有些很强的模型不开放微调，能改的只有 prompt</td><td>GEPA 的论文指出，很多应用没法微调最大、最强的模型的权重。它在 GPT-4.1 Mini 上的那张结果表里只有上下文优化方法，没有强化学习这一行，见<a href="instructions.html#gepa">第三部分</a></td></tr>
-        <tr><th scope="row">需要经常、快速地<br>重新优化</th><td>上下文优化跑得快，需要的设施也简单：能调用模型、能跑评估就够了。模型、工具或任务要求经常在变、每天都要重新优化一次时，这一点很要紧</td><td>模型、工具或任务要求一变，就要重新优化一遍，见<a href="when.html#benefits">第一部分</a></td></tr>
-        <tr><th scope="row">和环境交互一次很贵</th><td>上下文优化需要的运行次数少</td><td>上面 GEPA 和 GRPO 的比较</td></tr>
+        <tr><th scope="row">需要经常、快速地<br>重新优化</th><td>上下文优化跑得快，需要的设施也简单：能调用模型、能跑评估就够了。模型、工具或任务要求经常在变、每天都要重新优化一次时，这一点很要紧</td><td>上一节末尾比较两类优化的表里，上下文优化能调用模型就行，权重优化要有微调模型的途径。上面 GEPA 和 GRPO 的比较里，GEPA 用的运行次数平均约是 GRPO 的六分之一。什么时候需要重新优化，见<a href="when.html#benefits">第一部分</a>：模型、工具或任务要求变了之后，要重新跑一遍优化</td></tr>
+        <tr><th scope="row">和环境交互一次很贵</th><td>环境指系统做任务时所在的地方，比如一台终端和里面的文件。系统每运行一次，就要和环境交互一遍，所以这一条也就是「先看结论」里说的每次运行都很贵。上下文优化需要的运行次数少</td><td>上面 GEPA 和 GRPO 的比较</td></tr>
       </tbody>
     </table>
   </figure>
@@ -119,18 +123,18 @@
     <table class="tbl">
       <thead><tr><th scope="col">情况</th><th scope="col">为什么这时改权重</th><th scope="col">前面的依据</th></tr></thead>
       <tbody>
-        <tr><th scope="row">上下文优化不起作用</th><td>小模型遵循指令的能力有时很弱，指令写得再好它也照做不了</td><td>前面的论文没有专门测这一条。相关的一个数字是：没有微调的 Qwen3-8B 在七个 agent 基准测试上平均 10.2%（agent 指能自己调用工具、分很多步去完成任务的语言模型系统），微调后是 27.4%，见<a href="sft.html#ota">第四部分</a></td></tr>
+        <tr><th scope="row">上下文优化不起作用</th><td>小模型遵循指令的能力有时很弱，指令写得再好它也照做不了</td><td>前面的论文没有专门测这一条。相关的一个数字是：没有微调的 Qwen3-8B 在七个 agent 基准测试上平均 10.2%，微调后是 27.4%，见<a href="sft.html#ota">第四部分</a>。这个数字说明微调能让小模型的成绩提高很多。给 Qwen3-8B 做上下文优化在这七个基准测试上效果怎样，前面没有数据</td></tr>
         <tr><th scope="row">有一个强的教师，<br>想要一个更便宜的模型</th><td>让学生模型直接学教师的做法，这叫蒸馏，往往有效</td><td>FireAct、OpenThoughts-Agent 和 Qwen3 的 on-policy 蒸馏，见<a href="sft.html">第四</a>、<a href="rl.html#opd">第五部分</a></td></tr>
-        <tr><th scope="row">prompt 越来越长</th><td>上下文优化会让 prompt 变复杂、变长，每次调用都要付这部分的钱。把这些内容训练进权重，prompt 就可以短下来</td><td>FireAct 里微调后的模型不需要示例，每道题的推理时间从 9.0 秒降到 2.7 秒，见<a href="sft.html#fireact">第四部分</a></td></tr>
+        <tr><th scope="row">prompt 越来越长</th><td>上下文优化会让 prompt 变复杂、变长，每次调用都要付这部分的钱。把这些内容训练进权重，prompt 就可以短下来</td><td>FireAct 里微调后的 GPT-3.5 不需要在 prompt 里放示例，和只用 prompt 的 GPT-3.5 比，答一道题花的时间从 9.0 秒降到 2.7 秒，见<a href="sft.html#fireact">第四部分</a></td></tr>
       </tbody>
     </table>
   </figure>
-  <p>把这些理由和前面的实验合起来，可以排出一个常用的先后。这是对前面内容的归纳，适合作为起点，具体情况仍然要用自己的数据去试。</p>
+  <p>把这些理由和前面的实验合起来，可以排出一个动手时的先后，作为起点。排这个先后看的是花费和需要的条件：花费少、条件少的办法排在前面。按成绩比，哪一种顺序最好没有定论，见<a href="#together">上面 BetterTogether 的结果</a>。这个先后是对前面内容的归纳，具体情况仍然要用自己的数据去试。</p>
   <ul>
     <li><b>先把评估和数据准备好。</b>没有这两样，哪一种优化都做不了。</li>
     <li><b>先做上下文优化。</b>它便宜、快，对任何模型都能用，结果是人能读懂的文字。</li>
-    <li><b>不够时再做权重优化。</b>上下文优化之后做出来的好例子更多，正好可以当作微调的数据。有强的教师时，蒸馏通常比强化学习省。</li>
-    <li><b>改完权重后再优化一次 prompt。</b>BetterTogether 的表里，最好的做法大多以优化 prompt 结束。</li>
+    <li><b>不够时再做权重优化。</b>按 BetterTogether 论文的设想，先优化 prompt，程序做对的例子更多，可以用来微调的数据就更多、更好。有强的教师时，可以先试蒸馏。<a href="rl.html#opd">第五部分</a>讲的 Qwen3 这个模型系列的一组对照里，on-policy 蒸馏用的 GPU 时间约是强化学习的十分之一。这只是一组对照，on-policy 蒸馏还要求能拿到教师给每个 token 的概率。</li>
+    <li><b>改完权重后，可以再优化一次 prompt。</b>BetterTogether 的 9 种搭配里，除了一种，最好的做法要么只优化了 prompt，要么最后一步是优化 prompt。</li>
   </ul>
 </section>
 
@@ -139,18 +143,18 @@
   <p>这一讲的内容可以归纳成五句话。</p>
   <ul>
     <li><b>优化的条件。</b>要同时有数据、可以改的系统和评估指标。通用的模型解决大部分问题，优化负责把它调到适合你的具体场景。</li>
-    <li><b>上下文优化。</b>让程序自己生成示例再搜索组合，以及让语言模型读运行结果来改写指令，是两种有效的做法。模型的权重不动。</li>
+    <li><b>上下文优化。</b>有效的做法有两种。一种是让程序自己生成示例，再试很多套不同的示例，留下分数最高的一套。另一种是让语言模型读运行结果来改写指令。模型的权重不动。</li>
     <li><b>权重优化。</b>监督微调让学生照着教师的轨迹学，强化学习让学生自己做、按结果给奖励，on-policy 蒸馏让教师给学生自己写下的每个 token（模型处理文字的最小单位）打分。</li>
-    <li><b>让 agent 来优化。</b>给 agent 一个能记录结果、提出想法、动手执行的环境，它能优化任何写成代码的东西。这时评估指标是最需要仔细检查的部分。</li>
-    <li><b>怎么选。</b>上下文优化需要的运行少，对只能调用的模型也能用。权重优化需要的数据更多，但能让更小、更便宜的模型具备这些能力。两者可以先后搭配着用。</li>
+    <li><b>让 agent 来优化。</b>给 agent 一个能记录结果、提出想法、动手执行的环境，任何写成代码的东西它都可以拿来优化。这时评估指标是最需要仔细检查的部分。</li>
+    <li><b>怎么选。</b>上下文优化需要的运行少，对只能调用的模型也能用。权重优化需要的数据更多，数据多了以后还能继续提高，也能把强的教师模型的做法教给更小、更便宜的模型。两者可以先后搭配着用。</li>
   </ul>
-  <p>贯穿整讲的是<a href="when.html#what">第一部分</a>的那句话：优化是用数据和评估来说明意图。每一种方法都只会把你给的那个分数做高。所以不管选哪一类优化，最先要做好、也最值得花时间的，是评估本身。第 13 讲和第 15 讲讲的就是评估。</p>
+  <p>贯穿整讲的是<a href="when.html#what">第一部分</a>的那句话：优化是用数据和评估来说明想要什么。每一种方法都只会把你给的那个分数做高。所以不管选哪一类优化，最先要做好、也最值得花时间的，是评估本身。第 13 讲和第 15 讲讲的就是评估。</p>
 </section>
 
 <section class="sec" id="notes">
   <h2>资料说明</h2>
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
-    <li><b>GEPA 论文摘要里「平均高多少」的两个版本。</b>论文第一版只有四个任务，摘要写的是平均高 10%。录用的版本是六个任务，改成了平均高 6%。对照结果表，这两个数的单位都是百分点，6% 就是结果表里的 5.94 个百分点。出处：<a href="https://arxiv.org/abs/2507.19457">Agrawal 等</a>的摘要和表 1。</li>
+    <li><b>GEPA 论文摘要里「平均高多少」的两个版本。</b>论文第一版只有四个任务，摘要写的是 GEPA 比 GRPO 平均高 10%。2026 年 2 月的版本是六个任务，摘要改成了平均高 6%。正文的结果表用的是 2026 年 2 月的版本，它也是 ICLR 2026 这个学术会议录用的版本。对照结果表，这两个数的单位都是百分点，6% 就是结果表里的 5.94 个百分点。出处：<a href="https://arxiv.org/abs/2507.19457">Agrawal 等</a>的摘要和表 1。</li>
   </ul>
 </section>

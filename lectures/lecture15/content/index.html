@@ -1,43 +1,45 @@
 <section class="sec" id="thesis">
-  <h2>一句话的结论</h2>
-  <p class="lead-in">判定 agent 交出的结果对不对的那段逻辑叫评分器。<mark>评分器本身是一个测量工具，它会判错，所以也要被验证</mark>。能用代码检查的用代码，代码判不了的交给语言模型评审，也就是让一个语言模型来判断结果好不好。评审的判定要和人的判定对照过才可信。agent 每次运行的结果不同，所以报分数时还要写明跑了几次、用哪种算法汇总。</p>
-  <p>第 13 讲把基准测试的任务定义拆成问题描述、环境、验证三样。这一讲的前六个部分讲两件事。第一件是一次运行的结果判得准不准，这属于验证。第二件是多次运行的结果怎么汇总，第 13 讲把它归在评估协议里，也就是跑分时每题跑几次、结果怎么汇总这类规定。下表把两件事并排来看。</p>
+  <h2>先看结论</h2>
+  <p class="lead-in">判定 agent 交出的结果对不对的那段逻辑叫评分器。<mark>评分器本身是一个测量工具，它会判错，所以也要被检验</mark>。能用代码检查的用代码，代码判不了的交给语言模型评审，也就是让一个语言模型来判断结果好不好。评审的判定要和人的判定对照过才可信。agent 每次运行的结果不同，所以报分数时还要写明跑了几次、用哪种汇总办法。</p>
+  <p>第 13 讲把基准测试的任务定义拆成问题描述、环境、验证三样。环境是 agent 执行任务的地方，里面有它能读写的东西，比如代码仓库、数据库和文件。验证判定 agent 交出的结果算不算通过。</p>
+  <p>这一讲的前六个部分讲两件事。第一件是一次运行的结果判得准不准，这属于验证。第二件是多次运行的结果怎么汇总，第 13 讲把它归在评估协议里，也就是跑分时每题跑几次、结果怎么汇总这类规定。下表把两件事并排来看。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">一次运行判得准不准</th><th scope="col">多次运行怎么汇总</th></tr></thead>
       <tbody>
-        <tr><th scope="row">问题从哪里来</th><td>很多任务没有唯一确定的答案，预先写好的代码检查可能覆盖不到；评分器自己也会判错</td><td>agent 每次运行的结果不一样，同一个任务有时成功有时失败</td></tr>
-        <tr><th scope="row">用什么办法</th><td>三种评分器：代码、人、语言模型评审</td><td>三种汇总办法：平均成功率；pass@k，k 次里至少成功一次的机会；pass^k，k 次全部成功的机会</td></tr>
-        <tr><th scope="row">出了问题会怎样</th><td>分数偏高或偏低。例：在修 bug 的基准测试 SWE-bench Verified 上，三个系统通过评测的补丁平均有 7.8% 通不过仓库里其他的测试</td><td>同样的运行结果，按不同的办法汇总，得到的数差得很远。例：一个任务每次运行成功的机会都是 75%、各次互不影响时，平均成功率是 75%，连续 3 次都成功的机会只有 42%</td></tr>
-        <tr><th scope="row">怎么应对</th><td>拿评审的判定和人的判定对照，报告一致的程度；针对已知的偏差做校正</td><td>按 agent 的用法选指标，同时写明 k 和每个任务跑的次数</td></tr>
-        <tr><th scope="row">在哪一页</th><td><a href="graders.html">第一</a>到<a href="bias.html">第五部分</a></td><td><a href="variance.html">第六部分</a></td></tr>
+        <tr><th scope="row">问题从哪里来</th><td>很多任务没有唯一确定的答案，预先写好的代码检查可能覆盖不到。评分器自己也会判错</td><td>agent 每次运行的结果不一样，同一个任务有时成功有时失败</td></tr>
+        <tr><th scope="row">用什么办法</th><td>三种评分器：代码、人、语言模型评审</td><td>三种汇总办法：平均成功率、pass@k 和 pass^k。pass@k 是 k 次里至少成功一次的机会，pass^k 是 k 次全部成功的机会</td></tr>
+        <tr><th scope="row">出了问题会怎样</th><td>分数偏高或偏低。例：SWE-bench 是让 agent 修真实 bug 的基准测试，SWE-bench Verified 是其中经过人工确认的一部分题目。在这部分题目上，三个系统被判为解决的补丁，平均有 7.8% 通不过仓库里 SWE-bench 没有运行的其他测试</td><td>同样的运行结果，按不同的办法汇总，得到的数差得很远。例：一个任务每次运行成功的机会都是 75%、各次互不影响时，平均成功率是 75%，连续 3 次都成功的机会只有 42%</td></tr>
+        <tr><th scope="row">怎么应对</th><td>三种评分器都要有人去读 agent 每一步的记录和评分的结果，确认评分器在正常工作。语言模型评审还要拿它的判定和人的判定对照，报告一致的程度。它有总朝同一个方向的误差，叫偏差，已知的几种偏差各有应对办法</td><td>按 agent 的用法在 pass@k 和 pass^k 之间选。同时写明 k 和每个任务实际跑的次数 n。每个任务实际跑 n 次，pass@k 和 pass^k 是按从这 n 次里任意挑 k 次来算的，所以 k 和 n 是两个数，n 不能比 k 小</td></tr>
+        <tr><th scope="row">在哪一部分</th><td><a href="graders.html">第一</a>到<a href="bias.html">第五部分</a>，读记录在<a href="infra.html#transcripts">第七部分</a></td><td><a href="variance.html">第六部分</a></td></tr>
       </tbody>
     </table>
     <figcaption>7.8% 来自 Wang 等人 2025 年的论文，见<a href="graders.html#errors">第一部分</a>。42% 是按公式算的，见<a href="variance.html#diverge">第六部分</a>。</figcaption>
   </figure>
-  <p>最后的<a href="infra.html">第七部分</a>讲把任务、运行、评分和汇总串起来的那套程序，以及搭一套评估的步骤。</p>
+  <p>最后的<a href="infra.html">第七部分</a>讲把任务交给 agent 去跑、调用评分器并汇总结果的那套程序，以及搭一套评估的步骤。</p>
 </section>
 
 <section class="sec" id="story">
   <h2>七个问题</h2>
   <p>这一讲的七个部分各回答一个问题。下表每行是一个问题、它的答案和一条依据。</p>
+  <p>第二、三、四部分讲的是用语言模型当评审的三个阶段。这一讲按被评的东西来分：第一个阶段评一段生成的文字，第二个阶段判断人更喜欢哪个回答，第三个阶段评 agent 的动作和结果。</p>
   <p>表里有四个词先说明一下。校准指拿语言模型评审的判定和人的判定对照，让两者保持一致。文本指标指用程序给一段文字自动算分的办法。G-Eval 是让语言模型按评分标准给文字打分的一种方法，表里的数是用 GPT-4 得到的。WebVoyager 是一个在真实网站上完成任务的 agent，它的论文用一个能看图的模型当评审，判断任务是否完成。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="graders.html">一 评分器有哪几种，<br>各自什么时候用？</a></th><td>三种：代码、人、语言模型评审。代码便宜、确定，但只能检查写进去的东西。人最接近真实，但贵、慢、难重复。语言模型评审能大批量地做细致的判断，但结果不确定、有偏差、要校准。实际的评估常常组合起来用</td><td>评分器两个方向都会判错：一个航空客服任务里，模型找到了更好的办法却被判失败；SWE-bench 里有的补丁通过了评测，却通不过评测没有运行的测试</td></tr>
-        <tr><th scope="row"><a href="metrics.html">二 语言模型能不能<br>取代文本指标？</a></th><td>较强的模型能做到比按词语重合算分的指标更接近人的判断，但和人的一致只是中等程度，较弱的模型做不到。这是用语言模型当评审的第一个阶段，评的是摘要、对话这类生成的文字</td><td>G-Eval 在摘要任务上和人的评分的相关系数是 0.514，此前最好的指标是 0.474。相关系数是 1 表示两边的排序完全一致。同时发现它给语言模型写的摘要打分偏高</td></tr>
-        <tr><th scope="row"><a href="preference.html">三 语言模型能不能判断<br>人更喜欢哪个回答？</a></th><td>能，有条件。可以从人的比较里训练出一个打分模型，也可以直接写一段 prompt（交给模型的那段输入文字）让 GPT-4 来判。问法有两种：单独打分和两两比较</td><td>去掉平局之后，GPT-4 和人类专家的判断有 85% 相同，人和人之间是 81%。算上平局是 66% 和 63%</td></tr>
-        <tr><th scope="row"><a href="actions.html">四 语言模型能不能评<br>agent 做了什么？</a></th><td>大部分时候能。让评审自己也成为一个能查看工作目录的 agent，会更准。评审的判定还可以当作反馈去改进 agent</td><td>WebVoyager 的评审和人的判定有 85.3% 相同。评审判出的总成功率和人判出的只差 2 个百分点，个别网站差到 10 个百分点以上</td></tr>
-        <tr><th scope="row"><a href="bias.html">五 评审有哪些偏差，<br>怎样确认它可信？</a></th><td>位置、长度、自我偏好。它们总朝同一个方向，多评样本消不掉。确认可信的办法只有一个：对着人的判定检验</td><td>只对调两个回答的顺序，一个评审在 80 道题里有 66 道改了判定。用语言模型当评审的排行榜 AlpacaEval 让被测模型和一个固定的参照模型比，按胜率排名。参照模型和自己比，胜率按定义是 50.0%。只要求它把话说得更详细，再和原来的自己比，胜率就变成 64.3%</td></tr>
-        <tr><th scope="row"><a href="variance.html">六 同一个任务跑很多次，<br>分数怎么报？</a></th><td>平均成功率、pass@k、pass^k 回答三个不同的问题。可以重试并且有检查能挑出对的那次，看 pass@k。每次运行都直接交到用户手里，看 pass^k</td><td>两个平均成功率都是 50% 的 agent，按每个任务跑 4 次的结果来估计，一个的 pass@2 是 83%、pass^2 是 17%，另一个两者都是 50%</td></tr>
-        <tr><th scope="row"><a href="infra.html">七 把这些东西跑起来，<br>需要什么样的基础设施？</a></th><td>一个评估的运行框架，也就是把任务交给 agent 去跑并打分的那套程序。它要让每次运行互相隔离，从干净的环境开始。搭评估有一份从第 0 步到第 8 步的路线。分数低的时候先怀疑评估本身，办法是读运行记录</td><td>一个模型在一个基准测试上的分数最初是 42%，换了 agent 的运行框架（包在模型外面、给它工具的程序）之后是 78%，再修掉评分的问题之后是 95%</td></tr>
+        <tr><th scope="row"><a href="graders.html">一 评分器有哪几种，<br>各自什么时候用？</a></th><td>三种：代码、人、语言模型评审。代码便宜，同样的输入每次得到同样的判定，但只能检查写进去的东西。人的判断最接近真实，但又贵又慢，评分的人意见可能不一，结果也难以重跑。语言模型评审能大批量地做细致的判断，但结果不确定、有偏差、要校准。实际的评估有时把几种组合起来用。评分器会判错，两个方向都有：把对的判成错的，或者把错的判成对的</td><td>判错的两个方向各有一个例子。一个航空客服任务里，模型找到了更好的办法，却被判失败。SWE-bench 里，有的补丁通过了 SWE-bench 运行的那些测试，却通不过仓库里它没有运行的其他测试</td></tr>
+        <tr><th scope="row"><a href="metrics.html">二 语言模型能不能<br>取代文本指标？</a></th><td>用 GPT-4 时，能做到比此前的文本指标更接近人的判断，但和人的一致只是中等程度。模型的强弱有影响：另一项研究让四个语言模型给人写的故事和 GPT-2 写的故事打分，GPT-2 是 2019 年发表的语言模型。较强的两个模型和英语教师一样，给人写的故事打了更高的分，较弱的两个基本分不出来。这是三个阶段里的第一个，评的是摘要、对话这类生成的文字</td><td>G-Eval 用 GPT-4 时，在摘要数据集 SummEval 上和人的评分的 Spearman 相关系数，四个评分方面平均是 0.514，此前最好的指标是 0.474。Spearman 相关系数比的是两边的排序，1 表示两边的排序完全一致。同一篇论文也发现，它给语言模型写的摘要打分偏高</td></tr>
+        <tr><th scope="row"><a href="preference.html">三 语言模型能不能判断<br>人更喜欢哪个回答？</a></th><td>能，有条件。做法有两种。一种是从人的比较里训练出一个打分模型，论文叫它奖励模型。另一种是直接写一段 prompt（交给模型的那段输入文字）让 GPT-4 来判，问法也有两种：给一个回答单独打分，或者把两个回答放在一起做两两比较。条件在后一种做法上：GPT-4 和人的一致率达到人和人之间的水平，是在两两比较时量到的，用的时候还要防评审的几种偏差</td><td>MT-Bench 是一套 80 道人工设计的两轮问答题。在它的第一轮问题上，让 GPT-4 做两两比较，判断两个聊天模型的回答哪个更好。去掉平局、只算分出胜负的票，GPT-4 和人类专家的判断有 85% 相同，人和人之间是 81%。算上平局是 66% 和 63%</td></tr>
+        <tr><th scope="row"><a href="actions.html">四 语言模型能不能评判<br>agent 的动作和结果？</a></th><td>大部分时候能。让评审自己也成为一个能查看工作目录的 agent，会更准。评审的判定还可以当作反馈去改进 agent</td><td>WebVoyager 的评审和人的判定有 85.3% 相同。评审判出的总成功率和人判出的只差 2 个百分点，个别网站差到 10 个百分点以上</td></tr>
+        <tr><th scope="row"><a href="bias.html">五 评审有哪些偏差，<br>怎样确认它可信？</a></th><td>有三种。位置偏差是评审偏向排在某个位置的回答，长度偏差是评审偏向更长的回答，自我偏好是评审偏向和它出自同一个模型的回答。自我偏好的证据不如前两种充分，几项研究只看到了迹象。长度偏差每次都朝同一个方向错，所以多评样本消不掉，位置偏差在评审和排列顺序都固定时也是这样。确认评审可信的办法只有一个：对着人的判定检验</td><td>Wang 等人 2023 年的实验做了四组对比，每组 80 道题，只对调两个回答的顺序。改得最多的一组由 ChatGPT 当评审，比较的是它自己的回答和开源聊天模型 Vicuna-13B 的回答，80 道题里有 66 道改了判定。改得最少的一组是 4 道。用语言模型当评审的排行榜 AlpacaEval 让被测模型和一个固定的参照模型比，按胜率排名。参照模型和自己比，胜率按定义是 50.0%。只要求它把话说得更详细，再和原来的自己比，胜率就变成 64.3%</td></tr>
+        <tr><th scope="row"><a href="variance.html">六 同一个任务跑很多次，<br>分数怎么报？</a></th><td>平均成功率、pass@k、pass^k 回答三个不同的问题。可以重试并且有检查能挑出对的那次，看 pass@k。每次运行都直接交到用户手里，看 pass^k</td><td>两个 agent 各做 4 个任务，每个任务跑 4 次，平均成功率都是 50%。第一个 agent 每个任务都是 2 次成功、2 次失败，它的 pass@2 是 83%、pass^2 是 17%。这两个数是从 4 次里任意挑 2 次算出来的：一共 6 种挑法，至少有一次成功的有 5 种，两次都成功的有 1 种。第二个 agent 有两个任务 4 次全成功，另外两个任务 4 次全失败，它的两个数都是 50%。83% 和 17% 是只凭这 4 次运行估计出来的：如果第一个 agent 每次运行成功的机会正好是 50%、各次互不影响，真实的 pass@2 是 75%，真实的 pass^2 是 25%。每个任务跑的次数越少，估计值离真实值可能越远。算的过程见<a href="variance.html#same-average">第六部分</a></td></tr>
+        <tr><th scope="row"><a href="infra.html">七 把任务、评分和汇总跑起来，<br>需要什么样的基础设施？</a></th><td>一个评估的运行框架，也就是把任务交给 agent 去跑并打分的那套程序。对它的要求有三条：评估里的 agent 和线上的基本一样，每次运行互相隔离、从干净的环境开始，环境本身不干扰分数。搭评估有一份从第 0 步到第 8 步的路线。分数低的时候先怀疑评估这一边：评分有没有判错，任务说明有没有歧义，评估给模型配的 agent 的运行框架有没有限制它。agent 的运行框架是包在模型外面、给它工具的程序，和评估的运行框架是两样东西。要查清是哪一种情况，得去读运行记录，也就是 agent 每一步的动作和结果的完整记录，这一讲的其他部分叫它运行轨迹</td><td>CORE-Bench 是一个让 agent 复现研究结果的基准测试。Anthropic 的模型 Claude Opus 4.5 在它最难一档任务上答对的比例，用基准测试自带的 agent 的运行框架时是 42%，只换 agent 的运行框架是 78%，再改掉评分的错之后是 95%。42% 和 95% 出自 Anthropic 2026 年的文章《Demystifying evals for AI agents》，78% 出自基准测试作者的说明</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
   </figure>
-  <p>第 13 讲的结论是没有哪一个评测能说明一切。这一讲补上另一半：一个评测给出的分数，要在评分器的判定和人的判定对照过、汇总的算法写明之后，才知道它说明了什么。</p>
+  <p>第 13 讲的结论是没有哪一个基准测试能说明一切。这一讲的结论接着往下说：单看一个基准测试给出的分数，也要在评分器经过检验、汇总办法写明之后，才知道它说明了什么。对语言模型评审来说，检验就是拿它的判定和人的判定对照。</p>
 </section>
 
 <section class="sec" id="colors">
@@ -51,27 +53,27 @@
   <h2>按部分阅读</h2>
   <div class="modlist">
     <a href="graders.html"><span class="m">第一部分</span><span><b>判分的办法有三种：代码、人、语言模型</b><p>讲代码检查可能覆盖不到什么，评分器判错的两个方向，三种评分器各自的做法、例子和缺点，以及怎么组合。</p></span></a>
-    <a href="metrics.html"><span class="m">第二部分</span><span><b>第一阶段：让语言模型代替文本指标</b><p>讲语言模型评审的三个阶段怎么分，以及第一阶段的三项研究：G-Eval、GPTScore、把人类评分员的问卷原样交给模型。</p></span></a>
-    <a href="preference.html"><span class="m">第三部分</span><span><b>第二阶段：判断人更喜欢哪一个回答</b><p>讲怎样从人的比较里训练打分模型，InstructGPT 这项研究怎样把这个办法推广到一般的指令，MT-Bench 这套多轮问答题的论文怎样检验 GPT-4 当评审，开源的评审模型 Prometheus，以及单独打分和两两比较两种问法。</p></span></a>
+    <a href="metrics.html"><span class="m">第二部分</span><span><b>第一阶段：让语言模型代替文本指标</b><p>讲语言模型评审的三个阶段怎么分，以及第一阶段的三项研究：G-Eval 让模型按评分标准打分，GPTScore 按模型生成这段文字的概率来算分，Chiang 和 Lee 把人类评分员的问卷原样交给模型。</p></span></a>
+    <a href="preference.html"><span class="m">第三部分</span><span><b>第二阶段：判断人更喜欢哪一个回答</b><p>讲怎样从人的比较里训练打分模型，也就是论文说的奖励模型，InstructGPT 这项研究怎样把这个办法从写摘要推广到用户给模型的各种指令，MT-Bench 这套两轮问答题的论文怎样检验 GPT-4 当评审，开源的评审模型 Prometheus，以及单独打分和两两比较两种问法。</p></span></a>
     <a href="actions.html"><span class="m">第四部分</span><span><b>第三阶段：评 agent 做了什么</b><p>讲三项研究：WebVoyager 让模型看截图判断任务成败，Pan 等人把评审的判定用来改进 agent，Agent-as-a-Judge 让评审自己也成为 agent。最后看这些评审有多可靠。</p></span></a>
-    <a href="bias.html"><span class="m">第五部分</span><span><b>评审的偏差，以及怎样对着人的判断校准</b><p>讲位置偏差、长度偏差和自我偏好三种偏差，用少量人工反馈自动生成评审的 AutoMetrics，以及搭评审的检查表。</p></span></a>
-    <a href="variance.html"><span class="m">第六部分</span><span><b>同一个任务跑很多次，分数怎么报</b><p>讲三种汇总办法，pass@k 和 pass^k 怎么算，平均成功率相同、行为不同的两个 agent，以及该用哪一种。</p></span></a>
+    <a href="bias.html"><span class="m">第五部分</span><span><b>评审的偏差，以及怎样对着人的判断校准</b><p>讲位置偏差、长度偏差和自我偏好三种偏差，用少量人工标注自动生成评审的 AutoMetrics，从人用自己的话写下的反馈里归纳出指标的 AutoLibra，以及搭评审的检查表。</p></span></a>
+    <a href="variance.html"><span class="m">第六部分</span><span><b>同一个任务跑很多次，分数怎么报</b><p>讲三种汇总办法，pass@k 和 pass^k 怎么算，平均成功率相同、行为不同的两个 agent，该用哪一种，以及报分数时要写明的四件事。</p></span></a>
     <a href="infra.html"><span class="m">第七部分</span><span><b>评估的基础设施：运行框架和搭评估的路线</b><p>讲评估里几个词的对照，评估的运行框架要做到什么，从第 0 步到第 8 步搭评估的路线，分数低时为什么先怀疑评估，最后是整讲的小结。</p></span></a>
   </div>
 </section>
 
 <section class="sec" id="gaps">
   <h2>容易想当然的五件事</h2>
-  <p>这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代。下面五件事，左列的说法都比实际情况简单。前两件在第三部分和第六部分各用了一个橙色的框来讲，后三件写在第四、第五部分的正文里。每一件在对应的页面里有出处和细节。表里的 HumanEval 是一套手写的编程题，AutoMetrics 是用少量人工反馈自动生成评审的一种方法。</p>
+  <p>这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代。下面五件事，左列的说法都比实际情况简单。前两件在第三部分和第六部分各用了一个橙色的框来讲，后三件写在第四、第五部分的正文里。每一件在对应的页面里有出处和细节。表里的 MT-Bench 是一套 80 道人工设计的两轮问答题，HumanEval 是一套手写的编程题，AutoMetrics 是用少量人工标注自动生成评审的一种方法。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
       <tbody>
-        <tr><td>GPT-4 当评审，和人的一致率超过 80%，和人与人之间一样</td><td>这是只算分出胜负的票时的数：85% 和 81%，这时随机乱判也有 50%。把平局和对调顺序后前后不一致的票算进去，是 66% 和 63%</td><td><a href="preference.html#mtbench">第三部分</a></td></tr>
-        <tr><td>pass@k 是 Chen 等人提出 HumanEval 的那篇论文提出的</td><td>第六部分的一张配图是这样写的。这篇论文发表于 2021 年，它自己把这个指标归给 Kulal 等人 2019 年的研究，那篇论文里的名字是「预算为 B 次尝试时的成功率」。2021 年的论文贡献的是 pass@k 这个名字和现在通用的估计式子</td><td><a href="variance.html#passatk">第六部分</a></td></tr>
-        <tr><td>让评审自己成为 agent，和人类专家的一致率约 90%，普通的语言模型评审约 70%</td><td>这是取整后的平均。分系统看，agent 评审是 84% 到 92%，语言模型评审是 60% 到 84%。三位人类专家各自的判定和他们最后的共识相比，平均也只有 85% 到 89% 相同</td><td><a href="actions.html#agentjudge">第四部分</a></td></tr>
-        <tr><td>评审判出的总成功率和人只差 2 个百分点，说明评审很准</td><td>同一项研究里分网站看，有的网站被评审高估 11.6 个百分点，有的被低估 15.9 个百分点，在总体里互相抵消了</td><td><a href="actions.html#webvoyager">第四部分</a></td></tr>
-        <tr><td>AutoMetrics 和人的评分的相关系数比语言模型评审高 33.4%</td><td>论文的原话是「最多」33.4%。十组对比里有一组更差。按论文表里的数算不出 33.4% 这个值，论文没有写明算法</td><td><a href="bias.html#validate">第五部分</a></td></tr>      </tbody>
+        <tr><td>GPT-4 当评审，和人的一致率超过 80%，和人与人之间一样</td><td>这是 MT-Bench 第一轮问题上、GPT-4 做两两比较时的数，而且去掉了平局，只算分出胜负的判断：GPT-4 和人是 85%，人和人之间是 81%，这时随机猜也有 50%。算上平局，两个数是 66% 和 63%。把两个回答对调顺序后评审改了判定的，也按平局算</td><td><a href="preference.html#mtbench">第三部分</a></td></tr>
+        <tr><td>pass@k 是 Chen 等人提出 HumanEval 的那篇论文提出的</td><td>第六部分的一张配图是这样写的。这篇论文发表于 2021 年，它自己把这种汇总办法归给 Kulal 等人 2019 年的研究，那篇论文里的名字是「预算为 B 次尝试时的成功率」。2021 年的论文贡献的是 pass@k 这个名字和现在通用的估计式子</td><td><a href="variance.html#passatk">第六部分</a></td></tr>
+        <tr><td>让评审自己成为 agent，和人类专家的一致率约 90%，普通的语言模型评审约 70%</td><td>这是取整后的平均。被评的是三个开发 agent，按它们分开看，agent 评审是 84% 到 92%，语言模型评审是 60% 到 84%。三位人类专家各自的判定和他们最后的共识相比，三人平均下来，在这三个开发 agent 上也只有 85% 到 89% 相同</td><td><a href="actions.html#agentjudge">第四部分</a></td></tr>
+        <tr><td>评审判出的总成功率和人只差 2 个百分点，说明评审很准</td><td>这是 WebVoyager 这项研究的数。同一项研究分网站看，有的网站被评审高估 11.6 个百分点，有的被低估 15.9 个百分点，在总体里互相抵消了</td><td><a href="actions.html#webvoyager">第四部分</a></td></tr>
+        <tr><td>AutoMetrics 和人的评分的相关系数比语言模型评审提高了 33.4%</td><td>论文的原话是「最多」提高 33.4%，说的是提高最大的那一种情况。论文的结果表比较了五个任务，每个任务换两种模型来做评审，一共十组 AutoMetrics 和单个语言模型评审的对比，其中一组是 AutoMetrics 更差。按论文表里的数，不管算相对提高的比例还是算相关系数的差值，都得不出 33.4% 这个值，论文没有写明它是怎么算的</td><td><a href="bias.html#validate">第五部分</a></td></tr>      </tbody>
     </table>
   </figure>
 </section>
@@ -84,20 +86,20 @@
       <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
       <tbody>
         <tr><th scope="row">Anthropic，2026</th><td><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals for AI agents</a>：Anthropic 的工程文章，作者是 Mikaela Grace 等四人。评估各个组成部分的定义，三种评分器，pass@k 和 pass^k，从零搭一套评估的路线</td><td>一、三、五、六、七</td></tr>
-        <tr><th scope="row">Zheng 等，2023</th><td><a href="https://arxiv.org/abs/2306.05685">Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena</a>：第一次系统地检验用 GPT-4 当评审，报告了它和人的一致率，以及位置、长度、自我偏好几种偏差</td><td>三、五</td></tr>
-        <tr><th scope="row">Ryan 等，2025</th><td><a href="https://arxiv.org/abs/2512.17267">AutoMetrics: Approximate Human Judgments with Automatically Generated Evaluators</a>：用少量人工反馈自动生成并组合一组评审</td><td>五</td></tr>
-        <tr><th scope="row">Hao Zhu 等，2025</th><td><a href="https://openreview.net/forum?id=4BjGVZ7Bxn">AutoLibra: Agent Metric Induction from Open-Ended Human Feedback</a>：从人对运行轨迹（agent 每一步的动作和结果的记录）的开放式反馈里归纳出评估指标</td><td>五</td></tr>
+        <tr><th scope="row">Zheng 等，2023</th><td><a href="https://arxiv.org/abs/2306.05685">Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena</a>：系统地检验用 GPT-4 当评审的做法，报告了它和人的一致率，以及位置、长度、自我偏好几种偏差</td><td>一、三、五</td></tr>
+        <tr><th scope="row">Ryan 等，2025</th><td><a href="https://arxiv.org/abs/2512.17267">AutoMetrics: Approximate Human Judgments with Automatically Generated Evaluators</a>：用少量人工标注自动生成并组合一组评审</td><td>五</td></tr>
+        <tr><th scope="row">Hao Zhu 等，2025</th><td><a href="https://openreview.net/forum?id=4BjGVZ7Bxn">AutoLibra: Agent Metric Induction from Open-Ended Human Feedback</a>：从人对运行轨迹（agent 每一步的动作和看到的结果的完整记录）的开放式反馈里归纳出评估指标</td><td>五</td></tr>
       </tbody>
     </table>
   </figure>
   <h3>三个阶段和偏差部分的论文</h3>
-  <p>括号里写的是论文正式发表的会议和年份。发表的年份比上传到 arXiv 的年份晚的，后面注明了上传的时间，各部分的正文按上传的年份来称呼这些论文。</p>
+  <p>括号里写的是论文正式发表的会议和年份。arXiv 是研究者在论文正式发表之前公开论文的网站。发表的年份比上传到 arXiv 的年份晚的，后面注明了上传的时间，各部分的正文按上传的年份来称呼这些论文。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">部分</th><th scope="col">论文</th></tr></thead>
       <tbody>
         <tr><th scope="row">二 代替文本指标</th><td><a href="https://arxiv.org/abs/2303.16634">G-Eval</a>（Liu 等，EMNLP 2023）；<a href="https://arxiv.org/abs/2302.04166">GPTScore</a>（Fu 等，NAACL 2024，2023 年 2 月上传）；<a href="https://arxiv.org/abs/2305.01937">Can Large Language Models Be an Alternative to Human Evaluations?</a>（Chiang 和 Lee，ACL 2023）</td></tr>
-        <tr><th scope="row">三 判断人的偏好</th><td><a href="https://arxiv.org/abs/1706.03741">Deep reinforcement learning from human preferences</a>（Christiano 等，NeurIPS 2017）；<a href="https://arxiv.org/abs/2009.01325">Learning to summarize from human feedback</a>（Stiennon 等，NeurIPS 2020）；<a href="https://arxiv.org/abs/2203.02155">Training language models to follow instructions with human feedback</a>（Ouyang 等，NeurIPS 2022）；<a href="https://arxiv.org/abs/2310.08491">Prometheus</a>（Kim 等，ICLR 2024，2023 年 10 月上传）</td></tr>
+        <tr><th scope="row">三 判断人的偏好</th><td><a href="https://arxiv.org/abs/1706.03741">Deep reinforcement learning from human preferences</a>（Christiano 等，NeurIPS 2017）；<a href="https://arxiv.org/abs/2009.01325">Learning to summarize from human feedback</a>（Stiennon 等，NeurIPS 2020）；InstructGPT 的论文 <a href="https://arxiv.org/abs/2203.02155">Training language models to follow instructions with human feedback</a>（Ouyang 等，NeurIPS 2022）；<a href="https://arxiv.org/abs/2310.08491">Prometheus</a>（Kim 等，ICLR 2024，2023 年 10 月上传）</td></tr>
         <tr><th scope="row">四 评 agent 的动作</th><td><a href="https://arxiv.org/abs/2401.13919">WebVoyager</a>（He 等，ACL 2024）；<a href="https://arxiv.org/abs/2404.06474">Autonomous Evaluation and Refinement of Digital Agents</a>（Pan 等，COLM 2024）；<a href="https://arxiv.org/abs/2410.10934">Agent-as-a-Judge</a>（Zhuge 等，ICML 2025，2024 年 10 月上传）</td></tr>
         <tr><th scope="row">五 偏差和校准</th><td><a href="https://arxiv.org/abs/2305.17926">Large Language Models are not Fair Evaluators</a>（Wang 等，ACL 2024，2023 年 5 月上传）；<a href="https://arxiv.org/abs/2404.04475">Length-Controlled AlpacaEval</a>（Dubois 等，COLM 2024）</td></tr>
       </tbody>
@@ -115,7 +117,7 @@
         <tr><td><a href="https://arxiv.org/abs/2504.12516">BrowseComp</a>、<a href="https://arxiv.org/abs/2501.14249">Humanity's Last Exam</a> 的论文，<a href="https://github.com/tatsu-lab/alpaca_eval">AlpacaEval 的代码仓库</a></td><td>第一部分，用语言模型评审的基准测试</td></tr>
         <tr><td><a href="https://arxiv.org/abs/2310.06770">SWE-bench</a>、<a href="https://arxiv.org/abs/2601.11868">Terminal-Bench</a>、<a href="https://arxiv.org/abs/2406.12045">τ-bench</a>、<a href="https://arxiv.org/abs/2404.07972">OSWorld</a> 的论文</td><td>第一部分，代码评分器的四个例子；第六部分，pass^k 的出处</td></tr>
         <tr><td><a href="https://arxiv.org/abs/2107.03374">Chen 等，2021</a>，Evaluating Large Language Models Trained on Code；<a href="https://proceedings.neurips.cc/paper/2019/file/7298332f04ac004a0ca44cc69ecf6f6b-Paper.pdf">Kulal 等，2019</a>，SPoC</td><td>第六部分，pass@k 的出处</td></tr>
-        <tr><td><a href="https://arxiv.org/abs/2409.11363">CORE-Bench</a> 的论文；论文作者之一 Sayash Kapoor 2025 年 12 月的<a href="https://substack.com/@sayash/note/c-183913356">说明</a></td><td>第七部分，分数从 42% 变成 95% 的那个基准测试，以及这件事的经过</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2409.11363">CORE-Bench</a> 的论文；它最难一档任务的<a href="https://hal.cs.princeton.edu/corebench_hard">排行榜</a>；论文作者之一 Sayash Kapoor 2025 年 12 月的<a href="https://substack.com/@sayash/note/c-183913356">说明</a></td><td>第七部分，分数从 42% 变成 95% 的那个基准测试，以及这件事的经过</td></tr>
         <tr><td><a href="https://arxiv.org/abs/2507.02825">Zhu 等，2025</a>，Establishing Best Practices for Building Rigorous Agentic Benchmarks</td><td>第 13 讲用过的资料，这一讲在第一、四、五、七部分各引用了一次</td></tr>
       </tbody>
     </table>

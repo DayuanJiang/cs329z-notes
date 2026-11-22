@@ -1,10 +1,10 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>让模型在回答之前多生成一些 token，等于在推理时多花算力，成绩通常会更好。这叫推理时扩展（inference-time scaling，也叫 test-time scaling）。token 是模型处理文字的最小单位。</li>
-    <li>第一种做法是让模型先写推理过程，靠 prompt（交给模型的那段输入文字）来引导。</li>
-    <li>第二种做法是用推理模型。这种模型是专门训练成先推理再回答的，并且推理强度可以分档调。</li>
-    <li>第三种做法是同一道题做很多遍，再挑一个答案。做的遍数越多，至少做对一遍的机会越大。有办法自动验证答案时，就能把做对的那一遍挑出来。</li>
+    <li>让模型为同一个任务多生成一些 token，等于在推理时多花算力，成绩通常会更好。「推理时」指使用训练好的模型生成输出的时候。这个方向的英文名是 inference-time scaling，也叫 test-time scaling。token 是模型处理文字的最小单位。</li>
+    <li>第一种做法是在 prompt（交给模型的那段输入文字）里引导模型先写思考过程，也就是在给出答案之前把一步步的思考写出来。模型本身不用改。</li>
+    <li>第二种做法是用推理模型（reasoning model，先写出思考过程再回答的模型）。这个名字里的「推理」指思考，和「推理时」里的推理是两回事。这种模型是专门训练成这样回答的，prompt 里不用再加引导的话。它的思考强度可以调，通常分成几个档位，思考强度是让模型想多久的设置。</li>
+    <li>第三种做法是同一道题做很多遍，再挑一个答案。做一遍指让模型把这道题从头独立地回答一次。做的遍数越多，至少做对一遍的机会越大。有办法自动验证答案时，就能把做对的那一遍挑出来。</li>
     <li>没有验证办法时，第三种做法可以改成让多次的答案投票。这种挑法到一定遍数之后就不再有提升。</li>
     <li>这些办法的共同点：用多少 token 由使用者决定。觉得一个任务难，就让模型多用一些。</li>
   </ul>
@@ -12,100 +12,104 @@
 
 <section class="sec" id="what">
   <h2>除了把模型做大，还有一个方向</h2>
-  <p>提高模型的能力，过去主要靠在训练上加大投入：更多的参数、更多的数据、更多的训练计算量。推理时扩展是另一个方向：模型不变，在使用它的时候让它为一个任务多算一些。</p>
+  <p>提高模型的能力，过去主要靠在训练上加大投入：更多的参数、更多的数据、更多的训练计算量。在推理时多花算力是另一个方向：模型不变，在使用它的时候让它为一个任务多算一些。</p>
   <p>它和把模型做大有一个很大的不同：多花多少算力，由使用者决定。你知道某个任务很难，愿意为它多花钱，就可以让模型多用一些 token。任务简单，就少用。</p>
 </section>
 
 <section class="sec" id="cot">
-  <h2>先写推理过程：chain of thought</h2>
-  <p>最早被广泛使用的办法是 chain of thought（思维链）：让模型在给出答案之前，先把中间的推理步骤写出来。</p>
-  {{fig 139 | 左：普通的 prompt，例子里的回答只有答案，模型照着直接给出答案 27，错了。右：chain of thought 的 prompt，例子里的回答先写了推理过程（蓝色高亮），模型也照着先推理（绿色高亮），得到正确答案 9。图片来源：<a href="https://arxiv.org/abs/2201.11903">Wei 等，2022</a>。}}
+  <h2>先写思考过程：chain of thought</h2>
+  <p>最早被广泛使用的办法是 chain of thought（思维链）：让模型在给出答案之前，先把中间的思考步骤写出来。</p>
+  {{fig 139 | 左：普通的 prompt，例子里的回答只有答案，模型照着直接给出答案 27，错了。右：chain of thought 的 prompt，例子里的回答先写了思考过程（蓝色高亮），模型也照着先写思考过程（绿色高亮），得到正确答案 9。图片来源：<a href="https://arxiv.org/abs/2201.11903">Wei 等，2022</a>。}}
   <p>具体有两种写法。</p>
   <ul>
-    <li><b>给例子。</b>在 prompt 里放几个「问题、推理过程、答案」的例子，模型会照这个样子回答新的问题。图里就是这种。论文里，5400 亿参数的 PaLM 只用了 8 个这样的例子，就在数学应用题基准测试 GSM8K 上达到了当时最好的准确率。</li>
-    <li><b>加一句话。</b>不给例子，只在回答的开头加上「Let's think step by step」（一步一步地想）。这个办法出自 <a href="https://arxiv.org/abs/2205.11916">Kojima 等，2022</a>。</li>
+    <li><b>给例子。</b>在 prompt 里放几个「问题、思考过程、答案」的例子，模型会照这个样子回答新的问题。图里就是这种。在提出这个办法的论文（Wei 等，2022，也就是上图的出处）里，5400 亿参数的模型 PaLM 只用了 8 个这样的例子，就在数学应用题基准测试 GSM8K 上达到了当时最好的准确率 56.9%，此前最好的成绩是 55%。</li>
+    <li><b>加一句话。</b>不给例子，只在 prompt 的最后、留给模型写回答的位置上先写好一句「Let's think step by step」（一步一步地想），模型就接着这句话往下写思考过程。这个办法出自 <a href="https://arxiv.org/abs/2205.11916">Kojima 等，2022</a>。</li>
   </ul>
-  <p>它算是推理时扩展，是因为推理过程也是模型一个 token 一个 token 生成的。写得越多，为这道题花的计算越多。</p>
+  <p>它算是在推理时多花算力，是因为思考过程也是模型一个 token 一个 token 生成的。写得越多，为这道题花的计算越多。</p>
 </section>
 
 <section class="sec" id="reasoning">
   <h2>推理模型：把「先想再答」训练进模型</h2>
-  <p>现在的推理模型（reasoning model）是专门训练成先长篇推理、再给答案的，用的时候 prompt 里不用再加引导的话。</p>
+  <p>推理模型（reasoning model）这个名字里的「推理」指思考，和「推理时」里的推理是两回事。现在的推理模型是专门训练成先写出长篇的思考过程、再给答案的，用的时候 prompt 里不用再加引导的话。</p>
   {{fig 140 | 同一道题的两种回答。题目：一件夹克 80 美元，先涨价 25%，再在新价格上打七五折，最后多少钱。左下是传统模型的回答，直接列式算出 75 美元。右边是推理模型的输出：它先写出一个错误的想法（涨 25% 再降 25% 等于没变，还是 80 美元），接着发现不对，重新算，再验算一遍，最后给出 75 美元。}}
-  <p>右边那段文字里有一句「等等……」。模型先走了一条错的路，自己发现了，退回来改正。这样做让模型有机会在给出答案之前发现并纠正自己，中途的错误就不容易一路带进最后的答案。代价也很明显：输出的 token 比传统模型多得多。</p>
-  {{fig 141 | 一个推理模型的原始输出。题目：一张电影票和一份爆米花一共 18 美元，电影票比爆米花贵 6 美元，电影票多少钱。think 标签里是推理过程。红框标出的那句是「等等，这不对」，模型发现自己前面列错了式子，随后改正，最后在 answer 标签里给出 12。图片来源：<a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Sebastian Raschka 的文章</a>。}}
-  <p>这种模型发现并纠正自己错误的时刻，Raschka 的文章把它叫作 Aha moment，意思是恍然大悟的那一刻。这种能力是怎么训练出来的，和<a href="training.html#post">第四部分</a>讲的 RLVR 直接有关。RLVR 是用能自动判对错的任务做强化学习。强化学习是让模型反复做题、按每次的得分来调整模型的训练办法，这个得分叫奖励。</p>
-  <p>DeepSeek-R1 是一个例子。Raschka 的文章这样概括它的做法：让模型去做数学、代码这类能自动判对错的题，奖励由最后的答案对不对和输出格式是否合乎要求两项组成，中间的推理过程不参与打分。按这篇文章的说法，仅靠这样的奖励，模型就学会了写中间步骤、回退和自我纠正。出处：<a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Raschka 的文章</a>；<a href="https://arxiv.org/abs/2501.12948">DeepSeek-R1 的论文</a>。</p>
+  <p>右边那段文字里有一句「等等……」。模型先写了一个错的想法，自己发现了，再回头改正。这样做让模型有机会在给出答案之前发现并纠正自己，中途的错误就不容易一路带进最后的答案。代价也很明显：输出的 token 比传统模型多得多。</p>
+  {{fig 141 | 一个推理模型的原始输出。题目：一张电影票和一份爆米花一共 18 美元，电影票比爆米花贵 6 美元，电影票多少钱。think 标签里是思考过程。红框标出的那句是「等等，这不对」，模型发现自己前面列错了式子，随后改正，最后在 answer 标签里给出 12。图片来源：<a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Sebastian Raschka 的文章</a>。}}
+  <p>这种模型发现并纠正自己错误的时刻，有一个名字叫 Aha moment，意思是恍然大悟的那一刻。这个叫法见于 Sebastian Raschka 2026 年 7 月的文章《Controlling reasoning effort in LLMs》，上图也出自这篇文章，下面叫它 Raschka 的文章。</p>
+  <p>这种能力是怎么训练出来的，和<a href="training.html#post">第四部分</a>讲的 RLVR 直接有关。RLVR 是用能自动判对错的任务做强化学习。强化学习是让模型自己去做任务、再按结果得到的奖励来更新模型的训练办法。</p>
+  <p>DeepSeek 公司的推理模型 DeepSeek-R1 是用 RLVR 训练出这种能力的一个例子。Raschka 的文章这样概括它的做法：让模型去做数学、代码这类能自动判对错的题，奖励由最后的答案对不对和输出格式是否合乎要求两项组成，中间的思考过程不参与打分。按这篇文章的说法，仅靠这样的奖励，模型就学会了写中间步骤、回退和自我纠正。出处：<a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Raschka 的文章</a>；<a href="https://arxiv.org/abs/2501.12948">DeepSeek-R1 的论文</a>。</p>
 </section>
 
 <section class="sec" id="effort">
-  <h2>推理强度是一个可以调的档位</h2>
-  <p>推理模型通常提供几个推理强度的档位。档位越高，模型想得越久，用的 token 越多，花费越高，成绩通常也更好。发布新模型时常见下面这种图。</p>
+  <h2>思考强度是一个可以调的档位</h2>
+  <p>推理模型通常提供几个思考强度的档位，思考强度是让模型想多久的设置。档位越高，模型想得越久，用的 token 越多，花费越高，成绩通常也更好。发布新模型时常见下面这种图。</p>
   <p>下面这张图出自 OpenAI 发布 GPT-6 Sol 和 Luna 的页面。图里也画了同一个月稍早发布的 GPT-6 Astra，下面读的就是它的那条线。图里的基准测试叫 Agents' Last Exam。原页面对它的介绍是，它评估 agent 完成复杂的专业工作流程的能力。agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。</p>
-  {{fig 142 | 左：一个叫 Agents' Last Exam 的基准测试上的成绩。横轴是每个任务的花费，是对数刻度，从 0.02 美元到 20 美元；纵轴是得分。每条折线是一个模型，线上的每个点是这个模型的一个推理强度档位。右上是蓝色那条线（GPT-6 Astra）的放大，上面用红字标出了 Low、Medium、Max 三个点。右下是产品界面里选择推理强度的滑块。图片来源：<a href="https://openai.com/index/introducing-gpt-6-sol-and-luna/">OpenAI 的 GPT-6 Sol 和 Luna 发布页，2026 年 9 月</a>。}}
-  <p>读这张图的办法是沿着一条线看：同一个模型，从左下的低档到右上的高档，花费增加，得分大体上升。从图上读，GPT-6 Astra 的五个点从大约 53% 升到大约 59%，每个任务的花费从 3 美元左右升到 6 美元左右。这里的花费基本上就是 token 数：档位越高，生成的 token 越多。</p>
+  {{fig 142 | 左：一个叫 Agents' Last Exam 的基准测试上的成绩。横轴是每个任务的花费，是对数刻度（每往右一格，数值乘以同一个倍数），从 0.02 美元到 20 美元。纵轴是得分，用百分数表示。每条折线是一个模型，线上的每个点是这个模型的一个思考强度档位。右上是蓝色那条线（GPT-6 Astra）的放大，这条线上有五个点，红字标出了其中三个：Low、Medium、Max。右下是产品界面里选择思考强度的滑块。图片来源：<a href="https://openai.com/index/introducing-gpt-6-sol-and-luna/">OpenAI 的 GPT-6 Sol 和 Luna 发布页，2026 年 9 月</a>。}}
+  <p>读这张图的办法是沿着一条线看：同一个模型，从左下的低档到右上的高档，花费增加，得分大体上升。从图上读，GPT-6 Astra 的五个点，得分从大约 53% 升到大约 59%，每个任务的花费从 3 美元左右升到 6 美元左右。得分越高越好，发布页没有写明这个百分数是怎么算出来的，查到的情况见<a href="#notes">资料说明</a>。这里的花费大致和生成的 token 数成正比：档位越高，生成的 token 越多，花费越高。</p>
   <p>调高档位不保证得分更高。从图上读，有几条线在中间或最后出现了回落。</p>
   <h3>使用时怎么设</h3>
-  <p>对使用者来说，档位通常就是 system prompt 里的一行字。system prompt 是放在对话最前面、用来设定模型行为的那段文字。</p>
-  {{fig 143 | 开放权重模型 gpt-oss 设置推理强度的办法：在 system prompt 里写一行 Reasoning: low、medium 或 high，后面的用户 prompt 不变。}}
-  <p>OpenAI 的 gpt-oss 模型说明里写的是：推理强度有低、中、高三档，在 system prompt 里设置，例如写上 <code>Reasoning: high</code>。产品界面里的滑块和菜单，很可能只是把用户的选择换成了这样一行文字。</p>
+  <p>对使用者来说，设置档位可以简单到只在 system prompt 里写一行字，OpenAI 的 gpt-oss 就是这样。system prompt 是放在对话最前面、用来设定模型行为的那段文字。</p>
+  {{fig 143 | gpt-oss 设置思考强度的办法：在 system prompt 里写一行 Reasoning: low、medium 或 high，后面的用户 prompt 不变。gpt-oss 是一个公开权重的模型，公开权重指训练好的模型参数公开发布、可以下载。}}
+  <p>OpenAI 的 <a href="https://huggingface.co/openai/gpt-oss-120b">gpt-oss 模型说明</a>里写的是：思考强度有低、中、高三档，在 system prompt 里设置，例如写上 <code>Reasoning: high</code>。OpenAI 没有公开它的产品里思考强度是怎样设置的。Agents' Last Exam 那张图右下角的滑块，很可能只是把用户的选择换成了这样一行文字，Raschka 的文章也是这样推测的。</p>
 </section>
 
 <section class="sec" id="effort-training">
   <h2>档位是怎么训练出来的</h2>
-  <p>在 system prompt 里写一行字就能让模型多想或少想，是因为模型在后训练（预训练之后、让模型学会按人希望的方式回答的训练阶段）里专门学过这件事。公开的做法大致有两种，可以单用也可以合用。下表里的有监督微调，指拿一批写好了示范回答的例子让模型照着学。</p>
+  <p>在 system prompt 里写一行字就能让模型多想或少想，是因为模型在后训练（训练的最后一个阶段，用专门挑选的数据教模型按人希望的方式回答）里专门学过这件事。公开的做法大致有两种，可以单用也可以合用。下表里的有监督微调，指拿一批写好了示范回答的例子让模型照着学。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">做法</th><th scope="col">怎么做</th></tr></thead>
       <tbody>
-        <tr><th scope="row">放进强化学习里</th><td>训练时在 system prompt 里写上档位，并让奖励和用掉的 token 数挂钩。低档时多用 token 的代价大，高档时代价小或者没有</td></tr>
-        <tr><th scope="row">放进有监督微调里</th><td>强化学习之后，准备一批「档位标签加上相应长度的示范回答」，让模型照着学</td></tr>
+        <tr><th scope="row">放进强化学习里</th><td>训练时在 system prompt 里写上档位，并按回答的长度扣奖励，档位不同，扣的多少也不同。低档时多用 token 的代价大，高档时代价小或者没有</td></tr>
+        <tr><th scope="row">放进有监督微调里</th><td>在模型用强化学习学会先想再答之后，另外准备一批「档位标签加上相应长度的示范回答」，让模型照着学</td></tr>
       </tbody>
     </table>
-    <figcaption>这个归纳来自 <a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Sebastian Raschka 2026 年 7 月的文章</a>。</figcaption>
+    <figcaption>这个归纳来自 <a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Raschka 的文章</a>。</figcaption>
   </figure>
-  <p>下面的图列了两个模型的做法，一个是 Thinking Machines 的 Inkling，另一个是 Kimi K3。图里的蒸馏，指让一个模型去学另一个模型的输出，被学的叫老师模型，去学的叫学生模型。</p>
-  {{fig 144 | 图上列的两个模型的做法。左：Inkling，奖励写成任务奖励减去一个和 token 数成正比的惩罚，低档时惩罚系数大，高档时惩罚系数小。右：Kimi K3，上面是一条奖励规则，下面是九个老师模型（三个领域乘以三个档位）蒸馏成一个学生模型。图上有三处和原始出处对不上，见图下的说明。}}
+  <p>下面的图列了两个模型的做法，一个是 Thinking Machines 的 Inkling，另一个是月之暗面的 Kimi K3。图里的蒸馏，指让一个模型去学另一个模型的输出，被学的叫老师模型，去学的叫学生模型。</p>
+  {{fig 144 | 图上列的两个模型的做法。左：Inkling，奖励写成任务奖励减去一个和 token 数成正比的惩罚，思考强度低时惩罚系数大，思考强度高时惩罚系数小。右：Kimi K3，上面是一条奖励规则，下面是九个老师模型（三个领域乘以三个档位）蒸馏成一个学生模型。图上有三处和原始出处对不上，见图下的说明。}}
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>上图有三处和原始出处对不上，以下面的正文为准。</b>
     <ul>
-      <li>Inkling 的那个公式是一篇解读文章的作者推测的，Thinking Machines 没有公开奖励公式。</li>
+      <li>Inkling 的那个公式是 Raschka 的文章推测的，Thinking Machines 没有公开奖励公式。</li>
       <li>Kimi K3 的三个档位是低、高、最高，图上写的是 High、Med、Low。</li>
-      <li>Kimi K3 的规则是只要超过预算，奖励就改成负 1，和答对答错无关。图上写的是答错并且超预算才得负 1 分。</li>
+      <li>Kimi K3 给每道题定了一个 token 预算，也就是允许用的 token 数。规则是只要超过预算，奖励就改成负 1，和答对答错无关。图上写的是答错并且超预算才得负 1 分。</li>
     </ul>
     核对的经过见<a href="#notes">资料说明</a>。</div></div>
   <h3>Inkling：公开的是两点，公式是推测</h3>
-  <p>按 Raschka 文章的转述，Inkling 的技术报告说到的是两点：强化学习时在 system prompt 里写明想要的强度，并调整每个生成的 token 的代价。图上的公式 <code>R(e) = R_task − λ(e) × N_tokens</code> 出自 Raschka 的文章，是他根据这两点作出的推测。</p>
-  <p>公式里的 e 是设定的推理强度，也就是档位，<code>R(e)</code> 是这个档位下模型最后拿到的奖励。<code>R_task</code> 是任务本身的奖励，<code>N_tokens</code> 是这次生成的 token 数，<code>λ(e)</code> 是每个 token 的代价，也就是图上说的惩罚系数：低档时大，高档时小。</p>
-  <p>Inkling 的强度是 0 到 1 之间的一个连续的数，写法类似 <code>Thinking effort level: 0.8</code>，这一点也来自 Raschka 的文章。Inkling 的<a href="https://thinkingmachines.ai/news/introducing-inkling/">发布文章</a>里，成绩曲线是把强度从 0.2 调到 0.99 画出来的。</p>
+  <p>Inkling 的<a href="https://thinkingmachines.ai/news/introducing-inkling/">发布文章</a>讲到的是两点：强化学习时在 system prompt 里写明想要的强度，并调整每个生成的 token 的代价。图上的公式 <code>R(e) = R_task − λ(e) × N_tokens</code> 出自 Raschka 的文章，是他根据这两点作出的推测。</p>
+  <p>公式里的 e 是设定的思考强度，<code>R(e)</code> 是这个思考强度下模型最后拿到的奖励。<code>R_task</code> 是任务本身的奖励，<code>N_tokens</code> 是这次生成的 token 数，<code>λ(e)</code> 是每个 token 的代价，也就是图上说的惩罚系数：思考强度低时大，思考强度高时小。</p>
+  <p>Inkling 的思考强度没有分成档位。gpt-oss 分低、中、高三档，Inkling 用的是 0 到 1 之间的一个连续的数，写法类似 <code>Thinking effort level: 0.8</code>。这一点也来自 Raschka 的文章。</p>
+  <p>这个数越大，相当于前面说的档位越高。Inkling 的<a href="https://thinkingmachines.ai/news/introducing-inkling/">发布文章</a>里有一张图，画的是把思考强度从 0.2 调到 0.99 时，模型在三个基准测试上的成绩和平均生成的 token 数。Raschka 的文章对这张图的概括是：思考强度越高，回答一般越长，成绩一般也越高。</p>
   <h3>Kimi K3：技术报告里写明的做法</h3>
+  <p>Kimi K3 用的是上表第一行的做法，也就是放进强化学习里，但扣奖励的方式和表里说的按长度扣不一样。它给每道题定一个 token 预算，用掉的 token 数一旦超过预算，奖励就整个改成负 1。各个档位的差别在预算的大小。</p>
   <p>下面五步按 <a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>第 4.1 节整理。</p>
   <ol>
-    <li><b>给每道题定一个 token 预算。</b>先用还没做强化学习的模型估出每道题大致要用多少 token，作为这道题的初始预算。</li>
-    <li><b>超预算就把奖励改成负 1。</b>一次尝试用掉的 token 数如果超过「预算乘以一个倍数」，不管任务本身得了多少奖励，都改成负 1。对一般的任务，计入的是思考用的 token。对 agent 类任务，计入的是全部输出的 token，包括推理过程和调用工具时写的参数。</li>
+    <li><b>给每道题估一个初始预算。</b>先用还没做强化学习的模型估出每道题大致要用多少 token，作为这道题的初始预算。</li>
+    <li><b>超预算就把奖励改成负 1。</b>一道题在一个档位下的预算，等于它的初始预算乘以这个档位的倍数。一次尝试用掉的 token 数如果超过这个预算，不管任务本身得了多少奖励，都改成负 1。对一般的任务，计入的是思考用的 token。对 agent 类任务，计入的是全部输出的 token，包括思考过程和调用工具时写的参数。</li>
     <li><b>靠调倍数得到不同的档位。</b>先用一个比较大的倍数训练出最高档的模型，再把倍数逐步调小，得到高档和低档的模型。</li>
-    <li><b>三个领域各做一遍。</b>一般任务、一般的 agent 任务、写代码的 agent 任务，各自训练出低、高、最高三个档位的专家模型，一共九个。</li>
-    <li><b>合成一个模型。</b>用多老师蒸馏，把九个专家的能力合进一个学生模型，也就是最后发布的 Kimi K3。训练时每条样本抽一个领域和一个档位，由对应的那个老师来指导。</li>
+    <li><b>三个领域分别训练。</b>一般任务、一般的 agent 任务、写代码的 agent 任务，各自训练出低、高、最高三个档位的模型，一共九个。技术报告把它们叫作专家模型。</li>
+    <li><b>合成一个模型。</b>用多老师蒸馏，把九个专家模型的能力合进一个学生模型，也就是最后发布的 Kimi K3。九个专家模型在蒸馏里当老师模型，图上画的九个老师模型就是它们。训练时每条样本抽一个领域和一个档位，由对应的那个专家模型来指导。</li>
   </ol>
 </section>
 
 <section class="sec" id="sampling">
   <h2>同一道题做很多遍，再挑</h2>
-  <p>另一类办法是让模型把同一道题独立地做很多遍，每一遍的推理强度不变。模型的输出有随机性，每一遍的结果都可能不同。</p>
-  {{fig 145 | 两步。第一步：语言模型为同一个问题生成很多个候选解答。第二步：从里面挑出最终答案。图上把挑答案的办法统称为验证器（Verifier），举的例子是单元测试、证明检查器和多数投票。这一页说的验证器只指前两种能自动判对错的检查，多数投票放在<a href="#consistency">下一节</a>单独讲。图下方是两个要解决的问题。图片来源：<a href="https://arxiv.org/abs/2407.21787">Brown 等，2024</a>。}}
+  <p>另一类办法是让模型把同一道题独立地做很多遍，每一遍的思考强度不变。模型生成每个 token 时通常是按概率随机选的，所以每一遍写出来的解答都可能不同。每做一遍，就得到一个候选解答。这类办法的英文名是 repeated sampling（重复抽样），这里的 sampling 指把整道题做一遍。</p>
+  {{fig 145 | 这类办法分两步。第一步：语言模型为同一个问题生成很多个候选解答。第二步：从里面挑出最终答案。图上把挑答案的办法统称为验证器（Verifier），举的例子是单元测试、证明检查器和多数投票。这一页说的验证器只指前两种能自动判对错的检查，多数投票放在<a href="#consistency">下一节</a>单独讲。图下方是两个要解决的问题。图片来源：<a href="https://arxiv.org/abs/2407.21787">Brown 等，2024</a>。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">问的是什么</th><th scope="col">取决于什么</th></tr></thead>
       <tbody>
-        <tr><th scope="row">覆盖率<br><span class="muted small">coverage</span></th><td>生成的这么多候选里，有没有至少一个是对的</td><td>模型的能力，和抽了多少遍</td></tr>
+        <tr><th scope="row">覆盖率<br><span class="muted small">coverage</span></th><td>生成的这么多候选解答里，有没有至少一个是对的</td><td>模型的能力，和做了多少遍</td></tr>
         <tr><th scope="row">精确度<br><span class="muted small">precision</span></th><td>能不能把对的那一个认出来</td><td>有没有可靠的验证办法</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>如果有一个可靠的自动验证器，比如代码有单元测试、数学证明有检查器，第二个问题就解决了，只剩下第一个：多抽几遍，覆盖率能涨多少。</p>
-  {{fig 146 | 四个基准测试上，覆盖率随抽样次数的变化。横轴是每道题抽的次数，对数刻度，从 1 到 1 万。蓝线是 Llama-3-8B-Instruct，绿线是 Llama-3-70B-Instruct。红色虚线是 GPT-4o 只做一遍的成绩，作为参照。下面两张图标着 Oracle Verifier，意思是假定有一个能完美认出正确答案的验证器。图片来源：同上。}}
-  <p>四张图里的曲线都随抽样次数上升，并且在对数刻度的横轴上接近直线。论文的说法是：覆盖率和抽样次数的对数之间，常常近似是线性关系。</p>
-  <p>小模型抽很多遍，覆盖率可以赶上甚至超过更强的模型只做一遍的成绩。从图上看，80 亿参数的 Llama 3 在抽了足够多遍之后，四个测试上都到达或超过了红色虚线。</p>
-  <p>读这个比较时要分清两个数。红色虚线是只做一遍的成绩，曲线是「做很多遍、有一遍对就算对」的比例，这是两个不同的数，一般不能放在一起比。只有在有可靠的验证器、能把做对的那一遍挑出来的任务上，覆盖率才是实际能拿到的成绩。第 13 讲会讲到这一点。</p>
+  <p>覆盖率同时也是一个数：全部题目里，至少有一个候选解答做对的题所占的比例。</p>
+  <p>如果有一个可靠的自动验证器，比如代码有单元测试、数学证明有检查器，第二个问题就解决了，只剩下第一个：多做几遍，覆盖率能涨多少。</p>
+  {{fig 146 | 四个基准测试上，覆盖率随遍数的变化。横轴是每道题做的遍数，对数刻度，从 1 到 1 万。蓝线是 Llama-3-8B-Instruct，绿线是 Llama-3-70B-Instruct，名字里的 8B 和 70B 指 80 亿和 700 亿个参数。红色虚线是 GPT-4o 只做一遍的成绩，作为参照。下面两张图标着 Oracle Verifier，意思是假定有一个能完美认出正确答案的验证器。图片来源：同上。}}
+  <p>四张图里的曲线都随遍数上升，并且在对数刻度的横轴上接近直线。论文的说法是：覆盖率和遍数的对数之间，常常近似是线性关系。</p>
+  <p>小模型做很多遍，覆盖率可以赶上甚至超过更强的模型只做一遍的成绩。这里的小模型是蓝线的 Llama-3-8B-Instruct，更强的模型是红色虚线的 GPT-4o。从图上看，蓝线在四个测试上都到达或超过了红色虚线。需要的遍数随测试不同：从图上读，少的不到 10 遍，多的要几千遍。</p>
+  <p>读这个比较时要分清两个数。红色虚线是只做一遍的成绩，曲线是覆盖率，也就是「做很多遍、有一遍对就算对」的比例。上一段的比较在一个条件下才成立：任务有可靠的验证器，能把做对的那一遍挑出来，这时覆盖率就是实际能拿到的成绩。没有验证器时，覆盖率只是成绩的上限，和只做一遍的成绩不能直接比。第 13 讲会讲到这一点。</p>
   <p>论文里有两个具体的例子。</p>
   <figure class="plate">
     <table class="tbl">
@@ -115,44 +119,45 @@
         <tr><th scope="row">CodeContests<br><span class="muted small">编程竞赛题</span></th><td>Gemma-2B</td><td class="r">0.02%</td><td class="r">10,000</td><td class="r">7.1%</td></tr>
       </tbody>
     </table>
-    <figcaption>数字来自论文的摘要和引言。SWE-bench Lite 上，当时只做一遍的最好成绩是 43%，由 GPT-4o 和 Claude 3.5 Sonnet 组合得到。</figcaption>
+    <figcaption>数字来自论文的摘要和引言。SWE-bench Lite 上，当时只做一遍的最好成绩是 43%，来自一个叫 CodeStory Aide 的系统，它同时用到 GPT-4o 和 Claude 3.5 Sonnet 两个模型。</figcaption>
   </figure>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>覆盖率是一个上限，实际能拿到多少要看验证器。</b>SWE-bench Lite 的 56% 能算作真实的成绩，是因为每个候选都可以用测试来验证。上面四张图里下排标着 Oracle Verifier 的两张（MATH 和 GSM8K），是假定能认出正确答案画出来的，实际没有这样的验证器。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>覆盖率是一个上限，实际能拿到多少要看验证器。</b>SWE-bench Lite 的 56% 能算作真实的成绩，是因为每个候选解答都可以用测试来验证。上面四张图里下排标着 Oracle Verifier 的两张（MATH 和 GSM8K，都是数学题的基准测试），是假定能认出正确答案画出来的，实际没有这样的验证器。</div></div>
 </section>
 
 <section class="sec" id="consistency">
   <h2>没有验证器时：让答案投票</h2>
   <p>没有验证器，也有一个简单的办法：把同一道题做很多遍，哪个答案出现的次数最多，就选哪个。这叫自洽性（self-consistency）。</p>
-  {{fig 147 | 上半部分：普通的 chain of thought 加 greedy 解码（每一步都选概率最高的 token），只走一条推理路径，得到 14 美元。下半部分：同一个 prompt 抽样出三条不同的推理路径，答案分别是 18 美元、26 美元、18 美元，汇总后选出现最多的 18 美元。题目是：Janet 的鸭子每天下 16 个蛋，她早餐吃 3 个，烤松饼用 4 个，剩下的每个卖 2 美元，一天能卖多少钱。图片来源：<a href="https://arxiv.org/abs/2203.11171">Wang 等，2022</a>。}}
-  <p>道理是：一道题的正确答案只有一个，错法却有很多种。不同的推理路径如果都对，会汇合到同一个答案上；如果错了，往往各错各的。所以出现次数最多的答案更可能是对的。这道题正确答案是 18 美元：16 减 3 减 4 等于 9 个蛋，每个 2 美元。</p>
-  {{fig 148 | ARC 挑战集（一个科学常识选择题的基准测试）上的准确率。横轴是抽样的推理路径条数。蓝线是自洽性，绿线是另一种办法 Sample &amp; Rank，橙线是只走一条路径的 greedy 解码。图片来源：同上。}}
+  {{fig 147 | 上半部分：普通的 chain of thought 加 greedy 解码（每一步都选概率最高的 token），只走一条解题路径，得到 14 美元。解题路径指模型为这道题写出的一整段思考过程和答案。下半部分：同一个 prompt 做三遍，每一遍得到一条解题路径，三条各不相同，答案分别是 18 美元、26 美元、18 美元，汇总后选出现最多的 18 美元。题目是：Janet 的鸭子每天下 16 个蛋，她早餐吃 3 个，烤松饼用 4 个，剩下的每个卖 2 美元，一天能卖多少钱。图片来源：<a href="https://arxiv.org/abs/2203.11171">Wang 等，2022</a>。}}
+  <p>道理是：一道题的正确答案只有一个，错法却有很多种。不同的解题路径如果都对，会汇合到同一个答案上；如果错了，往往各错各的。所以出现次数最多的答案更可能是对的。这道题正确答案是 18 美元：16 减 3 减 4 等于 9 个蛋，每个 2 美元。</p>
+  <p>这个办法有一个适用条件。论文写明，它只能用在最终答案取自一个固定的答案集合的题目上，这样不同遍的答案才能直接比较是不是同一个。数学题的一个数、选择题的一个选项都符合。</p>
+  {{fig 148 | ARC 挑战集（一个科学常识选择题的基准测试）上的准确率。横轴是解题路径的条数，也就是做的遍数。蓝线是自洽性，绿线是另一种办法 Sample &amp; Rank，橙线是只走一条解题路径的 greedy 解码。图片来源：同上。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">办法</th><th scope="col">怎么选最终答案</th><th scope="col">图上的表现（从图上读的大约值）</th></tr></thead>
       <tbody>
-        <tr><th scope="row">greedy 解码</th><td>只生成一条路径</td><td>大约 43%，和路径条数无关</td></tr>
-        <tr><th scope="row">Sample &amp; Rank</th><td>抽样出多条路径，选模型自己给的概率最高的那一条</td><td>从 35% 左右升到 44% 左右，40 条时和 greedy 差不多</td></tr>
-        <tr><th scope="row">自洽性</th><td>抽样出多条路径，对最终答案做多数投票</td><td>从 36% 左右升到 54% 左右，前 10 条涨得最快，之后变平</td></tr>
+        <tr><th scope="row">greedy 解码</th><td>只生成一条解题路径</td><td>大约 43%，和解题路径条数无关</td></tr>
+        <tr><th scope="row">Sample &amp; Rank</th><td>做很多遍，得到多条解题路径，选模型自己给的概率最高的那一条</td><td>1 条时 35% 左右，40 条时 44% 左右，和 greedy 解码差不多</td></tr>
+        <tr><th scope="row">自洽性</th><td>做很多遍，得到多条解题路径，对最终答案做多数投票</td><td>1 条时 36% 左右，40 条时 54% 左右。前 10 条涨得最快，之后变平</td></tr>
       </tbody>
     </table>
     <figcaption>这张图用的模型是 GPT-3 的 code-davinci-001。</figcaption>
   </figure>
-  <p>论文摘要报告了五个基准测试上的提升。比较的两边用的是同样的 chain of thought prompt：一边用自洽性，另一边只用 greedy 解码走一条路径。下表的数是自洽性的准确率比另一边高出多少个百分点，对应的是另一个模型 code-davinci-002 的结果。</p>
+  <p>论文摘要报告了五个基准测试上的提升。比较的两边用的是同样的 chain of thought prompt：一边用自洽性，每道题用 40 条解题路径投票，另一边只用 greedy 解码走一条解题路径。下表的数是自洽性的准确率比另一边高出多少个百分点，对应的是另一个模型 code-davinci-002 的结果。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">基准测试</th><th scope="col">考什么</th><th scope="col" class="r">自洽性的准确率比只走一条路径高出多少</th></tr></thead>
+      <thead><tr><th scope="col">基准测试</th><th scope="col">考什么</th><th scope="col" class="r">自洽性的准确率比只走一条解题路径高出多少</th></tr></thead>
       <tbody>
         <tr><th scope="row">GSM8K</th><td>数学应用题</td><td class="r">17.9 个百分点</td></tr>
         <tr><th scope="row">SVAMP</th><td>数学应用题</td><td class="r">11.0 个百分点</td></tr>
-        <tr><th scope="row">AQuA</th><td>算术推理题</td><td class="r">12.2 个百分点</td></tr>
-        <tr><th scope="row">StrategyQA</th><td>常识推理题</td><td class="r">6.4 个百分点</td></tr>
+        <tr><th scope="row">AQuA</th><td>算术题</td><td class="r">12.2 个百分点</td></tr>
+        <tr><th scope="row">StrategyQA</th><td>常识问答题</td><td class="r">6.4 个百分点</td></tr>
         <tr><th scope="row">ARC 挑战集</th><td>科学常识选择题</td><td class="r">3.9 个百分点</td></tr>
       </tbody>
     </table>
     <figcaption>数字来自论文的摘要，都是准确率的绝对差。</figcaption>
   </figure>
-  <p>上图用的 code-davinci-001 在 ARC 挑战集上起点低，提升更大：按论文的表 3，从 43.1% 升到 53.7%，高 10.6 个百分点，和从图上读到的数一致。</p>
-  <p>图里蓝线后半段变平：靠投票来挑答案，遍数多到一定程度就不再有提升。上一节那篇重复抽样的论文有同样的发现：在没有自动验证器的任务上，用多数投票或者打分模型来挑答案，到几百遍之后成绩就不再上升，跟不上覆盖率。</p>
+  <p>前面那张 ARC 挑战集的图用的是 code-davinci-001，它在这个测试上的提升比 code-davinci-002 大。按论文的表 3，code-davinci-001 只走一条解题路径的准确率是 43.1%，用 40 条解题路径投票是 53.7%，高 10.6 个百分点。这两个数和图上橙线、蓝线最右端读到的数一致。code-davinci-002 的这两个数是 83.6% 和 87.5%，差就是上表里的 3.9 个百分点。</p>
+  <p>图里蓝线后半段变平：靠投票来挑答案，遍数多到一定程度就不再有提升。上一节那篇论文（Brown 等，2024）有同样的发现：在没有自动验证器的任务上，用多数投票或者打分模型来挑答案，到几百遍之后成绩就不再上升。打分模型是给每个候选解答打一个分的模型，用它挑答案就是选分最高的那个候选解答。覆盖率这时还在随遍数上升，所以挑出来的成绩和覆盖率之间的差距越来越大。</p>
 </section>
 
 <section class="sec" id="summary">
@@ -162,21 +167,24 @@
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">做法</th><th scope="col">多花的算力用在哪里</th><th scope="col">需要什么条件</th></tr></thead>
       <tbody>
-        <tr><th scope="row">先写推理过程<br><span class="muted small">chain of thought</span></th><td>回答之前多写一段推理</td><td>改 prompt 就行</td></tr>
-        <tr><th scope="row">推理模型和推理强度</th><td>模型自己决定想多久，档位越高想得越久</td><td>模型要专门训练过；使用时在 system prompt 里选档位</td></tr>
+        <tr><th scope="row">先写思考过程<br><span class="muted small">chain of thought</span></th><td>回答之前多写一段思考过程</td><td>只需要改 prompt</td></tr>
+        <tr><th scope="row">推理模型和思考强度</th><td>回答之前写更长的思考过程，思考强度调得越高写得越长</td><td>模型要专门训练过，使用时由使用者选思考强度</td></tr>
         <tr><th scope="row">做很多遍，用验证器挑</th><td>同一道题做很多遍</td><td>要有可靠的自动验证办法</td></tr>
-        <tr><th scope="row">做很多遍，让答案投票<br><span class="muted small">自洽性</span></th><td>同一道题做很多遍，答案投票</td><td>答案要能互相比较，比如一个数或一个选项；遍数多了之后不再有提升</td></tr>
+        <tr><th scope="row">做很多遍，让答案投票<br><span class="muted small">自洽性</span></th><td>同一道题做很多遍，答案投票</td><td>最终答案要取自一个固定的答案集合，比如一个数或一个选项</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>到这里，模型本身讲完了：它是什么、怎么搭的、怎么训练、怎么推理。最后两部分讲把它放进 agent 里时要处理的两件事。先看<a href="structured.html">怎样让模型的输出能被程序解析</a>。</p>
+  <p>让答案投票还有一个限制：遍数多到一定程度之后，成绩不再上升。</p>
+  <p>到这里，模型本身讲完了：它是什么、怎么搭的、怎么训练、推理时发生了什么。最后两部分讲把它放进 agent 里时要处理的两件事。先看<a href="structured.html">怎样让模型的输出能被程序解析</a>。</p>
 </section>
 
 <section class="sec" id="notes">
   <h2>资料说明</h2>
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
+    <li><b>Agents' Last Exam 的得分怎么算。</b>OpenAI 的发布页只介绍了这个基准测试评估什么，图的纵轴只标着 Score，没有说明算法。这个基准测试自己的论文报告两个指标：各个任务得分的平均值，和拿到满分的任务所占的比例。发布页的图用的是哪一个，没有核对到。出处：<a href="https://openai.com/index/introducing-gpt-6-sol-and-luna/">OpenAI 的 GPT-6 Sol 和 Luna 发布页</a>；<a href="https://arxiv.org/abs/2606.05405">Agents' Last Exam 的论文</a>。</li>
     <li><b>Inkling 的奖励公式。</b>配图上的公式 <code>R(e) = R_task − λ(e) × N_tokens</code> 出自 Raschka 的文章，原话是奖励「很可能大致是这个样子」，并说明 Thinking Machines 没有公开确切的奖励公式和系数。出处：<a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Raschka 的文章</a>。</li>
+    <li><b>Inkling 公开的两点出自哪篇文章。</b>Raschka 的文章转述这两点时，把来源叫作 Inkling 的技术报告。这两点在 Thinking Machines 的发布文章里能核对到，所以前面写成发布文章。出处：<a href="https://thinkingmachines.ai/news/introducing-inkling/">Inkling 的发布文章</a>；<a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Raschka 的文章</a>。</li>
     <li><b>Kimi K3 的档位名字。</b>配图上写的是 High、Med、Low。技术报告写的是 low、high、max。出处：<a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>第 4.1 节。</li>
     <li><b>Kimi K3 的负 1 分规则。</b>配图上写的是「答对得 1 分，答错得 0 分，答错并且超预算得负 1 分」。技术报告的规则是：只要超过预算，就把任务奖励改成负 1。答对得 1、答错得 0 这两个数，没有在技术报告里核对到。出处：<a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>第 4.1 节。</li>
   </ul>

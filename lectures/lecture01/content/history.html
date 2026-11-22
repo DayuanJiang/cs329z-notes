@@ -1,22 +1,22 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>agent 这个概念比 LLM 早得多。这个词在 15 世纪末进入英语，意思是「行动的人」。AI 领域从 1970 年代起就在用它，1990 年代有了几个流传至今的定义。</li>
-    <li>强化学习是让 agent 通过试错、按得到的奖励来学习的训练方法。强化学习时代的 agent 已经能在围棋和电子游戏里赢过顶尖的人，但每一个都是为一项特定的任务训练出来的。</li>
-    <li>LLM 带来了两样东西：一步一步推理的能力，和使用工具的能力。两样合在一起，是现在的 agent 能出现的前提。</li>
-    <li>2022 年 10 月到 2023 年 3 月的半年里，ReAct 论文、ChatGPT、GPT-4 先后出现，接着是 BabyAGI 的前身和 AutoGPT 这两个让模型自己给自己布置任务、一直做下去的开源项目。agent 这个词大致从这时起进入日常用语。</li>
-    <li>之后底层的模型和 agent 的成绩都在快速提高。SWE-bench Verified 是一套让 agent 修真实代码问题的题目。在它上面，由同一家机构统一测出的准确率（解决的题目占的比例），2024 年 11 月发布的模型是 31.0%，2026 年 4 月发布的模型是 83.5%。</li>
+    <li>agent 这个概念比 LLM 早得多。这个词在 15 世纪末进入英语，意思是「行动的人」。AI 的论文在 1973 年已经用到它，1990 年代有了两个流传至今的定义。</li>
+    <li>强化学习是让 agent 通过试错、按得到的奖励来学习的训练方法，奖励是训练时告诉 agent 做得好不好的分数。强化学习时代的 agent 已经能在围棋和电子游戏里赢过顶尖的人，但每一个都是为一项特定的任务训练出来的。</li>
+    <li>LLM 先是让换任务变得容易：换一段 prompt 就能换任务，不用重新训练。后来它又带来两样能力：一步一步推理的能力，和使用工具的能力。这两样能力合在一起，是 LLM agent 能出现的前提。这里的工具指模型可以调用的外部功能，LLM agent 指由 LLM 自己一步一步决定做什么、调用工具去完成任务的系统，现在说的 agent 一般就指它。</li>
+    <li>2022 年 10 月到 2023 年 3 月的半年里，ReAct 论文（提出让模型交替地推理和行动）、ChatGPT、GPT-4 先后出现，接着出现了两个让模型自己给自己布置任务、一直做下去的系统。一个后来叫 BabyAGI：它在 2023 年 3 月 28 日通过一条推文和一篇文章公布，几天后才有 BabyAGI 这个名字和开源的代码仓库，所以下面叫它 BabyAGI 的前身。另一个是开源项目 AutoGPT。agent 这个词大致从这时起进入日常用语。</li>
+    <li>之后底层的模型和 agent 的成绩都在快速提高。SWE-bench Verified 是一套让 agent 修真实代码问题的题目。在它上面，由 Epoch AI 这家研究机构统一测出的准确率（解决的题目占的比例），2024 年 11 月发布的那一版 GPT-4o 是 31.0%，2026 年 4 月发布的 Claude Opus 4.7 是 83.5%。</li>
   </ul>
 </section>
 
 <section class="sec" id="word">
-  <h2>1990 年以前：这个词和最早的几个想法</h2>
-  <p>agent 现在是一个很热的词。它背后的想法已经发展了五六十年。下表按时间列出这个词的来历和最早的三个想法。</p>
+  <h2>1990 年以前：这个词和早期的几个想法</h2>
+  <p>agent 这个词现在很流行。它背后的想法已经发展了五六十年。下表按时间列出这个词的来历和早期的三个想法。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">时间</th><th scope="col">出处</th><th scope="col">说了什么</th><th scope="col">和现在的联系</th></tr></thead>
       <tbody>
-        <tr><th scope="row">15 世纪末</th><td>英语里的 agent 一词</td><td>来自拉丁语 agens，意思是「行动的人」</td><td>一个 agent 的本义就是会行动的东西</td></tr>
+        <tr><th scope="row">15 世纪末</th><td>Etymonline（一部网上的英语词源词典）的 agent 词条</td><td>英语里的 agent 一词来自拉丁语 agens，意思是「行动的人」</td><td>这个词的本义是行动的人，现在用它指能自己行动的系统</td></tr>
         <tr><th scope="row">1973</th><td>Hewitt、Bishop、Steiger，《A Universal Modular ACTOR Formalism for Artificial Intelligence》，第三届国际人工智能联合会议</td><td>提出 actor 模型：整个系统只由一种对象组成，这种对象叫 actor，一切计算都看成向 actor 发送消息。论文里写道，直观地说，一个 actor 是一个主动的 agent，它像演员那样，轮到自己时照着剧本演自己的角色</td><td>能自己行动的软件实体，这个想法在 1970 年代就有了</td></tr>
         <tr><th scope="row">1980</th><td>Reid G. Smith，合同网协议（Contract Net Protocol）</td><td>分布式系统里的节点怎样分配任务：有任务的节点发布任务公告，别的节点投标，发布者把任务交给它认为最合适的投标者。接到任务的节点可以把任务再拆开，继续发布</td><td>agent 之间协商和分工</td></tr>
         <tr><th scope="row">1986</th><td>Marvin Minsky，《The Society of Mind》</td><td>心智由许多更小的过程组成，他把这些过程叫 agent。每个 agent 自己只会做一件不需要思考的简单的事，按特定的方式组织成社会，就产生了智能</td><td>一组各管一小块的子 agent 合作完成一件事，是多 agent 编排（安排多个 agent 怎样分工和配合）的早期想法</td></tr>
@@ -25,22 +25,23 @@
     <figcaption>出处：<a href="https://www.etymonline.com/word/agent">Etymonline 的 agent 词条</a>；<a href="https://www.ijcai.org/Proceedings/73/Papers/027B.pdf">Hewitt 等，1973</a>；<a href="https://www.reidgsmith.com/The_Contract_Net_Protocol_Dec-1980.pdf">Smith，1980</a>；<a href="http://aurellem.org/minsky/som-prologue.html">Minsky，1986</a> 的序言。</figcaption>
   </figure>
   <p>Hewitt 等人的这篇论文是 AI 文献里较早使用 agent 一词的例子。agent 这个词在全文里只出现了一次，就是表里引的那一句。</p>
-  <p>这个时期的 agent 主要是概念和协议。当时还没有一种通用的智能可以放进这样的 agent 里。</p>
+  <p>这个时期的 agent 主要是概念和协议。当时还没有哪种技术能让这样的 agent 具备通用的智能。</p>
 </section>
 
 <section class="sec" id="nineties">
   <h2>1990 年代：给 agent 下定义</h2>
   <p>到了 1990 年代，越来越多的软件系统被叫作 agent，研究者开始认真回答「什么算 agent」。</p>
-  {{fig 21 | 三份 1990 年代的文献。左：Pattie Maes 编的《Designing Autonomous Agents》，图上标的年份 1994 有误，出版社写的出版日期是 1991 年 2 月。中：Wooldridge 和 Jennings 的综述《Intelligent agents: theory and practice》。右：Russell 和 Norvig 的教科书《Artificial Intelligence: A Modern Approach》，图上的封面是后来的第四版。}}
+  <p>下图是这一时期的三份文献。左边是一本论文集，书名里直接用了 autonomous agents（自主的 agent）这个说法。中间的综述和右边的教科书各给出了一个定义，下面分别讲这两个定义。</p>
+  {{fig 21 | 三份 1990 年代的文献。左：Pattie Maes 编的论文集《Designing Autonomous Agents》。图上标的年份是 1994，出版社写的出版日期是 1991 年 2 月，没有查到 1994 年的版本，见<a href="#notes">资料说明</a>。中：Wooldridge 和 Jennings 的综述《Intelligent agents: theory and practice》。右：Russell 和 Norvig 的教科书《Artificial Intelligence: A Modern Approach》，图上的封面是后来的第四版。封面下面的一行字是这本书对 agent 的定义，注明的年份是 1995。}}
   <h3>Wooldridge 和 Jennings 的四条性质</h3>
   <p>这篇 1995 年的综述说，agent 这个词最一般的用法，是指一个具有下面四条性质的计算机系统，通常是软件。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">性质</th><th scope="col">定义</th><th scope="col">放到现在的 LLM agent 上</th></tr></thead>
+      <thead><tr><th scope="col">性质</th><th scope="col">定义</th><th scope="col">放到 LLM agent 上</th></tr></thead>
       <tbody>
-        <tr><th scope="row">自主性<br><span class="muted small">autonomy</span></th><td>运行时不需要人或别的东西直接干预，对自己的动作和内部状态有某种控制</td><td>下一步做什么由模型自己决定</td></tr>
-        <tr><th scope="row">社交能力<br><span class="muted small">social ability</span></th><td>通过某种 agent 通信语言，和别的 agent 交互，也可能和人交互</td><td>和用户对话，和别的 agent 互相传消息</td></tr>
-        <tr><th scope="row">反应性<br><span class="muted small">reactivity</span></th><td>感知所处的环境，并对环境里发生的变化及时做出回应。环境可以是物理世界、图形界面后面的用户、一群别的 agent、互联网</td><td>读取工具返回的结果，据此调整下一步</td></tr>
+        <tr><th scope="row">自主性<br><span class="muted small">autonomy</span></th><td>运行时不需要人或别的东西直接干预，能在一定程度上自己控制自己的动作和内部状态</td><td>下一步做什么由模型自己决定</td></tr>
+        <tr><th scope="row">社交能力<br><span class="muted small">social ability</span></th><td>通过某种 agent 通信语言（agent 之间互相发消息时共用的一套约定），和别的 agent 交互，也可能和人交互</td><td>和用户对话，和别的 agent 互相传消息</td></tr>
+        <tr><th scope="row">反应性<br><span class="muted small">reactivity</span></th><td>感知所处的环境，并对环境里发生的变化及时做出回应。环境可以是物理世界、通过图形界面和它打交道的用户、一群别的 agent、互联网</td><td>读取工具返回的结果，据此调整下一步</td></tr>
         <tr><th scope="row">主动性<br><span class="muted small">pro-activeness</span></th><td>不只是对环境做出反应，还能主动采取行动，表现出有目标的行为</td><td>为了完成任务，自己去查资料、自己拆出子任务</td></tr>
       </tbody>
     </table>
@@ -48,29 +49,31 @@
   </figure>
   <h3>Russell 和 Norvig 的定义</h3>
   <p class="lead-in">很多人最熟悉的定义来自 Russell 和 Norvig 1995 年出版的教科书：<mark>agent 是任何可以看作通过传感器感知环境、并通过执行器作用于环境的东西</mark>。</p>
-  <p>这个定义很宽。书里举的例子是人：眼睛、耳朵是传感器，手、腿、嘴是执行器。它只要求两件事：能感知，能行动。<a href="anatomy.html#five">第二部分</a>的五个部件里，「观察」和「动作」这两条线就是从这里来的。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>图上的用词和 1995 年的原书不同。</b>图上把 Russell 和 Norvig 1995 年的定义写成 sensors 和 actuators。1995 年的第一版用的词是 effectors，actuators 是后来版本里的写法。两个词在这里是同一个意思，都译作执行器。</div></div>
-  <p>有了定义，这一时期的 agent 仍有一个局限。大体上，系统的行为规则要靠人事先设计，换一个领域就要重做。</p>
+  <p>这个定义很宽。书里举的例子是人：眼睛、耳朵是传感器，手、腿、嘴是执行器。它只要求两件事：能感知，能行动。<a href="anatomy.html#five">第二部分</a>讲 agent 的结构时，agent 从环境得到观察、向环境发出动作，这两件事就是这里说的感知和行动。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>图上的用词和 1995 年的原书不同。</b>本节开头那张图上，教科书封面下面的那行字把 Russell 和 Norvig 1995 年的定义写成 sensors 和 actuators。1995 年的第一版用的词是 effectors，actuators 是后来版本里的写法。两个词在这里是同一个意思，都译作执行器。</div></div>
+  <p>有了定义，这一时期做出来的 agent 仍有一个局限。这里用帮用户处理日常电脑事务的那一类 agent 来说明：它的规则和知识要靠人事先写进去。</p>
+  <p><a href="https://agents.media.mit.edu/publications/aaai-ymp/section3_1.html">Lashkari、Metral 和 Maes 1994 年的一篇论文</a>这样概括此前的这类 agent。一种做法是用户自己给 agent 写规则，用户要自己动手写，还要随着习惯的变化一直维护这些规则。另一种做法是由工程师把关于某个应用和某个领域的大量知识写进去，工作量很大，写进去的知识是固定的，不能按每个用户的习惯调整。这篇论文的作者之一 Maes，就是本节开头那本论文集的编者。</p>
 </section>
 
 <section class="sec" id="rl">
   <h2>强化学习时代：很强，但只会一件事</h2>
-  <p>接下来的阶段，agent 这个词主要出现在强化学习（reinforcement learning，简称 RL）里。强化学习研究的是一个 agent 怎样通过试错，学会在环境里拿到尽可能多的奖励。</p>
-  {{fig 22 | 左上：强化学习里 agent 和环境的循环。agent 根据当前的状态和奖励选一个动作，环境收到动作后给出下一个状态和奖励。右：DQN 的网络结构。DQN 是 DeepMind 用深度神经网络做强化学习的一个系统，输入是游戏画面，输出是手柄上每个动作的价值，也就是做了这个动作之后预计总共还能拿到多少奖励。左下：AlphaGo 和 OpenAI Five 的图标。}}
-  <p>图左上的循环出自 Sutton 和 Barto 1998 年的教科书。书里的说法是：做学习和决策的叫 agent，agent 之外的一切叫环境。两者不断地交互，agent 选动作，环境对动作做出回应，并把新的情况交给 agent。这个循环和<a href="anatomy.html#loop">第二部分</a>里 LLM agent 的循环结构相同，多出来的只有奖励这个信号。</p>
+  <p>下一个阶段是强化学习时代，这时 agent 这个词主要出现在强化学习（reinforcement learning，简称 RL）里。它和 1990 年代在时间上有重叠：下面讲的循环出自 1998 年的教科书，三个有代表性的系统出现在 2015 到 2019 年。</p>
+  <p>强化学习研究的是一个 agent 怎样通过试错，学会在环境里拿到尽可能多的奖励。奖励是训练时告诉 agent 做得好不好的分数。</p>
+  {{fig 22 | 左上：强化学习里 agent 和环境的循环。agent 根据当前的状态和奖励选一个动作，环境收到动作后给出下一个状态和奖励。状态指环境此刻的情况，比如游戏当前的画面。右：DQN 的网络结构。DQN 是 DeepMind 用深度神经网络做强化学习的一个系统，输入是游戏画面，输出是手柄上每个动作的价值，也就是做了这个动作之后预计总共还能拿到多少奖励。左下：AlphaGo（下围棋的系统）和 OpenAI Five（打电子游戏 Dota 2 的系统）的图标。}}
+  <p>图左上的循环出自 Sutton 和 Barto 1998 年的教科书。书里的说法是：做学习和决策的叫 agent，agent 之外的一切叫环境。两者不断地交互，agent 选动作，环境对动作做出回应，并把新的情况交给 agent，新的情况就是图上的下一个状态。这个循环和<a href="anatomy.html#loop">第二部分</a>里 LLM agent 的循环（想一步，做一步，看结果，再想）结构相同，多出来的只有奖励这个信号。</p>
   <p>下表是这个时期三个有代表性的系统。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">系统</th><th scope="col" class="nw">时间</th><th scope="col">做到了什么</th></tr></thead>
       <tbody>
-        <tr><th scope="row">DQN<br><span class="muted small">Deep Q-Network，DeepMind</span></th><td>2015</td><td>只看游戏画面的像素和得分，用同一套算法、同一个网络结构和同一组超参数，在 49 个 Atari 游戏上达到了和专业游戏测试员相当的水平。其中 29 个游戏的得分超过人类得分的 75%</td></tr>
+        <tr><th scope="row">DQN<br><span class="muted small">Deep Q-Network，DeepMind</span></th><td>2015</td><td>只看游戏画面的像素和得分，在 49 个 Atari 游戏上做了训练和测试。各个游戏用的是同一套算法、同一个网络结构和同一组超参数，每个游戏单独训练一个网络。论文说它总体上达到了和一位专业游戏测试员相当的水平。论文把得分达到这位测试员的 75% 以上算作水平相当，49 个游戏里有 29 个达到了这个标准</td></tr>
         <tr><th scope="row">AlphaGo<br><span class="muted small">DeepMind</span></th><td>2016</td><td>2016 年 3 月在首尔以 4 比 1 战胜围棋世界冠军李世石</td></tr>
         <tr><th scope="row">OpenAI Five<br><span class="muted small">OpenAI</span></th><td>2019</td><td>2019 年 4 月 13 日连赢两局，战胜 Dota 2 的世界冠军队 OG，是第一个在电子竞技项目里击败世界冠军的 AI 系统</td></tr>
       </tbody>
     </table>
-    <figcaption>出处：<a href="https://www.nature.com/articles/nature14236">Mnih 等，2015</a>；<a href="https://deepmind.google/research/alphago/">DeepMind 的 AlphaGo 页面</a>；<a href="https://openai.com/index/openai-five-defeats-dota-2-world-champions/">OpenAI，2019</a>。超参数指训练开始之前由人设定、训练过程中不会自动调整的那些设置。</figcaption>
+    <figcaption>出处：<a href="https://www.nature.com/articles/nature14236">Mnih 等，2015</a>；<a href="https://deepmind.google/research/alphago/">DeepMind 的 AlphaGo 页面</a>；<a href="https://openai.com/index/openai-five-defeats-dota-2-world-champions/">OpenAI，2019</a>。Atari 是一种早期的家用游戏机。超参数指训练开始之前由人设定、训练过程中不会自动调整的那些设置。</figcaption>
   </figure>
-  <p>这些系统说明，用强化学习训练的 agent 可以达到超过人的水平。它们都是真正的 agent，但每一个都是为一项特定的任务训练出来的。下围棋的 AlphaGo 不会打 Dota，换一个任务就要从头训练。改变这一点的是大语言模型。</p>
+  <p>这些系统说明，用强化学习训练的 agent 可以达到专业人员的水平，AlphaGo 和 OpenAI Five 还战胜了世界冠军。它们都算 agent，但每一个都是为一项特定的任务训练出来的。下围棋的 AlphaGo 不会打 Dota，换一个任务就要从头训练。改变这一点的是大语言模型。</p>
 </section>
 
 <section class="sec" id="llm">
@@ -79,51 +82,52 @@
   <h3>第一步：不用训练就能学新任务</h3>
   <p>LLM 第一个让人印象深刻的能力是 in-context learning（上下文学习）：在 prompt（交给模型的输入文字）里说明任务，再给几个例子，模型就能照着做。给几个例子的做法叫 few-shot。2020 年的 GPT-3 论文展示了这一点。下图右边的例子是翻译：给了三对英语和法语的词，模型就能把第四个词译出来。</p>
   {{fig 23 | 左：Transformer 的结构图，GPT 系列模型建立在这种结构上。右：GPT-3 论文里 few-shot 的例子。第一行是任务说明「把英语翻译成法语」，中间三行是例子，最后一行只给出英语单词 cheese，等模型续写。图片来源：<a href="https://arxiv.org/abs/2005.14165">Brown 等，2020</a>。}}
-  <p>和前面强化学习的系统相比，关键的不同是整个过程没有任何梯度更新，也就是模型的权重一点没变。换一个任务，只要换一段 prompt。</p>
+  <p>和前面强化学习的系统相比，关键的不同是整个过程没有任何梯度更新，也就是模型的权重完全没有改变。权重指模型内部由训练定下来的那些数值，也叫参数。换一个任务，只要换一段 prompt。</p>
   <h3>第二步：一步一步推理，以及用工具</h3>
   <p>后来发现，模型还可以一步一步地推理，也可以借助工具去做它自己做不了的事。下面的图和表是这方面的三项工作。</p>
-  {{fig 24 | 左：chain-of-thought 的例子。prompt 里的示范在答案之前写出了推导过程，模型在回答新问题时也先写推导（绿色部分），算出食堂还剩 9 个苹果。中间叠着的是 WebGPT 文章的标题。右：MRKL 系统的结构，输入先交给语言模型，再分发给下面的各个专家模块，比如天气接口、货币换算、维基百科接口、日历、数据库、计算器。}}
+  {{fig 24 | 左：chain-of-thought 的例子。prompt 里的示范在答案之前写出了推导过程，模型在回答新问题时也先写推导（绿色部分），算出食堂还剩 9 个苹果。中间叠着的是 WebGPT 文章的标题。右：MRKL 系统的结构，输入先交给语言模型，再分发给下面的各个专家模块，比如天气接口、货币换算、维基百科接口、日历、数据库、计算器。论文把负责分发的部件叫路由器，并说它是一个专门训练的神经网络。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">工作</th><th scope="col" class="nw">时间</th><th scope="col">做了什么</th><th scope="col">对 agent 的意义</th></tr></thead>
       <tbody>
-        <tr><th scope="row">WebGPT<br><span class="muted small">OpenAI</span></th><td>2021 年 12 月</td><td>对 GPT-3 做 fine-tuning（在预训练模型的基础上，用特定任务的数据继续训练），让它用一个文字版的网页浏览器来回答开放式的问题：提交搜索，点链接，上下翻页，并注明出处</td><td>模型可以上网查，不必只靠参数里记住的东西。后来的浏览器 agent 由此发展出来</td></tr>
-        <tr><th scope="row">chain-of-thought<br><span class="muted small">Wei 等</span></th><td>2022 年 1 月</td><td>在 prompt 的示范里写出中间的推导步骤，模型就会跟着一步一步推导。这样做在算术、常识和符号推理任务上明显提高了成绩</td><td>模型可以把一个问题拆成几步来想</td></tr>
-        <tr><th scope="row">MRKL<br><span class="muted small">AI21 Labs，读作 miracle</span></th><td>2022 年 5 月</td><td>一个系统由一组可以扩充的模块和一个路由器组成。模块叫专家，有的是语言模型，有的是符号式的工具，比如计算器、货币换算、对数据库的调用。路由器把每条输入交给最适合回答它的模块</td><td>较早明确提出「由模型决定把请求交给哪个外部工具」的系统之一：问天气就去调天气接口，要算数就交给计算器</td></tr>
+        <tr><th scope="row">WebGPT<br><span class="muted small">OpenAI</span></th><td>2021 年 12 月</td><td>对 GPT-3 做 fine-tuning（在已经训练好的模型的基础上，用特定任务的数据继续训练），让它用一个文字版的网页浏览器来回答开放式的问题：提交搜索，点链接，上下翻页，并注明出处</td><td>模型可以上网查，不必只靠权重里记住的东西。后来的浏览器 agent 由此发展出来</td></tr>
+        <tr><th scope="row">chain-of-thought<br><span class="muted small">Wei 等</span></th><td>2022 年 1 月</td><td>在 prompt 的示范里写出中间的推导步骤，模型就会跟着一步一步推导。论文拿它和示范里只给答案的写法比：在算术、常识和符号推理三类任务上，带推导的写法成绩更高。例如论文最新的一版里，在数学应用题数据集 GSM8K 上，PaLM-540B 这个大语言模型用只给答案的示范解出 18% 的题，用带推导的示范解出 57%。符号推理指按规则处理符号的题目，比如把几个词的最后一个字母连起来</td><td>模型可以把一个问题拆成几步来想</td></tr>
+        <tr><th scope="row">MRKL<br><span class="muted small">AI21 Labs 公司，MRKL 读作 miracle</span></th><td>2022 年 5 月</td><td>一个系统由一组可以扩充的模块和一个路由器组成。模块叫专家，有的是语言模型，有的是符号式的工具，也就是不靠神经网络、按写好的规则执行的程序，比如计算器、货币换算、对数据库的调用。路由器是一个专门训练的神经网络，它把每条输入交给最适合回答它的模块</td><td>较早明确提出「由模型决定把请求交给哪个外部工具」的系统之一，这里做决定的模型就是路由器：问天气就去调天气接口，要算数就交给计算器</td></tr>
       </tbody>
     </table>
     <figcaption>出处：<a href="https://openai.com/index/webgpt/">OpenAI，2021</a>；<a href="https://arxiv.org/abs/2201.11903">Wei 等，2022</a>；<a href="https://arxiv.org/abs/2205.00445">Karpas 等，2022</a>。</figcaption>
   </figure>
   <p class="lead-in">到这里，两样关键的能力都有了：<mark>模型能一步一步推理，模型能使用工具</mark>。能想，又能通过工具动手，这是 LLM agent 出现的两个前提。</p>
-  <p>这两个前提都建立在第一步之上。换一段 prompt 就能换任务，所以同一个模型不必像强化学习时代的 agent 那样只会一件事。</p>
+  <p>第一步在这里也起作用。换一段 prompt 就能换任务，所以同一个模型不必像强化学习时代的 agent 那样只会一件事。</p>
 </section>
 
 <section class="sec" id="emergence">
   <h2>2022 年 10 月到 2023 年 3 月：LLM agent 出现</h2>
   <p>推理和使用工具这两样能力有了之后，半年之内接连出现了五件事。下面的图和表按时间列出它们。表里的向量数据库，指把文字转成一串数字来保存、能按意思相近来查找的数据库。</p>
-  {{fig 25 | 半年里的五件事。下面一行从左到右：ReAct 论文里的一段运行记录，ChatGPT 和 GPT-4 的图标，BabyAGI 的流程图，AutoGPT 的图标。}}
+  {{fig 25 | 半年里的五件事。下面一行从左到右：ReAct 论文里的一条运行轨迹（一个 agent 每一步的动作和看到的结果的记录），ChatGPT 和 GPT-4 的图标，BabyAGI 存档仓库里的流程图，AutoGPT 的图标。流程图画的是表里 3 月 28 日那一行的做法。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">时间</th><th scope="col">事件</th><th scope="col">是什么</th><th scope="col">为什么重要</th></tr></thead>
       <tbody>
         <tr><th scope="row">2022 年 10 月 6 日</th><td>ReAct 论文</td><td>名字是 Reason 加 Act。它让模型在一个循环里工作：想下一步做什么，做一个动作，看发生了什么，再用看到的结果接着想</td><td>把推理和行动放进了同一个循环。<a href="reasoning.html#react-example">第三部分</a>细讲</td></tr>
         <tr><th scope="row">2022 年 11 月 30 日</th><td>ChatGPT 发布</td><td>一个对话形式的 LLM 产品</td><td>大量的普通用户开始每天和 LLM 对话</td></tr>
-        <tr><th scope="row">2023 年 3 月 14 日</th><td>GPT-4 发布</td><td>一个强得多的模型，能遵循很长的指令，做计划也更可靠</td><td>agent 很依赖底层模型的能力。模型够强，这个循环才能有效地运行</td></tr>
-        <tr><th scope="row">2023 年 3 月 28 日</th><td>BabyAGI 的前身</td><td>给模型一个目标，让它自己写任务清单，逐个执行，并根据结果增加新任务、重排顺序。用一个向量数据库保存结果</td><td>GPT-4 发布后两周内出现的开源项目</td></tr>
-        <tr><th scope="row">2023 年 3 月 30 日</th><td>AutoGPT 公开发布</td><td>把 GPT-4 接上网页搜索、文件系统等工具，让它自己不断地给自己下一步的指令，不需要人每次输入下一个 prompt</td><td>同上。两个项目合起来，让很多人第一次看到「模型自己一直做下去」是什么样子</td></tr>
+        <tr><th scope="row">2023 年 3 月 14 日</th><td>GPT-4 发布</td><td>一个比之前的模型强得多的模型，能遵循很长的指令，做计划也更可靠</td><td>agent 很依赖底层模型的能力。模型够强，这个循环才能有效地运行</td></tr>
+        <tr><th scope="row">2023 年 3 月 28 日</th><td>BabyAGI 的前身</td><td>Yohei Nakajima 在一条推文和一篇文章里公布的系统：给模型一个目标，让它自己写任务清单，逐个执行，并根据结果增加新任务、重排顺序。用一个向量数据库保存结果</td><td>展示了模型可以自己给自己布置任务、一直做下去。它在 GPT-4 发布两周后公布，4 月 3 日有了 BabyAGI 这个名字和开源的代码仓库</td></tr>
+        <tr><th scope="row">2023 年 3 月 30 日</th><td>AutoGPT 公开发布</td><td>把 GPT-4 接上网页搜索、文件系统等工具，让它自己不断地给自己下一步的指令，不需要人每次输入下一个 prompt</td><td>GPT-4 发布两周多之后公开发布的开源项目。它和 BabyAGI 的前身合起来，让很多人第一次看到「模型自己一直做下去」是什么样子</td></tr>
       </tbody>
     </table>
     <figcaption>日期出处：<a href="https://arxiv.org/abs/2210.03629">ReAct 的 arXiv 页面</a>；OpenAI 官方博客的发布日期；<a href="https://github.com/yoheinakajima/babyagi_archive">BabyAGI 存档仓库的说明</a>；<a href="https://en.wikipedia.org/wiki/AutoGPT">维基百科的 AutoGPT 条目</a>。</figcaption>
   </figure>
   <p>最后两行的日期有两个细节。表里写「BabyAGI 的前身」，是因为 3 月 28 日发布的是 Yohei Nakajima 的一条推文和一篇文章，标题是《Task-Driven Autonomous Agent》，BabyAGI 这个名字和它的代码仓库是 4 月 3 日才有的。AutoGPT 的代码仓库建于 3 月 16 日，3 月 30 日是它公开发布的日期。</p>
-  <p>回头看，这两个项目的想法在当时很超前。实际上它们当时都不太好用。但它们吸引了大量的注意，让人看到了可能性。agent 这个词大致也是从这时候起进入日常用语的。</p>
+  <p>回头看，这两个项目的想法很超前，做出来的东西在当时都不太好用。它们的作用是吸引了大量的注意，让人看到了可能性。agent 这个词大致也是从这时候起进入日常用语的。</p>
 </section>
 
 <section class="sec" id="better">
   <h2>2023 年以后：模型和 agent 都在变强</h2>
-  <p>LLM agent 出现之后，进步来自两个方面：底层的模型一代比一代强，agent 在真实任务上的成绩也在涨。这一节各用一组数据说明。</p>
+  <p>LLM agent 出现之后，有两样东西一直在变强：底层的模型一代比一代强，agent 在真实任务上的成绩也在涨。这一节各用一组数据说明。</p>
+  <p>讲模型的那组数据按代来比，前一半是 2020 年的 GPT-3 到 2023 年 3 月的 GPT-4。这一段的时间在 2023 年 3 月以前，放在这里是为了和后一代的进步对照。</p>
   <h3>底层的模型</h3>
-  <p>基准测试（benchmark）是一组题目加一个打分的办法。下面的图和表比较三代 GPT 模型在几个基准测试上的准确率。</p>
+  <p>基准测试（benchmark）是一组题目加一个打分的办法。下面的图和表来自 Epoch AI（一家跟踪和评测 AI 能力进展的非营利研究机构），比较三代 GPT 模型在几个基准测试上的准确率。</p>
   {{fig 26 | 三代 GPT 模型在几个基准测试上的准确率。左半边是 GPT-3 到 GPT-4，右半边是 GPT-4 到 GPT-5。每条线旁边带加号的数是提高的幅度，单位是百分点。图片来源：<a href="https://epoch.ai/data-insights/gpt-capabilities-progress">Epoch AI，2025</a>。}}
   <figure class="plate">
     <table class="tbl">
@@ -140,15 +144,16 @@
         <tr><th scope="row">Mock AIME 24-25</th><td>模拟的美国数学邀请赛题</td><td class="r">7%</td><td class="r">91%</td><td class="r">84</td></tr>
       </tbody>
     </table>
-    <figcaption>数字来自 <a href="https://epoch.ai/data-insights/gpt-capabilities-progress">Epoch AI</a> 这篇文章的数据表。「提高」是后一代减前一代，图上的标注是四舍五入后的数。</figcaption>
+    <figcaption>数字来自 <a href="https://epoch.ai/data-insights/gpt-capabilities-progress">Epoch AI</a> 这篇文章的数据表。「提高」是后一代减前一代，图上的标注是四舍五入后的数。HumanEval 一行里 GPT-4 的 67.0%，和 OpenAI 发布 GPT-4 时的技术报告里的数相同。<a href="reasoning.html#reflexion">第三部分</a>引的另一篇论文给 GPT-4 的是 80%，两个数出自不同的论文，各自的出处见那一页的资料说明。</figcaption>
   </figure>
   <p>读这张表要注意两点。</p>
   <p>第一，两半用的是两套不同的基准测试。GPT-3 到 GPT-4 用的那几个，后来有的已经被做到很高的分数，不再能可靠地区分模型，所以 GPT-4 到 GPT-5 那一半换成了更难的题。</p>
-  <p>第二，GPT-4 到 GPT-5 那一半算出来的提高幅度偏低。最初的 GPT-4 没有在这几个新的基准测试上测过，所以起点用的是 GPT-4 较晚的版本，分别发布于 2023 年 6 月和 2024 年 4 月。这两个版本是在最初的 GPT-4 之上更新过的，从它们算起，提高幅度会比从最初的版本算起小。Epoch 的文章也说明，这样算出来的数是真实幅度的一个偏低的估计。</p>
-  <p>每一代基础模型都比上一代有很大的进步。模型更强，agent 就能推理得更好，犯的错更少，编造的内容更少，能处理的任务也更长。</p>
+  <p>第二，GPT-4 到 GPT-5 那一半算出来的提高幅度偏低。最初的 GPT-4 没有在这几个新的基准测试上测过，所以起点用的是 GPT-4 较晚的版本：GPQA Diamond 和 MATH Level 5 用的是 2023 年 6 月发布的版本，Mock AIME 24-25 用的是 2024 年 4 月发布的版本。这两个版本是在最初的 GPT-4 之上更新过的，从它们算起，提高幅度会比从最初的版本算起小。Epoch 的文章也说明，这样算出来的数是真实幅度的一个偏低的估计。</p>
+  <p>每一代底层的模型都比上一代有很大的进步。模型更强，agent 就能推理得更好，犯的错更少，编造的内容更少，能处理的任务也更长。</p>
   <h3>agent 的成绩</h3>
   <p>模型在进步，agent 的成绩也跟着涨。下图左边的基准测试是 SWE-bench Verified：500 道经过人工核实的题，每道题来自 12 个开源 Python 仓库里一个真实的问题报告，要求 agent 改代码把它修好。</p>
-  {{fig 27 | 左：各家模型在 SWE-bench Verified 上的准确率，横轴是模型的发布时间。右：两张花费和准确率的关系图，上面是 OSWorld 2.0（操作电脑桌面的任务），下面是 Terminal-Bench 4.0（在命令行里完成的任务），横轴是 API 花费，纵轴是准确率，每条线是一个模型在不同设置下的几个点。右边两张图上的数这里不引用。}}
+  <p>测的时候，Epoch AI 把每个模型放进同一个运行框架（包在模型外面、给它工具并管理多轮对话的程序）里，让它当作 agent 来做题。各个模型用的运行框架相同，所以下面的图和表按模型的名字列出成绩。</p>
+  {{fig 27 | 左：各个模型放进同一个运行框架后在 SWE-bench Verified 上的准确率，横轴是模型的发布时间。右：两张花费和准确率的关系图，上面是 OSWorld 2.0（操作电脑桌面的任务），下面是 Terminal-Bench 4.0（在命令行里完成的任务），横轴是 API 花费，纵轴是准确率，每条线是一个模型在不同设置下的几个点。右边两张图上的数这里不引用。}}
   <p>下表是左图里标了名字的六个模型。</p>
   <figure class="plate">
     <table class="tbl">
@@ -162,12 +167,12 @@
         <tr><th scope="row">Claude Opus 4.7（最高推理强度）</th><td>2026-04-16</td><td class="r">83.5%</td></tr>
       </tbody>
     </table>
-    <figcaption>数字来自 <a href="https://epoch.ai/benchmarks/swe-bench-verified">Epoch AI 的基准测试页面</a>提供的数据文件。这些成绩是 Epoch 用自己的运行框架（包在模型外面、给它工具并管理多轮对话的程序）、在 500 道题里的 484 道上统一测出来的，和各厂商自己报告的数不一定相同。模型名后面的推理强度，指让模型在回答之前想多久的一项设置。</figcaption>
+    <figcaption>数字来自 <a href="https://epoch.ai/benchmarks/swe-bench-verified">Epoch AI 的基准测试页面</a>提供的数据文件。这些成绩是 Epoch 用自己的运行框架、在 500 道题里的 484 道上统一测出来的，和各厂商自己报告的数不一定相同。另外 16 道在 Epoch 的测试环境里不能稳定运行，所以没有用。模型名后面的推理强度，指让模型在回答之前想多久的一项设置。</figcaption>
   </figure>
   <p>表里第一个和最后一个模型的发布时间相隔不到一年半，准确率从三成升到了八成以上。</p>
-  <p>这个基准测试也因此越来越不好用：分数靠近上限之后，它越来越分不出模型的高下，Epoch 也提到题目可能已经进入了训练数据。第 13 讲专门讲基准测试的这种生命周期。</p>
+  <p>这个基准测试也因此越来越不好用：分数靠近上限之后，它越来越分不出模型的高下，Epoch 也提到题目可能已经进入了训练数据。一个基准测试从提出、被做到接近满分，到被新的基准测试替换，这个过程第 13 讲会专门讲。</p>
   <p>右边两张图换了更难的任务：OSWorld 是操作电脑桌面的任务，Terminal-Bench 是在命令行里完成的任务，图里用的是它们 2026 年的新版本。</p>
-  <p>右边的图有一个值得注意的地方：横轴是花费。图里的线大体上向右上方走，也就是同一个模型，花费更高的设置，准确率通常也更高。现在报告 agent 的成绩，越来越多地把价格和准确率画在一起，因为大家开始在意过程的效率。</p>
+  <p>右边的图有一个值得注意的地方：横轴是花费。图里的线大体上向右上方走，也就是同一个模型，花费更高的设置，准确率通常也更高。现在报告 agent 的成绩，越来越多地把花费和准确率画在一起，因为人们开始关心效率，也就是花同样的钱能拿到多高的准确率。</p>
   <h3>两个容易产生的疑问</h3>
   <ul>
     <li><b>为什么准确率越高，花费越高？</b>图里的 API 花费主要取决于过程中处理的 token（模型处理文字的最小单位）的数量。让模型想得更久，通常成绩更好，用掉的 token 也更多。</li>
@@ -182,14 +187,14 @@
     <table class="tbl">
       <thead><tr><th scope="col">阶段</th><th scope="col">agent 指什么</th><th scope="col">局限</th></tr></thead>
       <tbody>
-        <tr><th scope="row">1990 年以前</th><td>能自己行动、互相协商和分工的软件实体，主要是概念和协议</td><td>没有通用的智能可以放进去</td></tr>
-        <tr><th scope="row">1990 年代</th><td>有了定义：自主、能交互、能反应、能主动；或者更宽的，能感知和行动的任何东西</td><td>大体上，系统的行为规则要靠人事先设计，换一个领域就要重做</td></tr>
+        <tr><th scope="row">1990 年以前</th><td>能自己行动、互相协商和分工的软件实体，主要是概念和协议</td><td>还没有技术能让它具备通用的智能</td></tr>
+        <tr><th scope="row">1990 年代</th><td>有了定义：自主、能交互、能反应、能主动；或者更宽的，能感知和行动的任何东西</td><td>以帮用户处理日常电脑事务的 agent 为例，规则和知识要靠人事先写进去</td></tr>
         <tr><th scope="row">强化学习时代</th><td>通过试错学会在环境里拿高分的系统</td><td>一个 agent 只会一项任务</td></tr>
-        <tr><th scope="row">LLM 时代</th><td>把一个通用的语言模型放进「推理、行动、观察」的循环</td><td>见<a href="challenges.html">第七部分</a></td></tr>
+        <tr><th scope="row">LLM 时代</th><td>把一个通用的语言模型放进「推理、行动、观察」的循环</td><td>可靠性、训练、长任务、安全、评估五个问题还没有解决，见<a href="challenges.html">第七部分</a></td></tr>
       </tbody>
     </table>
   </figure>
-  <p>历史讲到这里。下一部分把一个现在的 agent 拆开，看它<a href="anatomy.html">由哪几块组成</a>。</p>
+  <p>历史讲到这里。下一部分把一个 LLM agent 拆开，看它<a href="anatomy.html">由哪几个部件组成</a>。</p>
 </section>
 
 <section class="sec" id="notes">
@@ -197,8 +202,8 @@
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
     <li><b>Hewitt 等人的论文是不是最早用 agent 一词的 AI 文献。</b>这篇 1973 年的论文是较早的一例。它是不是最早的一处，没有核对到。</li>
-    <li><b>Maes 编的《Designing Autonomous Agents》的出版年份。</b>「1990 年代」一节的配图上，这本书标的年份是 1994。MIT 出版社的页面写的出版日期是 1991 年 2 月，图书馆的记录是 1990 年，它是一份期刊 1990 年两期合刊的重印本。没有查到 1994 年的版本。出处：<a href="https://mitpress.mit.edu/9780262631358/designing-autonomous-agents/">MIT 出版社</a>。</li>
-    <li><b>Russell 和 Norvig 的定义在各版里的用词。</b>1995 年的第一版用的是 effectors，第四版的原句用的是 actuators。第一版的原句读自一份大学镜像，原始页面没能打开。出处：<a href="https://aima.eecs.berkeley.edu/4th-ed/pdfs/newchap02.pdf">教科书第四版第 2 章</a>。</li>
+    <li><b>Maes 编的《Designing Autonomous Agents》的出版年份。</b>「1990 年代」一节的配图上，这本书标的年份是 1994。MIT 出版社的页面写的出版日期是 1991 年 2 月。Internet Archive 网站上这本书的书目记录写的是 1990 年，并注明它是一份期刊 1990 年两期合刊的重印本。没有查到 1994 年的版本。出处：<a href="https://mitpress.mit.edu/9780262631358/designing-autonomous-agents/">MIT 出版社</a>。</li>
+    <li><b>Russell 和 Norvig 的定义在各版里的用词。</b>1995 年的第一版用的是 effectors，第四版的原句用的是 actuators。第一版的原句读自一所大学网站上保存的第 2 章副本。作者 Russell 在加州大学伯克利分校的个人网页下有第一版这一章的网址，那个网址没能打开。出处：<a href="https://aima.eecs.berkeley.edu/4th-ed/pdfs/newchap02.pdf">教科书第四版第 2 章</a>。</li>
     <li><b>OSWorld 和 Terminal-Bench 两张图的出处。</b>「2023 年以后」一节讲 agent 成绩的配图里，右边有 OSWorld 和 Terminal-Bench 两张花费和准确率的关系图。这两张图的样式显示它们出自某个模型的发布材料，具体是哪一份没有核对到，所以正文不引用图上的数。</li>
   </ul>
 </section>

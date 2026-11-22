@@ -1,41 +1,43 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>Pi 是一个开源的编程 agent 运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序）。它的做法是只留最少的东西：默认 4 个工具，一段很短的 system prompt（每次调用都放在最前面的固定指令），其余的功能交给使用者自己加。</li>
-    <li>前面几部分的模式在它身上都能找到：循环是 ReAct 式的，上下文靠事件日志（只追加、不修改的记录，每次从它生成模型的输入）、按需加载的 skill（写着某类工作该怎么做的说明文件）和 compaction（压缩，把旧的历史换成一段摘要）来管理。</li>
-    <li>它没有内置子 agent（主 agent 派出去单独做一部分工作的另一个 agent）、计划模式、待办清单、后台命令，也不在执行命令前征求同意。每一项都是有意的取舍，作者给出了理由和替代做法。</li>
-    <li>没有权限检查是它最需要小心的地方。官方文档的建议是把它放进容器或虚拟机里运行。</li>
-    <li>这么简单的运行框架够用，一个很可能的原因是模型本身已经很强。可以这样理解：模型弱一些的时候，运行框架要多做一些事。</li>
+    <li>Pi 是一个开源的编程 agent 运行框架。agent 是由语言模型自己决定下一步、在循环里调用工具的系统，工具是模型可以调用的外部功能，比如搜索和运行代码。运行框架（harness）是包在模型外面、给它工具并管理多轮对话的程序。Pi 的做法是只留很少的东西：默认只开 4 个工具，别的运行框架常见的几样功能不内置，留给使用者用扩展（加载进 Pi 的模块）加上。按作者 2025 年 11 月的文章，它的 system prompt（每次调用都放在最前面的固定指令）也很短。</li>
+    <li>前面几部分的模式，它内置了其中几种。循环是 ReAct 式的：模型每一步先写出想法，再发出动作，看到结果后再想下一步。每次调用模型时发给它的输入叫上下文，Pi 靠事件日志（只追加、不修改的记录，每次从它生成模型的输入）、按需加载的 skill（写着某类工作该怎么做的说明文件，可以附带脚本和参考资料）和 compaction（让模型把旧的历史写成一段摘要）来管理它。</li>
+    <li>按作者 2025 年 11 月的文章，别的运行框架常见的五样功能它没有内置：子 agent（主 agent 派出去单独做一部分工作的另一个 agent）、权限检查（执行命令或改文件之前弹出提示，等人同意）、计划模式（先只读不改，和人商量出一份计划，再动手）、待办清单、后台运行命令。每一项都是有意的取舍，作者给出了理由和替代做法。</li>
+    <li>没有权限检查是它最需要小心的地方：工具调用能做什么，只受启动 Pi 的那个账户的权限限制。Pi 的文档列了三种运行方式，其中把 Pi 整个放进容器、虚拟机或沙箱（都是和主机隔开的运行环境）里运行，文档说这通常是实际可行的做法里保护最强的一种。风险高的场合选这一种。</li>
+    <li>这么简单的运行框架为什么够用，作者的解释是前沿模型本来就知道编程 agent 该怎样工作，不需要很长的 system prompt 去教。这是一种解释，他自己做的测试验证不了它。照这个解释可以推出：模型弱一些的时候，运行框架要多做一些事。这一条是推断，没有数据。</li>
   </ul>
 </section>
 
 <section class="sec" id="what">
   <h2>Pi 是什么</h2>
-  <p>Pi 是 Mario Zechner 写的一个命令行编程 agent，代码开源。这里的 agent，指能自己决定下一步调用什么工具、分很多步去完成任务的语言模型系统。Pi 官网对自己的介绍是两句话：</p>
-  <p class="lead-in"><mark>Pi 是一个极简的 agent 运行框架。让 Pi 来适应你的工作方式，不要反过来。</mark></p>
+  <p>Pi 是 Mario Zechner 写的一个编程 agent 运行框架，在命令行里使用，代码开源。给它接上一个模型，合起来就是一个编程 agent。Pi 官网对自己的介绍是两句话：</p>
+  <p class="lead-in"><mark>Pi 是一个极简的 agent 运行框架。由 Pi 来适应你的工作方式，你不用去适应它。</mark></p>
   <p>作者在 2025 年 11 月的文章里解释了为什么要自己写一个。他原先主要用 Claude Code（Anthropic 的编程 agent），后来觉得它的功能越加越多，其中大部分他用不上；它的 system prompt 和工具每个版本都在变，会改变模型的行为；运行框架在背后往上下文里加的东西，在界面上也看不到。他的原则是：自己用不到的功能就不做。</p>
-  <p>Pi 可以接十几家模型服务商的模型，有四种用法：在终端里交互，在脚本里跑一次并输出结果，通过标准输入输出被别的程序控制，以及当作 TypeScript 库嵌进别的应用。因为核心很小、容易扩展，很多开源的 agent 是在它上面搭起来的，官网举的例子是 OpenClaw（一个开源的个人 AI 助手）。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>出处。</b><a href="https://pi.dev/">Pi 官网</a>和<a href="https://docs.pi.dev/latest">文档</a>；代码仓库 <a href="https://github.com/earendil-works/pi">earendil-works/pi</a>（原来的地址 badlogic/pi-mono 会跳转到这里），按 GitHub 页面的数字，2026 年 11 月有 12 万多个 star；Mario Zechner 的文章 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">What I learned building an opinionated and minimal coding agent</a>（2025 年 11 月 30 日）。这一页说到「现在的文档」时，指的是 2026 年 11 月读到的版本。</div></div>
+  <p>Pi 可以接十几家模型服务商的模型，有四种用法：在终端里交互，在脚本里运行一次并输出结果，通过标准输入输出被别的程序控制，以及当作 TypeScript 库嵌进别的应用。因为核心很小、容易扩展，很多开源的 agent 是在它上面搭起来的，官网举的例子是 OpenClaw（一个开源的个人 AI 助手）。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>出处。</b><a href="https://pi.dev/">Pi 官网</a>和<a href="https://docs.pi.dev/latest">文档</a>；代码仓库 <a href="https://github.com/earendil-works/pi">earendil-works/pi</a>（原来的地址 badlogic/pi-mono 会跳转到这里），按 GitHub 页面的数字，2026 年 11 月有 12 万多个 star；Mario Zechner 的文章 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">What I learned building an opinionated and minimal coding agent</a>（2025 年 11 月 30 日）。这一页说到官网和文档「现在」怎样写时，指的是 2026 年 11 月读到的版本。</div></div>
 </section>
 
 <section class="sec" id="lacks">
   <h2>它故意没有做的东西</h2>
-  <p>别的主流编程 agent 内置的几样功能，Pi 都没有内置。下面的表列出作者在 2025 年 11 月的文章里给的理由，以及他建议的替代做法。</p>
+  <p>别的主流运行框架内置的几样功能，Pi 都没有内置。下面的表列出作者在 2025 年 11 月的文章里给的理由，以及他建议的替代做法。表里提到的 bash 是 Pi 的一个内置工具，用来运行 shell 命令。tmux 是一个可以在后台保持多个终端会话的工具。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">没有内置的功能</th><th scope="col">这个功能在别的运行框架里是什么</th><th scope="col">作者的理由</th><th scope="col">替代做法</th></tr></thead>
       <tbody>
-        <tr><th scope="row">子 agent</th><td>主 agent 把一部分工作交给另一个 agent 去做，只拿回结果</td><td>子 agent 做了什么，使用者看不到；主 agent 交给它哪些背景信息，使用者也很难控制</td><td>让 Pi 用 bash 再启动一个自己。作者自己常用的场合是代码审查</td></tr>
-        <tr><th scope="row">权限检查</th><td>执行命令或改文件之前弹出提示，等人同意</td><td>agent 只要能写代码并运行代码，这类检查就挡不住它；而大家为了干活，本来就会把检查关掉</td><td>不放心就把 Pi 放进容器里运行</td></tr>
+        <tr><th scope="row">子 agent</th><td>主 agent 把一部分工作交给另一个 agent 去做，只拿回结果</td><td>子 agent 做了什么，使用者看不到；主 agent 交给它哪些背景信息，使用者也很难控制</td><td>让 Pi 用 bash 工具再启动一个 Pi 来做这部分工作。交给它什么任务、用哪个模型，由使用者在给 Pi 的指令里写明。作者说，这样他能看到这个 Pi 的全部输出，把它放进 tmux 里启动，还能看到它的整个过程并直接和它对话。作者自己常用的场合是代码审查</td></tr>
+        <tr><th scope="row">权限检查</th><td>执行命令或改文件之前弹出提示，等人同意</td><td>作者认为，agent 只要能写代码并运行代码，这类检查就挡不住它。他举的例子是防止数据外泄：只有切断运行环境的全部网络访问才防得住，可那样 agent 就基本没法用了。而且使用者为了把工作做完，本来就会把检查关掉</td><td>不放心就把 Pi 放进容器里运行</td></tr>
         <tr><th scope="row">计划模式</th><td>先只读不改，和人商量出一份计划，再动手</td><td>直接告诉 agent 先一起想清楚、先别改文件，通常就够了</td><td>把计划写进一个 PLAN.md 文件，可以跨会话使用，也可以和代码一起做版本管理。要强制只读，就在启动时只开只读的工具</td></tr>
-        <tr><th scope="row">待办清单</th><td>agent 内部维护一份任务列表，边做边勾</td><td>按他的经验，待办清单给模型增加了要跟踪和更新的状态，让模型更容易出错</td><td>写进一个 TODO.md 文件，用复选框记录做完了哪些</td></tr>
-        <tr><th scope="row">后台运行命令</th><td>启动一个开发服务器之类的长时间进程，同时继续做别的</td><td>要管理进程、缓存输出、退出时清理，复杂而且不容易看清状态。Pi 的 bash 工具一次只同步地跑一条命令</td><td>用 tmux（一个可以在后台保持多个终端会话的工具），人也可以随时接进去看</td></tr>
+        <tr><th scope="row">待办清单</th><td>agent 内部维护一份任务列表，做完一项就把它标成已完成</td><td>按他的经验，待办清单给模型增加了要跟踪和更新的状态，让模型更容易出错</td><td>写进一个 TODO.md 文件，用复选框记录做完了哪些</td></tr>
+        <tr><th scope="row">后台运行命令</th><td>启动一个开发服务器之类的长时间进程，同时继续做别的</td><td>要管理进程、暂存命令的输出、退出时清理，复杂而且不容易看清状态。Pi 的 bash 工具一次只同步地运行一条命令</td><td>用 tmux，人也可以随时连上那个终端会话去看</td></tr>
       </tbody>
     </table>
-    <figcaption>理由和替代做法来自 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>，是作者个人的看法。Pi 现在的说明里仍然写着它不内置子 agent 和计划模式。</figcaption>
+    <figcaption>理由和替代做法来自 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>，是作者个人的看法。Pi 官网现在仍然写着它不内置子 agent 和计划模式，文档的安全一页现在仍然写着它执行工具之前不征求同意。待办清单和后台运行命令这两行，出处只有 2025 年 11 月的这篇文章。</figcaption>
   </figure>
-  <p>这些功能没有内置，但都可以加回来。Pi 的扩展（extension）是加载进 Pi 进程的 TypeScript 模块，可以注册工具和命令，可以拦截或修改工具调用，可以在每次调用模型前改写上下文，也可以替换 compaction 的做法。官方仓库里就有子 agent、计划模式、权限确认、沙箱（把程序隔离起来运行的环境）这几种扩展的示例。使用者写了大量的扩展，把别的运行框架有的功能一样一样补了上去。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「没有什么」的清单是会变的。</b>2025 年 11 月的那篇文章里，作者写的是 Pi 不支持、以后也不会支持 MCP。MCP（Model Context Protocol）是一种把外部工具接给模型的标准接口。他的理由是，常见的 MCP 服务器在每次会话里都把全部工具说明放进上下文。他举了两个 MCP 服务器当例子，它们的工具说明分别占 13,700 和 18,000 个 token（模型处理文字的最小单位，大致是一个词或半个词）。那时 Pi 也还没有 compaction。现在的文档里，这两样都是内置的。MCP 服务器的工具默认不直接声明给模型，也就是不把它们的名字和用法写进发给模型的请求，要用的时候再查找或者在脚本里调用。compaction 默认开启。所以读这类清单时要看日期。出处：<a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>；<a href="https://docs.pi.dev/latest/mcp">Pi 文档的 MCP 一页</a>。</div></div>
+  <p>这些功能没有内置，但都可以加上去。Pi 的扩展（extension）是加载进 Pi 进程的 TypeScript 模块。它可以注册工具，可以注册斜杠命令（使用者在 Pi 里输入的、以 / 开头的指令），可以拦截或修改工具调用（模型发出的一次使用工具的请求），可以在每次调用模型前改写上下文，也可以替换 compaction 的做法。官方仓库里就有子 agent、计划模式、权限检查、沙箱（把程序隔离起来运行的环境）这几种扩展的示例。使用者写了大量的扩展，把别的运行框架有的功能一样一样补了上去。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「没有什么」的清单是会变的。</b>2025 年 11 月的那篇文章里，作者写的是 Pi 不支持、以后也不会支持 MCP（Model Context Protocol，一种把外部工具接给模型的标准接口），那时 Pi 也还没有 compaction。现在的文档里，这两样都是内置的，compaction 默认开启。所以读这类清单时要看日期。出处：<a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>；<a href="https://docs.pi.dev/latest/mcp">Pi 文档的 MCP 一页</a>。</div></div>
+  <p>作者当时不支持 MCP 的理由是，常见的 MCP 服务器（按这个接口提供工具的程序）在每次会话里都把全部工具说明放进上下文。他举了两个例子：Playwright MCP 这个服务器的工具说明占 13,700 个 token，Chrome DevTools MCP 的占 18,000 个 token。token 是模型处理文字的最小单位，大致是一个词或半个词。</p>
+  <p>现在 Pi 内置的 MCP 支持里，MCP 服务器的工具默认不直接声明给模型，也就是不把它们的名字和用法写进发给模型的请求。模型要用的时候，默认的做法是用 codemode 工具。这个工具让模型写一段 JavaScript 去调用其他工具，模型就在这段脚本里查找并调用 MCP 服务器的工具。也可以设置成让模型先用 tool_search 工具查找，查到的工具再声明给模型。这两个工具<a href="#tools">下一节</a>会讲到。</p>
 </section>
 
 <section class="sec" id="tools">
@@ -57,9 +59,9 @@
     </table>
     <figcaption>来自 <a href="https://docs.pi.dev/latest/cli">Pi 文档的命令行一页</a>。</figcaption>
   </figure>
-  <p>这 8 个之外，Pi 的内置扩展还带两个工具：codemode 和 tool_search，默认也是关闭的。codemode 在<a href="#loop">下一节</a>会提到，tool_search 用来查找没有直接声明给模型的工具。</p>
-  <p>工具少，有两个好处。一是每次调用模型时，工具说明占的 token 少。作者在 2025 年 11 月的文章里说，当时 Pi 的 system prompt 加上工具定义，合起来不到 1,000 个 token。二是模型不容易选错工具。</p>
-  <p>四个工具够用，是因为能在终端里运行的命令，模型都可以通过 bash 这一个工具来运行，搜索文件、列目录、跑测试、上网下载都是这样。grep、find、ls 三个工具能做的事，bash 本来就能做。它们单独存在，是为了让人可以只开只读的工具，把 bash 关掉：</p>
+  <p>这 8 个之外还有两个工具：codemode 和 tool_search。它们由内置扩展提供，内置扩展指 Pi 自带的扩展。这两个工具默认也是关闭的，可以自己打开，接上的 MCP 服务器要用到它们时，内置的 MCP 扩展也会把它们打开。codemode 让模型写一段 JavaScript 去调用其他工具，<a href="#loop">下一节</a>还会提到。tool_search 用来查找没有直接声明给模型的工具。</p>
+  <p>工具少，有两个好处。一是每次调用模型时，工具说明占的 token 少。作者在 2025 年 11 月的文章里说，当时 Pi 的 system prompt 加上工具说明，合起来不到 1,000 个 token。二是模型不容易选错工具。</p>
+  <p>四个工具够用，是因为能在终端里运行的命令，模型都可以通过 bash 这一个工具来运行，搜索文件、列目录、运行测试、上网下载都是这样。grep、find、ls 三个工具能做的事，bash 本来就能做。它们单独存在，是为了让人可以只开只读的工具，把 bash 关掉：</p>
   <pre class="code"><code>pi --tools read,grep,find,ls</code></pre>
   <p>这样启动的 Pi 只能看，不能改文件，也不能运行任意命令。</p>
 </section>
@@ -67,14 +69,15 @@
 <section class="sec" id="loop">
   <h2>循环：ReAct 式，历史存成一棵树</h2>
   <p>Pi 的主循环是 ReAct 式的。ReAct 是<a href="reasoning.html#react">第四部分</a>讲的模式：模型每一步先写出想法，再发出动作，看到结果后再想下一步。</p>
-  <p>按 Pi 文档的描述，一轮（turn）分三步。Pi 先把 system prompt、当前的对话历史、可用的工具和模型设置拼成一次请求。模型返回一段回复，里面可以有文字和工具调用。Pi 再执行每一个工具调用，把结果记下来。如果工具结果需要模型接着处理，就开始下一轮，否则这次运行结束。</p>
+  <p>按 Pi 文档的描述，一轮（turn）分三步。Pi 先把 system prompt、当前的对话历史、可用的工具和模型设置拼成一次请求。模型返回一段回复，里面可以有文字和工具调用，其中的文字对应 ReAct 里的想法，工具调用对应动作。Pi 再执行每一个工具调用，把结果记下来。</p>
+  <p>一轮结束之后要不要再开始一轮，文档写的条件是：有工具结果要交给模型处理，或者有使用者中途发来、还在排队的消息，Pi 就开始下一轮，否则这次运行结束。工具结果只有在模型发出了工具调用时才有，所以什么时候停仍然取决于模型：它的回复里不再有工具调用，也没有排队的消息，运行就结束。</p>
   <p>动作的形式是 JSON 格式的工具调用。不过 bash 工具的参数可以是一整段脚本，所以一次工具调用也可以做<a href="acting.html#codeact">第五部分</a>里 CodeAct 那样的事：在一段代码里循环、判断、把几条命令串起来。Pi 的内置扩展里有一个默认关闭的 codemode 工具，让模型写一段 JavaScript 去调用其他工具，只有脚本的输出会回到模型那里。</p>
-  <p>做到一半想换一种做法重新试，又想把原来的尝试留着，Pi 的办法是把一次会话存成一棵树：从中间某一条记录可以分出新的分支，原来的分支仍然保留。</p>
+  <p>有时做到一半想换一种做法重新试，又想把原来的尝试留着。为此，Pi 把一次会话存成一棵树：从中间某一条记录可以分出新的分支，原来的分支仍然保留。</p>
   {{fig 80 | 每个圆点是会话里的一条记录，箭头从上一条指向下一条。从中间某一条可以分出新的分支，原来的分支仍然保留。}}
-  <p>会话文件是 JSONL 格式（每行一个 JSON 对象），每条记录有自己的 <code>id</code> 和上一条记录的 <code>parentId</code>，靠这两个字段连成一棵树。从根到当前这条记录的路径叫当前分支，发给模型的历史只来自当前分支。下表是在这棵树上换分支的三个命令。</p>
+  <p>会话文件是 JSONL 格式（每行一个 JSON 对象）。每条记录有自己的 <code>id</code>，还有一个 <code>parentId</code> 字段，里面写的是上一条记录的 <code>id</code>，靠这两个字段连成一棵树。从根到当前这条记录的路径叫当前分支，发给模型的历史只来自当前分支。下表是三个和分支有关的斜杠命令：第一个在这棵树上分出新的分支，后两个从这棵树上另外建出一个新会话。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">命令</th><th scope="col">效果</th><th scope="col">什么时候用</th></tr></thead>
+      <thead><tr><th scope="col">斜杠命令</th><th scope="col">效果</th><th scope="col">什么时候用</th></tr></thead>
       <tbody>
         <tr><th scope="row"><code>/tree</code></th><td>在同一个会话文件里回到之前的某一条记录，从那里接着做，形成一个新分支</td><td>想试另一种做法，并且希望几种做法留在一起</td></tr>
         <tr><th scope="row"><code>/fork</code></th><td>从之前的某一条用户消息开始，另建一个新会话</td><td>另一种做法应该成为一件单独的工作</td></tr>
@@ -88,19 +91,20 @@
 
 <section class="sec" id="context">
   <h2>上下文管理：三种模式一起用</h2>
-  <p>Pi 用到了<a href="context.html#patterns">第六部分</a>的三样：事件日志，渐进式披露（上下文隔离的一种做法），compaction。</p>
+  <p><a href="context.html#patterns">第六部分</a>讲了五种上下文管理的模式，Pi 内置了其中三种：事件日志，上下文隔离，compaction。上下文隔离有两种做法，Pi 内置的是渐进式披露（需要的时候才把说明放进上下文）这一种，另一种做法子 agent 它没有内置。</p>
   <h3>一、从事件日志生成模型的输入</h3>
-  <p>会话文件只追加，不修改。消息、工具调用和结果、切换模型、compaction，都是往文件末尾加一条记录。每次调用模型之前，Pi 沿着当前分支走一遍，把这些记录转换成模型能接受的用户消息、助手消息和工具结果消息。</p>
+  <p>会话文件只追加，不修改。消息、工具调用和结果、切换模型、compaction，都是往文件末尾加一条记录。每次调用模型之前，Pi 沿着当前分支走一遍，把这些记录转换成模型能接受的三类消息：用户消息、模型的回复和工具结果。</p>
   <p>连「改历史」也是用追加来实现的。有一种记录叫 <code>context_edit</code>，它指向之前的某一条记录，说明以后发给模型时把那一条省掉，或者换成另一段内容。原来那条记录仍然留在文件里，界面、导出和费用统计看到的都是原样。</p>
   <h3>二、用 skill 做渐进式披露</h3>
-  <p>skill 是一个目录，里面有一个 <code>SKILL.md</code> 文件，写着某一类工作该怎么做，旁边可以带脚本和参考资料。启动时，Pi 只把每个 skill 的名字、一句描述和所在路径放进 system prompt。任务用得上某个 skill 时，模型自己用 read 工具去读它的 <code>SKILL.md</code>，再照着做。</p>
+  <p>一个 skill 是一个目录，主体是里面的 <code>SKILL.md</code> 这个说明文件，写着某一类工作该怎么做，旁边可以带脚本和参考资料。启动时，Pi 只把每个 skill 的名字、一句描述和所在路径放进 system prompt。任务用得上某个 skill 时，模型自己用 read 工具去读它的 <code>SKILL.md</code>，再照着做。</p>
   <p>这样做，详细的说明在用到之前不占上下文。</p>
-  <p>Pi 官网还提到另一个好处：system prompt 没有变，prompt 缓存就不会失效。prompt 缓存是模型服务商的一项功能：下一次请求的开头和上一次完全相同时，这部分的计算结果可以直接复用，更快也更便宜。开头一有改动，从改动的地方往后都要重算。system prompt 排在请求的最前面，所以它一变，整个缓存都用不上了。缓存的事见<a href="context.html#principles">第六部分</a>。</p>
+  <p>Pi 官网还提到另一个好处：这样做渐进式披露，不会让 prompt 缓存失效。prompt 缓存是模型服务商的一项功能：下一次请求的开头和上一次完全相同时，这部分的计算结果可以直接复用，更快也更便宜。开头一有改动，从改动的地方往后都要重算。system prompt 排在请求的最前面，所以它一变，整个缓存都用不上了。缓存的事见<a href="context.html#principles">第六部分</a>。</p>
+  <p>用 skill 时 system prompt 不用变。模型用 read 工具读进来的 <code>SKILL.md</code> 是一条工具结果，接在对话的末尾，它前面的 system prompt 和对话历史都和上一次请求一样，缓存照样用得上。假如换一种做法，每次按任务把详细的说明写进 system prompt，请求的开头就变了，缓存就会失效。</p>
   <h3>三、compaction</h3>
   <p>上下文快满时，Pi 把较早的历史交给模型写成一份摘要，最近的消息原样保留。触发的条件是下面这个式子，其中 <code>contextTokens</code> 是当前上下文的 token 数，<code>contextWindow</code> 是模型的上下文窗口（模型一次调用能接受的输入加输出的总长度）。</p>
   <pre class="code"><code>contextTokens &gt; contextWindow - reserveTokens</code></pre>
   <p><code>reserveTokens</code> 是一个设置项，默认是 16,384 个 token。它只决定 compaction 什么时候开始：当前上下文离窗口的上限不到这么多 token 时就触发。举例来说，上下文窗口是 200,000 个 token 的模型，当前上下文超过 183,616 个 token 时就会触发。</p>
-  <p>Pi 在每批工具执行完、开始下一次模型调用之前检查这个条件，也可以用 <code>/compact</code> 手动触发。一次 compaction 分五步，见下表。</p>
+  <p>Pi 在每批工具执行完、开始下一次模型调用之前检查这个条件，也可以用斜杠命令 <code>/compact</code> 手动触发。一次 compaction 分五步，见下表。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">步骤</th><th scope="col">做什么</th></tr></thead>
@@ -118,38 +122,40 @@
   {{fig 81 | 下面的深色框是 compaction 之后模型看到的内容，从左到右是：system prompt，来自 compaction 记录的摘要，然后是从 firstKeptEntryId 开始原样保留的消息。usr 是用户消息，ass 是模型的回复，tool 是工具结果。}}
   <p>有三个细节值得看。</p>
   <ul>
-    <li><b>切分点不能落在工具结果上。</b>一条工具结果必须和发起它的那次工具调用待在一起，所以切分点只能是用户消息、模型的回复这几类记录。通常切在用户消息的边界上。</li>
-    <li><b>摘要按固定的栏目写。</b>先是目标、约束和偏好，然后是进度（已完成、进行中、受阻）、关键决定、下一步和关键的上下文，最后附上读过的文件和改过的文件的列表。这些栏目正是<a href="context.html#principles">第六部分</a>说的「保持连续」要留住的东西。</li>
+    <li><b>切分点不能落在工具结果上。</b>一条工具结果和发起它的那次工具调用，要么都原样保留，要么都被总结，不能分在切分点的两边。所以切分点只能是用户消息、模型的回复这几类记录。通常切在用户消息的边界上。</li>
+    <li><b>摘要按固定的栏目写。</b>先是目标、约束和偏好，然后是进度（已完成、进行中、受阻）、关键决定、下一步和关键的上下文，最后附上读过的文件和改过的文件的列表。其中的目标、约束和进度，都在<a href="context.html#principles">第六部分</a>说的「保持连续」这条原则要留住的东西里：这条原则说，改动上下文时要留住需求、目标、约束和进度。</li>
     <li><b>原来的记录没有被删。</b>被总结掉的消息仍然在会话文件里，只是以后不再发给模型。这是事件日志和 compaction 配合的结果。</li>
   </ul>
-  <p>skill 的清单在 system prompt 里，而 system prompt 在 compaction 之后仍然排在最前面。所以压缩之后，模型仍然知道有哪些 skill 可以用。</p>
+  <p>skill 的清单在 system prompt 里，而 system prompt 在 compaction 之后仍然排在最前面。所以 compaction 之后，模型仍然知道有哪些 skill 可以用。</p>
+  <p>五种模式里的另外两种是把信息存到记忆里和屏蔽旧的观察结果。Pi 官网把对应的两样功能列为可以用扩展实现的：长期记忆，和过滤消息历史。长期记忆对应把信息存到记忆里。过滤消息历史指在发给模型之前筛掉消息历史里的一部分内容，屏蔽旧的观察结果（把较早的工具输出隐藏或截短）是其中一种做法。</p>
+  <p>前面讲的 <code>context_edit</code> 只是会话文件里的一种记录：每一条 <code>context_edit</code> 记录只改动之前的一条记录，改哪一条、什么时候改，由写入这条记录的一方决定。Pi 文档里写入它的例子，是一个扩展在一轮结束时追加一条。屏蔽旧的观察结果需要一条规则，例如只留最近几轮的工具输出。这样的规则由扩展来定：官网说的过滤消息历史，就是由扩展按自己的规则去筛。</p>
 </section>
 
 <section class="sec" id="safety">
   <h2>安全：执行工具之前不征求同意</h2>
-  <p class="lead-in">Pi 以启动它的那个账户的权限运行，执行工具之前不征求同意。<mark>工具调用能做什么，只受这个账户的权限限制</mark>。</p>
-  <p>有的运行框架会在执行危险命令之前要求确认，或者让人在两种模式之间切换：手动模式下每次工具调用都要人同意，自动模式下不用人同意就直接执行。Pi 没有这些，可以把它看成永远开着自动模式。</p>
+  <p class="lead-in">Pi 没有权限检查：它以启动它的那个账户的权限运行，执行工具之前不征求同意。<mark>工具调用能做什么，只受这个账户的权限限制</mark>。</p>
+  <p>有的运行框架会在执行危险命令之前要求确认，也就是<a href="#lacks">前面</a>说的权限检查，或者让人在两种模式之间切换：手动模式下每次工具调用都要人同意，自动模式下不用人同意就直接执行。Pi 没有这些，可以把它看成永远开着自动模式。</p>
   <p>它的文档写得很直接。模型生成的命令和代码要当作不可信的。Pi 能读、能改、能执行的范围，就是启动它的账户能做的范围。文件、注释、命令输出里的文字都可能通过提示注入（prompt injection，把指令藏在模型会读到的内容里）影响模型。</p>
-  <p>Pi 内置的保护只有一项，叫项目信任（project trust）。它管的是进入一个目录时，要不要加载这个目录自带的设置、扩展和 skill。有了它，一个陌生的目录不能在使用者同意之前让 Pi 加载它带的可执行扩展。它不限制工具调用能访问什么。</p>
+  <p>一个已经打开的工具能访问什么，Pi 自己不加限制。它内置的和安全有关的功能管的是别的事。一样是<a href="#tools">前面</a>讲的在启动时选择打开哪些工具，例如只开只读的工具，它决定的是模型手里有哪些工具。另一样叫项目信任（project trust），它管的是进入一个目录时，要不要加载这个目录自带的设置、扩展和 skill。有了它，一个陌生的目录不能在使用者同意之前让 Pi 加载它带的可执行扩展。</p>
   <p>工具调用能访问什么，取决于 Pi 在什么环境里运行。文档列了三种运行方式，各自保护的东西不同。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">怎样运行 Pi</th><th scope="col">什么是受保护的</th></tr></thead>
       <tbody>
-        <tr><th scope="row">直接运行，用操作系统里某个用户的权限</th><td>这个用户本来就访问不到的东西。单独建一个权限很小的用户可以缩小范围</td></tr>
-        <tr><th scope="row">整个放进容器、虚拟机或沙箱里</th><td>没有开放给这个环境的主机文件和进程。文档说这通常是实际可行的做法里最强的一种</td></tr>
-        <tr><th scope="row">Pi 在外面，只有内置工具在隔离环境里执行</th><td>主机上的资源不会被这些工具的动作影响。Pi 本身和其他扩展仍然在隔离环境外面</td></tr>
+        <tr><th scope="row">直接运行，用操作系统里某个用户的权限</th><td>这个用户本来就访问不到的东西。单独建一个权限很小的用户，可以让 Pi 能访问的东西更少</td></tr>
+        <tr><th scope="row">整个放进容器、虚拟机或沙箱里</th><td>没有开放给这个环境的主机文件和进程。文档说这通常是实际可行的做法里保护最强的一种</td></tr>
+        <tr><th scope="row">Pi 在外面，只有内置工具在隔离环境里执行</th><td>主机上的资源不会被这些工具的动作影响。Pi 本身和加载进 Pi 进程的扩展仍然在隔离环境外面</td></tr>
       </tbody>
     </table>
     <figcaption>来自 <a href="https://docs.pi.dev/latest/security">Pi 文档的安全一页</a>。</figcaption>
   </figure>
-  <p>作者的看法是，别的编程 agent 的安全措施多数只是做样子，所以干脆不做。这个看法不能照搬到所有场合，不加保护的风险有多大，要看用在什么地方。在自己的开发机上改一个代码仓库，和接上生产环境的凭证去操作，风险差得很远。风险高的场合，按上表选保护范围最大的那一种：把 Pi 整个放进容器、虚拟机或沙箱里。</p>
+  <p>作者的看法是，别的运行框架的安全措施多数只起到表面的作用，所以 Pi 不做这类措施。这个看法不能照搬到所有场合，不加保护的风险有多大，要看用在什么地方。在自己的开发机上改一个代码仓库，和接上生产环境的凭证去操作，风险差得很远。风险高的场合，按上表选保护最强的那一种：把 Pi 整个放进容器、虚拟机或沙箱里。</p>
   <p>安全是 Pi 明显弱的一项，用它之前要先想好让它在哪种环境里运行。</p>
 </section>
 
 <section class="sec" id="why-works">
   <h2>这么简单，为什么够用</h2>
-  <p>一个没有子 agent、没有计划模式、执行工具之前也不征求同意的运行框架，够不够用？作者自己做过一次测试。他拿 Pi 配 Claude Opus 4.5 跑了 Terminal-Bench 2.0（一个考 agent 在终端里完成任务的基准测试），每个任务跑 5 次，再把结果和文章里贴出的排行榜放在一起比。这张排行榜是 2025 年 12 月 2 日的。</p>
+  <p>一个没有子 agent、没有计划模式、也没有权限检查的运行框架，够不够用？作者自己做过一次测试，用的是 Terminal-Bench 2.0。它是一个基准测试（一组题目加一个打分的办法），考的是 agent 在终端里完成任务。他用 Pi 配 Claude Opus 4.5 把它完整地做了一遍，每个任务运行 5 次，再把结果和文章里贴出的排行榜放在一起比。这张排行榜是 2025 年 12 月 2 日的。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="r">名次（共 61 个条目）</th><th scope="col">运行框架</th><th scope="col">模型</th><th scope="col" class="r">准确率</th></tr></thead>
@@ -159,34 +165,34 @@
         <tr><td class="r">7</td><td>Pi</td><td>Claude Opus 4.5</td><td class="r">49.8%</td></tr>
       </tbody>
     </table>
-    <figcaption>来自 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>里的排行榜截图，Pi 的成绩是作者自己跑的。文章标注的日期是 2025 年 11 月 30 日，排行榜的日期比它晚两天，这里用的是文章里写的排行榜日期。Terminus 2 是 Terminal-Bench 团队自己写的运行框架，比 Pi 还简单，只给模型一个 tmux 终端。</figcaption>
+    <figcaption>来自 <a href="https://mariozechner.at/posts/2025-11-30-pi-coding-agent/">Zechner 的文章</a>里的排行榜截图，Pi 的成绩是作者自己测的。文章标注的日期是 2025 年 11 月 30 日，它贴出的排行榜却注明是 12 月 2 日的，晚了两天。文章没有说明原因，这里照文章里写的排行榜日期来写。Terminus 2 是 Terminal-Bench 团队自己写的运行框架，比 Pi 还简单，只给模型一个 tmux 终端。「准确率」是排行榜上这一栏的名字（Accuracy）。每个任务运行 5 次，这 5 次的结果怎样合成这一个数，文章没有写明。</figcaption>
   </figure>
   <p>读这个名次要注意：榜上各个条目用的模型不同，也没有别的运行框架配 Claude Opus 4.5 的成绩，所以从它分不出有多少来自运行框架、有多少来自模型。它能说明的是，一个这么小的运行框架配上很强的模型，成绩可以排在前面。</p>
-  <p>对于这么少的东西为什么够用，作者的解释是：前沿模型在训练时已经大量练习过当编程 agent，它们本来就知道编程 agent 该怎么干活，也熟悉 read、write、edit、bash 这几种工具的用法，所以不需要很长的 system prompt 去教。他在文章里的原话是「看起来不需要 10,000 个 token 的 system prompt」。这是一种解释，上面的测试验证不了它。</p>
+  <p>对于这么少的东西为什么够用，作者的解释是：前沿模型在训练阶段已经被大量地训练成能当编程 agent 用，它们本来就知道编程 agent 该怎样工作，也熟悉 read、write、edit、bash 这几种工具的用法，所以不需要很长的 system prompt 去教。他在文章里的原话是「看起来不需要 10,000 个 token 的 system prompt」。这是一种解释，上面的测试验证不了它。</p>
   <p>反过来，想省钱时能不能用一个便宜些、弱一些的模型，再配一个更好的运行框架？可以这样搭配。按上面的解释推下去，最好的模型只需要很简单的运行框架，弱一些的模型需要运行框架多做一些事，比如更细的工具说明、更多的检查和分步。这是推断，没有数据。两种搭配哪个更合算，要在自己的任务上测：用同一批任务，比较两种搭配的成功率和花费。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这和前面讲 workflow（控制流写在程序里的系统）时的建议是一致的。</b><a href="control.html#choose">第一部分</a>引过 Anthropic 的建议：先用能解决问题的最简单的做法，确实需要时再加复杂度。Pi 是把这条建议用到了运行框架本身：先做一个很小的核心，需要的功能再用扩展加上去。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这和第一部分的一条建议是一致的。</b><a href="control.html#choose">第一部分</a>讲 workflow（下一步做什么由程序决定的系统）和 agent 怎么选时，引过 Anthropic 的建议：先用能解决问题的最简单的做法，确实需要时再加复杂度。Pi 是把这条建议用到了运行框架本身：先做一个很小的核心，需要的功能再用扩展加上去。</div></div>
 </section>
 
 <section class="sec" id="summary">
   <h2>Pi 的小结，和整讲的小结</h2>
-  <p>这一讲的三组设计决定是：控制流在谁手里，模型怎样推理和行动，每次调用模型时上下文里放什么。下表把它们放到 Pi 身上。第二组分成「怎样推理」和「动作的形式」两行，最后另加安全这一项，所以一共五行。</p>
+  <p>这一讲的三组设计决定是：控制流在谁手里（下一步做什么由程序定还是由模型定），模型怎样推理和行动，每次调用模型时上下文里放什么。下表列出 Pi 在这三组决定上各选了什么。第二组分成「怎样推理」和「动作的形式」两行，最后另加安全这一项，所以一共五行。表里的推理模型，指回答之前先在内部生成一段思考过程的模型。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">设计决定</th><th scope="col">Pi 的选择</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
       <tbody>
-        <tr><th scope="row">控制流在谁手里</th><td>在模型手里，是一个 agent。没有内置的 workflow 和子 agent 编排</td><td><a href="control.html">一</a>、<a href="workflows.html">二</a>、<a href="compose.html">三</a></td></tr>
-        <tr><th scope="row">怎样推理</th><td>ReAct 式的循环。反思交给模型自己的推理，没有单独的反思步骤</td><td><a href="reasoning.html">四</a></td></tr>
+        <tr><th scope="row">控制流在谁手里</th><td>在模型手里：Pi 接上模型就是一个 agent。没有内置的 workflow，也没有内置的子 agent</td><td><a href="control.html">一</a>、<a href="workflows.html">二</a>、<a href="compose.html">三</a></td></tr>
+        <tr><th scope="row">怎样推理</th><td>ReAct 式的循环。一轮只有三步，没有单独的反思步骤。按第四部分的判断，反思今天大多并进了推理模型内部的思考过程</td><td><a href="reasoning.html">四</a></td></tr>
         <tr><th scope="row">动作的形式</th><td>JSON 工具调用，默认 4 个工具。bash 可以带一整段脚本，内置扩展里另有默认关闭的 codemode</td><td><a href="acting.html">五</a></td></tr>
-        <tr><th scope="row">上下文怎么管</th><td>只追加的会话文件，每次从它重建输入；skill 按需加载；快满时做 compaction。过滤消息历史和长期记忆，在官网上是作为可以用扩展实现的功能来介绍的</td><td><a href="context.html">六</a></td></tr>
-        <tr><th scope="row">安全</th><td>执行工具之前不征求同意，对工具调用没有内置的限制，靠使用者把它放进隔离的环境</td><td>本页</td></tr>
+        <tr><th scope="row">上下文怎么管</th><td>内置五种模式里的三种：只追加的会话文件，每次从它重建输入；skill 按需加载；快满时做 compaction。另外两种是把信息存到记忆里和屏蔽旧的观察结果，官网把对应的长期记忆和过滤消息历史列为可以用扩展实现的功能</td><td><a href="context.html">六</a></td></tr>
+        <tr><th scope="row">安全</th><td>没有权限检查，执行工具之前不征求同意。打开的工具能做什么，只受启动 Pi 的账户的权限限制。启动时可以少开工具，其余靠使用者把它放进容器、虚拟机或沙箱这类隔离的环境</td><td>本页</td></tr>
       </tbody>
     </table>
   </figure>
   <p>整讲可以归纳成五条。</p>
   <ul>
     <li>搭 agent 系统要做很多设计决定。设计模式给的是现成的思路，但它给的只是大致的解法，用的时候要按自己的情况补完。</li>
-    <li>workflow 的控制流写在程序里，好预测、好调试；agent 的控制流交给模型，更灵活。workflow 有五种常见的模式，真实的系统是它们的组合。</li>
-    <li>agent 怎样推理和行动，有四个留下来的想法：行动之前先推理，从失败里反思，用代码当动作，先计划再执行。第一个仍然是大多数 agent 的主循环，第二个大多并进了模型自己的推理，这是一个判断，没有实验数据验证。后两个变成了代码生成和并行的工具调用。</li>
+    <li>workflow 的控制流写在程序里，好预测、好调试；agent 的控制流交给模型，更灵活。workflow 有五种常见的模式，真实的 workflow 是几种模式的组合，真实的系统又常常是 workflow 和 agent 的组合。</li>
+    <li>agent 怎样推理和行动，有四个留下来的想法：行动之前先推理，从失败里反思，用代码当动作，先计划再执行。第一个仍然是大多数 agent 的主循环，第二个大多并进了推理模型内部的思考过程，这是一个判断，没有实验数据验证。后两个今天主要以代码生成和并行的工具调用（模型在一次回复里同时请求使用几个工具）这两种形式留在 agent 里，计划这件事本身没有过时。</li>
     <li>上下文管理有五种模式：事件日志、把信息存到记忆里、compaction、屏蔽旧的观察结果、上下文隔离。它们可以一起用，背后是两条原则：让上下文只装当前需要的东西，以及改动上下文时保持连续。</li>
     <li>Pi 展示了这些模式在一个真实的运行框架里是怎样取舍的。它的做法背后有一个判断：模型越强，包在外面的东西可以越少。</li>
   </ul>

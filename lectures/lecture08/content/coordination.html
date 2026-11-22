@@ -2,17 +2,18 @@
   <h2>先看结论</h2>
   <ul class="takeaways">
     <li>协调管的是运行中每一件具体的事，要回答三个问题：这件事现在归谁，谁先谁后，冲突了怎么办。</li>
-    <li>靠 agent 自由聊天来商量，实验里没有提高成功率。CooperBench 是一个协作编程评测，让两个 agent 各做一个功能，可以互相发消息。在这个评测里，agent 自己商量出来的分工只出现在少数成功的例子里。</li>
-    <li>C 编译器案例是 16 个 agent 合写一个 C 编译器的项目，从它总结出的经验是「把协调做成显式的」：先认领任务，也就是登记这件事由自己来做，然后各自在自己的工作区里做，再合并。任务台账、分开的工作区、共享记忆都是这个思路。</li>
-    <li>任务台账、认领和分开的工作区到底有多大用，这一讲用到的研究里没有对照数据。有对照数据的只有跨任务的共享记忆（G-Memory）。</li>
-    <li>能确定的是前几样各自的代价：台账要有人一直更新，分开的工作区会让改动分叉、合并时多花工夫。</li>
+    <li>agent 自己发消息商量出来的做法不能当作依靠。CooperBench 是一个协作编程评测，让两个 agent 各做一个功能，并给了它们一个沟通工具，可以互相发消息。在这个评测里，有没有这个沟通工具，任务成功率的差别在统计上不显著，也就是这点差别可能只是偶然。agent 自己商量出来的做法也很少见，出现在成功的例子里，在失败的例子里基本看不到。</li>
+    <li>C 编译器案例是 16 个 agent 合写一个 C 编译器的项目，从它总结出的一条经验叫「把协调做成显式的」，意思是把协调写成明确的记录和步骤：先认领任务，然后各自在自己的工作区（agent 改文件用的目录）里做，再合并。系统提供的任务台账和分开的工作区都是这个思路。任务台账是一份记下计划、谁负责什么和进度的工作记录，认领就是 agent 动手前在台账上登记这件事由自己来做。</li>
+    <li>系统可以提供的另一样东西是共享记忆，也就是各个 agent 都能读到的、关于以前做过什么的记录。它回答的是上面三个问题之外的一个问题：以前发生过什么。</li>
+    <li>任务台账和分开的工作区有多大效果，这一讲用到的研究里没有对照数据。有对照数据的只有 G-Memory，它是一种给多 agent 系统设计的、跨任务的共享记忆。</li>
+    <li>任务台账和分开的工作区各有一点是明确的。任务台账要不断更新，现在主要靠提示词要求 agent 做完后去更新。分开的工作区有代价：各个 agent 的改动可能分叉，也就是各自往不同的方向改、差别越来越大，合并时要多花工夫。</li>
   </ul>
 </section>
 
 <section class="sec" id="overview">
   <h2>协调要回答的问题</h2>
-  <p>几个 agent 一起工作时会碰到这样的情况：两个 agent 想做同一个任务，或者几个 agent 在同一个工作目录里改文件。协调管的就是这些事，也就是 agent 怎样管理互相依赖的工作：谁负责哪个任务，什么必须先做。</p>
-  <p>协调涉及任务分配、依赖关系和冲突的解决，可以分成两层来讲：一层是系统提供的东西，一层是 agent 之间自己形成的做法。</p>
+  <p>几个 agent 一起工作时会碰到这样的情况：两个 agent 想做同一个任务，或者几个 agent 在同一个工作区里改文件。协调管的就是这些事，也就是 agent 怎样管理互相依赖的工作：谁负责哪个任务，什么必须先做。</p>
+  <p>协调涉及任务分配、依赖关系和冲突的解决，可以分成两层来讲：一层是系统提供的东西，一层是 agent 自己商量出来的做法。</p>
   <figure class="plate">
     <div class="cards cols-2">
       <div class="card">
@@ -21,12 +22,12 @@
         <ul>
           <li><b>任务台账</b>：记录计划和执行的进度。</li>
           <li><b>共享记忆</b>：回忆以前的经验。</li>
-          <li><b>worktree 隔离</b>：把各自的工作区分开。worktree 是 git 的一个功能，让同一个仓库同时有几个独立的工作目录。</li>
+          <li><b>分开的工作区</b>：每个 agent 在自己的工作区里改文件。配图上它叫 Worktree Isolation，名字取自 git 的 worktree 功能。这个功能是把工作区分开的一种现成办法，它让同一个仓库同时有几个独立的工作目录，每个工作目录可以给一个 agent 当工作区。</li>
         </ul>
       </div>
       <div class="card">
         <div class="label">Patterns</div>
-        <h4>协调方式：agent 之间自己形成的</h4>
+        <h4>做法：agent 自己商量出来的</h4>
         <ul>
           <li><b>分角色</b>：商定谁做哪一部分。</li>
           <li><b>分资源</b>：把共享的资源划分开。</li>
@@ -38,39 +39,40 @@
   <h3>它和编排的区别</h3>
   <p>这两件事容易混。<a href="orchestration.html">编排</a>定的是团队的结构：谁有权分派任务，谁做最后的决定，设计时定一次。协调管的是运行中每一件具体的事。</p>
   <p>编排里最主要的一个选择是要不要 orchestrator。orchestrator 是统管全局、给其他 agent 分派任务的那个 agent，听它分派的 agent 叫 worker。</p>
-  <p>下表用这一讲的三个例子对照编排和协调。Magentic-One 是下一节要讲的一个多 agent 系统，C 编译器案例是 16 个 agent 合写一个 C 编译器的项目，CooperBench 是让两个 agent 各做一个功能的协作编程评测。表里的 clone 指 Git 仓库的一份本地副本。</p>
+  <p>下表用这一讲的三个例子对照编排和协调。Magentic-One 是下一节要讲的一个多 agent 系统，它把台账分成两本，任务台账记计划，进度台账记每一步的进展。C 编译器案例是 16 个 agent 合写一个 C 编译器的项目，CooperBench 是让两个 agent 各做一个功能的协作编程评测。表里的 clone 指 Git 仓库的一份本地副本，工具指 agent 可以调用的外部功能。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">例子</th><th scope="col">编排</th><th scope="col">协调</th></tr></thead>
       <tbody>
         <tr><th scope="row">Magentic-One</th><td>有一个 orchestrator，带四个 worker</td><td>orchestrator 手里的任务台账和进度台账</td></tr>
-        <tr><th scope="row">C 编译器案例</th><td>没有 orchestrator，agent 自己挑任务</td><td>Git 仓库里的认领文件，每个 agent 各有一份 clone</td></tr>
-        <tr><th scope="row">CooperBench</th><td>两个 agent 地位相同，没有 orchestrator</td><td>系统给了各自独立的虚拟机和发消息的工具，没有任务台账和认领机制，分工靠互相发消息商量</td></tr>
+        <tr><th scope="row">C 编译器案例</th><td>没有 orchestrator，agent 自己挑任务</td><td>agent 动手前往 Git 仓库里写一个认领文件，表示这个任务归自己，这些认领文件就是一份很简单的任务台账。每个 agent 各有一份 clone，当作自己的工作区</td></tr>
+        <tr><th scope="row">CooperBench</th><td>两个 agent 地位相同，没有 orchestrator</td><td>系统给了每个 agent 一台虚拟机当工作区，还给了可以互相发消息的沟通工具。评测事先给两个 agent 各分配了一个功能，两个功能要改的代码有重叠或互相依赖。没有可以用来认领任务的任务台账，这部分代码谁改哪里靠互相发消息商量</td></tr>
       </tbody>
     </table>
   </figure>
   <ul>
-    <li><b>两者可以分开变。</b>后两行的编排相同，协调的做法不同。两个例子的结果没法直接比较：任务、模型和 agent 的数量都不一样，C 编译器案例没有和单 agent 对照过，CooperBench 也没有测过认领机制。</li>
-    <li><b>有 orchestrator 时两者最容易混。</b>分工和排顺序都由它来做。<a href="orchestration.html">第二部分</a>引用的 Kim 等人 2026 年的论文比较了四种编排方式，其中由 orchestrator 分别和每个 worker 通信的一种叫集中方式。论文说，在集中方式里，协调就是通过 orchestrator 拆任务、跟踪进度来完成的。即使这样，orchestrator 也需要一本台账来记，表里第一行就是例子。</li>
+    <li><b>编排相同时，协调的做法可以不同。</b>后两行的编排相同，都没有 orchestrator。协调靠的东西不同：一个靠认领文件，一个靠互相发消息商量。</li>
+    <li><b>后两行的结果不能直接比较。</b>C 编译器案例写出了一个能编译 Linux 内核的 C 编译器，CooperBench 里两个 agent 协作的成功率比一个 agent 低。这两个结果说明不了哪一种协调办法更好：任务、模型和 agent 的数量都不一样，C 编译器案例没有和单 agent 对照过，CooperBench 也没有测过在任务台账上认领的做法。</li>
+    <li><b>有 orchestrator 时两者最容易混。</b>分工和排顺序都由它来做。<a href="orchestration.html">第二部分</a>引用的 Kim 等人 2026 年的论文比较了四种编排方式，其中由 orchestrator 分别和每个 worker 交流的一种叫集中方式。论文说，在集中方式里，协调就是通过 orchestrator 拆任务、跟踪进度来完成的。即使这样，orchestrator 也需要台账来记，表里第一行就是例子：Magentic-One 的 orchestrator 手里有两本台账。</li>
   </ul>
-  <p>下面三节讲系统提供的三样东西。任务台账回答这件事归谁、谁先谁后。分开的工作区加上有控制的合并，回答冲突了怎么办。共享记忆回答的是这三个问题之外的一个问题：以前发生过什么。最后一节是 agent 自己商量出来的做法，以及它为什么不能当作依靠。</p>
+  <p>下面三节讲系统提供的三样东西。任务台账回答这件事归谁、谁先谁后。分开的工作区加上带测试的合并，回答冲突了怎么办。带测试的合并指把做完的改动合并进来，解决冲突，再测试合并后的结果。共享记忆回答的是这三个问题之外的一个问题：以前发生过什么。最后一节是 agent 自己商量出来的做法，以及它为什么不能当作依靠。</p>
 </section>
 
 <section class="sec" id="ledger">
   <h2>这件事归谁、谁先谁后：任务台账</h2>
-  <p>任务台账是一份明确的、不断更新的工作记录，用来指导 agent 之间的协调。最简单的任务台账就是一份待办清单。它有用的一个例子：某个 agent 认领了任务却一直没有做完，台账上看得出来，别的 agent 可以把这个任务接过去。</p>
+  <p>任务台账是一份明确的、不断更新的工作记录，用来指导 agent 之间的协调。最简单的任务台账就是一份待办清单。agent 动手前在台账上登记这件事归自己，叫作认领。举一个任务台账派上用场的例子：某个 agent 认领了任务却一直没有做完，台账上看得出来，别的 agent 可以把这个任务接过去。</p>
   <p>任务台账做四件事，上面的例子属于第四件「支持恢复」。</p>
   <figure class="plate">
     <div class="cards cols-2">
       <div class="card"><h4>记录任务</h4><p>记下目标、当前的计划和还没解决的问题。</p></div>
       <div class="card"><h4>记录执行</h4><p>记下谁负责什么、任务之间的依赖、进度和卡住的地方。</p></div>
-      <div class="card"><h4>指导决策</h4><p>读台账的 agent 根据上面记的当前状态，决定下一步运行什么。</p></div>
+      <div class="card"><h4>指导决策</h4><p>读台账的 agent 根据上面记的当前状态，决定接下来做哪一件事。</p></div>
       <div class="card"><h4>支持恢复</h4><p>执行停滞时，读台账的 agent 据此更新计划或者重试。</p></div>
     </div>
   </figure>
   <p>任务台账和收发消息一样，现在主要靠运行框架（包在模型外面、负责提示词和工具的那层程序）来实现：提示词里要求 agent 先查看台账、认领任务、做完后更新。模型在这方面有没有受过专门的训练，这一讲用到的资料里没有说明。通信能力从哪里来，见<a href="communication.html#practice">第三部分</a>。</p>
   <h3>由 orchestrator 维护：Magentic-One</h3>
-  <p>Magentic-One（Fourney 等，2024）是一个多 agent 系统，由一个 orchestrator 带四个 agent。它把前面说的任务台账分成了两本，都在 orchestrator 手里：一本也叫任务台账，记事实、有依据的猜测和计划；另一本叫进度台账，记每一步的进展。</p>
+  <p>Magentic-One（Fourney 等，2024）是一个多 agent 系统，由一个 orchestrator 带四个 agent。它把任务台账要记的内容分成两本账，都在 orchestrator 手里。一本记事实、有依据的猜测和计划，Magentic-One 也把这一本叫作任务台账（Task Ledger）。另一本叫进度台账（Progress Ledger），记每一步的进展，包括任务有没有进展、下一步该由哪个 agent 来做。这一小节里说的「任务台账」专指 Magentic-One 的这一本。</p>
   {{fig 55 | 图片来源：<a href="https://arxiv.org/pdf/2411.04468">arXiv 2411.04468</a>。}}
   <p>orchestrator 的工作分成两层循环。外层循环负责定计划和改计划，用的是任务台账。内层循环负责一步一步执行计划，用的是进度台账，图上灰色底的部分就是内层循环。</p>
   <p>两本账各记什么，按图整理如下。</p>
@@ -92,7 +94,7 @@
         <h4>进度台账：内层循环，管每一步</h4>
         <ul>
           <li>任务完成了吗？</li>
-          <li>有没有陷入没有成效的循环？</li>
+          <li>有没有陷入没有成效的重复？</li>
           <li>有没有进展？</li>
           <li>下一个该谁发言？</li>
           <li>给下一个发言者什么指令？</li>
@@ -102,43 +104,46 @@
   </figure>
   <p>按图上的箭头，orchestrator 每一步都更新进度台账，然后做三个判断：</p>
   <ol>
-    <li>任务完成了，就报告最终答案，或者给出一个有依据的猜测。</li>
+    <li>任务完成了，就结束，报告结果。</li>
     <li>没完成但有进展，就把指令发给下一个 agent。</li>
-    <li>没有进展时，看停滞计数。停滞计数记的是团队已经卡住了多久：orchestrator 每发现一次循环或者没有进展，就把它加一。计数超过 2，就回到外层循环更新任务台账，也就是改计划；没超过，就继续把指令发给 agent。</li>
+    <li>没有进展时，看停滞计数。停滞计数记的是团队已经卡住了多久：orchestrator 每发现一次没有成效的重复或者没有进展，就把它加一。计数超过 2，就回到外层循环更新任务台账，也就是改计划。没超过，就继续把指令发给 agent。</li>
   </ol>
-  <p>进度台账里的两个问题值得注意：「有没有陷入没有成效的循环」和「任务完成了吗」。<a href="failures.html#taxonomy">第五部分</a>的失败分类有 14 种失败方式，在全部失败里占比第一和第三的两种正是重复步骤（15.7%）和不知道什么时候该结束（12.4%）。</p>
+  <p>报告的结果有两种，图的右上角写的是「报告最终答案或有依据的猜测」。按论文的说明，两层循环在 orchestrator 判断任务完成时结束，达到设定的上限时也会结束，例如尝试次数或时间到了上限。结束后 orchestrator 报告最终答案，或者报告它最有把握的一个猜测。任务台账里记的有依据的猜测就用在这里：论文说，agent 可以在卡住或者时间用完、需要交出一个答案时才用上这些猜测。出处：<a href="https://arxiv.org/abs/2411.04468">Fourney 等，2024</a>。</p>
+  <p>进度台账里的两个问题值得注意：「有没有陷入没有成效的重复」和「任务完成了吗」。这两个问题对应的失败都很常见。Cemri 等人 2025 年的论文给 7 个开源多 agent 系统运行记录里的失败分了类，一共 14 种失败方式，并统计了每一种在全部失败里占的比例。重复已经做过的步骤占 15.7%，排第一。不知道什么时候该结束占 12.4%，排第三。分类的全貌见<a href="failures.html#taxonomy">第五部分</a>。</p>
   <p>图下方是四个听 orchestrator 指令的 agent：Coder 写代码并推理，ComputerTerminal 执行 Coder 写的代码，WebSurfer 浏览网页，FileSurfer 浏览文件。</p>
   <h3>直接用团队的 issue 列表：Symphony</h3>
   <p>任务台账也可以直接用团队已有的 issue tracker。issue tracker 是团队用来登记和跟踪任务的工具，每个任务叫一个 issue。Symphony 是这样做的一个例子。</p>
-  {{fig 56 | 截图是一个 issue tracker 的看板，有 Backlog、Todo、In Progress 三列。}}
-  <p>Symphony 来自 OpenAI，介绍它的文章里有一节的标题是「把我们的 issue tracker 变成 agent 的调度器」。它监视 issue tracker，把符合条件的任务派给各自在独立工作区里的编程 agent。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Symphony 怎么运作。</b>OpenAI 的介绍文章说，Symphony 把 Linear 这样的项目管理看板变成编程 agent 的控制面板：每个打开的任务都有一个 agent 去做，agent 持续运行，人负责审查结果。它的规格说明里写着，系统持续从 issue tracker 读取工作，给每个 issue 建一个隔离的工作区，在里面运行一次编程 agent 的会话。也就是说，它同时用了任务台账和下一节的工作区隔离。出处：<a href="https://openai.com/index/open-source-codex-orchestration-symphony/">OpenAI 的介绍文章</a>、<a href="https://github.com/openai/symphony/blob/main/SPEC.md">规格说明</a>。</div></div>
-  <p>规格说明把分工写得很清楚。Symphony 负责读取 issue 和调度，它自己记着哪些 issue 已经派出去、哪些在重试。改状态、写评论、关联 PR 这些写操作，一般由 agent 通过工具来做，例如把自己接到的 issue 移到「进行中」。这样一来，别的 agent 和人应该都能从看板上看到这件事已经有人在做。</p>
+  {{fig 56 | 截图是一个 issue tracker 的看板，有 Backlog（待安排）、Todo（待做）、In Progress（进行中）三列。}}
+  <p>Symphony 来自 OpenAI，介绍它的文章里有一节的标题是「把我们的 issue tracker 变成 agent 的调度器」。它监视 issue tracker，把符合条件的任务派给编程 agent，每个 agent 在自己的工作区里做。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Symphony 怎么运作。</b>OpenAI 的介绍文章说，Symphony 把 Linear 这样的项目管理看板变成编程 agent 的控制面板：每个还没有关闭的任务都有一个 agent 去做，agent 持续运行，人负责审查结果。同一篇文章也写明，agent 只会开始做不用等别的任务先完成的任务。它的规格说明里写着，系统持续从 issue tracker 里读取要做的任务，给每个 issue 建一个单独的工作区，在里面运行一次编程 agent 的会话。也就是说，它同时用了任务台账和下一节讲的分开的工作区。出处：<a href="https://openai.com/index/open-source-codex-orchestration-symphony/">OpenAI 的介绍文章</a>、<a href="https://github.com/openai/symphony/blob/main/SPEC.md">规格说明</a>。</div></div>
+  <p>规格说明把分工写得很清楚。Symphony 负责读取 issue 和调度，它自己记着哪些 issue 已经派出去、哪些在重试。改状态、写评论、关联 PR（提交代码改动的合并请求）这些写操作，一般由 agent 通过工具来做，例如把自己接到的 issue 移到「进行中」。这样一来，别的 agent 和人应该都能从看板上看到这件事已经有人在做。</p>
 </section>
 
 <section class="sec" id="worktree">
   <h2>冲突了怎么办：分开的工作区</h2>
-  <p>几个 agent 在同一个工作目录里改文件，会在执行过程中互相干扰。办法是给每个 agent 一份自己的工作区，做完再把改动合并进来。git 的 worktree 功能是分开工作区的一种现成办法。</p>
+  <p>几个 agent 在同一个工作区里改文件，会在执行过程中互相干扰。办法是给每个 agent 一份自己的工作区，做完再把改动合并进来。</p>
+  <p>把工作区分开的办法有好几种。git 的 worktree 功能是一种现成的办法，下面的图和说明框讲的就是它。C 编译器案例里每个 agent 各有一份 clone，CooperBench 里每个 agent 各用一台虚拟机，这两种也都是分开的工作区。</p>
   {{fig 63 | 图片来源：<a href="https://medium.com/threadsafe/">medium.com/threadsafe</a>。}}
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>worktree</b> 是 git 的一个功能：同一个仓库可以同时有多个独立的工作目录，每个目录检出不同的分支。图里一个 Git 仓库连着三个 worktree 文件夹，分别对应 bugfix 分支、main 分支和 feature 分支。</div></div>
-  <p>下表把问题、做法和取舍放在一起。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>worktree</b> 是 git 的一个功能：同一个仓库可以同时有多个独立的工作目录，每个目录里是不同分支的文件。分支是同一个仓库里互相独立的一条改动记录，在一个分支上做的改动，合并之前不影响别的分支。图里一个 Git 仓库连着三个 worktree 文件夹，分别对应 bugfix 分支、main 分支和 feature 分支。给每个 agent 一个这样的工作目录，它就有了自己的工作区。</div></div>
+  <p>下表把问题、做法和取舍放在一起。表里的「分叉」指各个 agent 的改动各自往不同的方向改，差别越来越大。</p>
   <figure class="plate">
     <table class="tbl">
       <tbody>
-        <tr><th scope="row">问题</th><td>几个 agent 在同一个工作目录里改文件。</td></tr>
-        <tr><th scope="row">分开的工作区</th><td>给每个 agent 一份自己的 checkout 和自己的分支。</td></tr>
-        <tr><th scope="row">有控制的合并</th><td>把完成的改动合并进来，解决冲突，再测试合并后的结果。</td></tr>
-        <tr><th scope="row">取舍</th><td>隔离减少了执行过程中的互相干扰。但各自的改动可能分叉，带来额外的合并工作。</td></tr>
+        <tr><th scope="row">问题</th><td>几个 agent 在同一个工作区里改文件。</td></tr>
+        <tr><th scope="row">分开的工作区</th><td>给每个 agent 一个自己的工作区和自己的分支。</td></tr>
+        <tr><th scope="row">带测试的合并<br><span class="muted small">Controlled integration</span></th><td>把完成的改动合并进来，解决冲突，再测试合并后的结果。</td></tr>
+        <tr><th scope="row">取舍</th><td>把工作区分开，减少了执行过程中的互相干扰。但各自的改动可能分叉，带来额外的合并工作。</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>隔离把冲突从「做的时候」推迟到了「合并的时候」，冲突本身并没有消失。有两个例子：<a href="case_study.html#claims">C 编译器案例</a>里，作者说合并冲突很频繁；CooperBench 的两个 agent 本来就各在一台虚拟机里工作，合并时照样冲突，成功率还是比一个 agent 低。所以只把工作区分开是不够的。</p>
-  <p>「冲突了怎么办」的回答因此有两步。做的时候，各个 agent 在自己的工作区里改，互不干扰。合并的时候解决冲突，再测试合并后的结果，也就是上表里的「有控制的合并」。</p>
+  <p>把工作区分开，是把冲突从「做的时候」推迟到了「合并的时候」，冲突本身并没有消失。前面提到的两个例子都是这样。<a href="case_study.html#claims">C 编译器案例</a>里，作者说合并冲突（两份改动合并时对不上的情况）很频繁。CooperBench 的两个 agent 各在一台虚拟机里工作，合并时照样冲突，成功率还是比一个 agent 低。所以只把工作区分开是不够的。</p>
+  <p>「冲突了怎么办」的回答因此有两步。做的时候，各个 agent 在自己的工作区里改，互不干扰。合并的时候解决冲突，再测试合并后的结果，也就是上表里的「带测试的合并」。</p>
 </section>
 
 <section class="sec" id="memory">
   <h2>以前发生过什么：共享记忆</h2>
-  <p>「共享记忆」有两个意思。一种是同一个项目里的进度文件，帮助新启动的 agent 接着做，<a href="case_study.html#progress">C 编译器案例</a>里用的是这一种，它和协调的关系更直接。另一种记的是跨任务的经验，帮助系统在下一个任务上做得更好。这一节讲后一种。</p>
+  <p>「共享记忆」有两个意思。一种是同一个项目里的进度文件，也就是 agent 写下自己做到哪里的文件，它和协调的关系更直接。另一种记的是跨任务的经验，帮助系统在下一个任务上做得更好。这一节讲后一种。</p>
+  <p>前一种的例子在 <a href="case_study.html#progress">C 编译器案例</a>里，那里把这批文件叫作 README 和进度文件。案例里的 agent 会一次次重新启动，每次启动时对项目此前的情况一无所知，要靠读这批文件接着做。</p>
   <p>G-Memory（Zhang 等，2025）是后一种的例子。它是专门给多 agent 系统设计的记忆，分成三张图。这里的「图」是由节点和连线组成的数据结构。下面先看论文的示意图，再用一张表说明每张图存什么。</p>
   {{fig 58 | 图片来源：<a href="https://arxiv.org/pdf/2506.07398">arXiv 2506.07398</a>。}}
   <p>表的最后一列把三张图对应到讲 agent 记忆时常用的三个说法。反思指从经历里总结出来的结论。情景记忆（episodic memory）指对经历本身的记录。按任务建的索引指一份按任务排的目录，用来找到当时的记录。</p>
@@ -152,18 +157,18 @@
       </tbody>
     </table>
   </figure>
-  <p>新任务来了，系统先在查询图里找相近的旧任务，再从旧任务往上取出提炼过的见解，往下取出当时的交互记录并压缩成经验，一起交给多 agent 系统。任务做完后，根据执行是否成功等反馈更新三张图。</p>
+  <p>新任务来了，系统先在查询图里找相近的旧任务，再从这些旧任务出发，到见解图里取出提炼过的见解，到交互图里取出当时的交互记录并压缩成经验，一起交给多 agent 系统。任务做完后，根据执行是否成功等反馈更新三张图。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>取和存各有一个细节。</b>
     <ul>
-      <li><b>取。</b>第一步是把新任务和旧任务都转成向量，按相似度挑出最接近的几个旧任务，再沿着查询图上的边把相关的任务也带进来。论文的理由是，只按相似度挑出的任务可能只是表面上相近，或者带着噪声。</li>
+      <li><b>取。</b>第一步是把新任务和旧任务都转成向量，也就是一串数字，意思相近的文字转出来的向量也相近。然后按相似度挑出最接近的几个旧任务，再沿着查询图上的连线，把和它们直接相连的旧任务也带进来。论文的理由是，只按相似度挑出的任务可能只是表面上相近，或者挑得并不准确，所以要把范围再扩大一些。扩大范围为什么能解决这个问题，论文在这里没有进一步说明。</li>
       <li><b>存。</b>三张图都要更新。这次的交互记录存进交互图。这个任务作为新节点加进查询图。新提炼出的见解加进见解图，并和这次用到的旧见解连起来。</li>
     </ul></div></div>
-  {{figs 60 61 | 左：取和存的过程。右：效果对比。图片来源：<a href="https://arxiv.org/pdf/2506.07398">arXiv 2506.07398</a>。}}
-  <p>效果那张表来自这样一个实验：多 agent 系统用的是 AutoGen，底层模型是 GPT-4o-mini。五个评测分三类：知识问答（HotpotQA、FEVER）、在模拟环境里行动（ALFWorld、SciWorld）和游戏（PDDL）。</p>
-  <p>和 G-Memory 对照的有不带记忆的做法和六种记忆方案。六种里，三种是为单 agent 设计的（Voyager、MemoryBank、Generative Agents），三种是其他多 agent 框架自带的（MetaGPT、ChatDev、MacNet）。下表列出其中四个平均分。</p>
+  {{figs 60 61 | 左：取和存的过程。右：论文的效果对比表。图片来源：<a href="https://arxiv.org/pdf/2506.07398">arXiv 2506.07398</a>。}}
+  <p>右图是论文的效果对比表，它来自这样一个实验：多 agent 系统用的是 AutoGen 这个多 agent 框架，底层模型是 GPT-4o-mini。五个评测分三类：知识问答（HotpotQA、FEVER）、在模拟环境里行动（ALFWorld、SciWorld）和游戏（PDDL）。</p>
+  <p>和 G-Memory 对照的有不带记忆的做法和六种记忆方案。六种里，三种是为单 agent 设计的（Voyager、MemoryBank、Generative Agents），三种是其他多 agent 框架自带的（MetaGPT、ChatDev、MacNet）。下表从论文的这张表里摘出四种做法的平均分：不带记忆的做法，G-Memory，六种对照方案里平均分最高的 Voyager，以及 ChatDev 自带的记忆。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">记忆方案</th><th scope="col" class="r">五个评测成绩的平均值，越高越好</th></tr></thead>
+      <thead><tr><th scope="col">记忆方案</th><th scope="col" class="r">五个评测成绩的平均值，满分 100，越高越好</th></tr></thead>
       <tbody>
         <tr><th scope="row">不带记忆</th><td class="r">48.27</td></tr>
         <tr><th scope="row">G-Memory</th><td class="r">57.18</td></tr>
@@ -171,25 +176,28 @@
         <tr><th scope="row">ChatDev 自带的记忆</th><td class="r">46.23</td></tr>
       </tbody>
     </table>
-    <figcaption>数字取自 <a href="https://arxiv.org/pdf/2506.07398">arXiv 2506.07398</a> 的效果对比表。五个评测的指标不同：HotpotQA 和 FEVER 用精确匹配的准确率，SciWorld 和 PDDL 用进度率，ALFWorld 用成功率，都是越高越好。成功率只看任务最后有没有做完。进度率看任务推进了多少，没做完的任务也按推进的程度计分，它是评测框架 <a href="https://arxiv.org/abs/2401.13178">AgentBoard</a> 提出的指标。</figcaption>
+    <figcaption>数字取自 <a href="https://arxiv.org/pdf/2506.07398">arXiv 2506.07398</a> 的效果对比表。平均值是论文的表里给出的，由论文把五个评测的成绩平均得到。五个成绩都是百分比，满分 100。五个评测的指标不同：HotpotQA 和 FEVER 用精确匹配的准确率，SciWorld 和 PDDL 用进度率，ALFWorld 用成功率，都是越高越好。精确匹配指答案和标准答案完全一样才算对。成功率只看任务最后有没有做完。进度率看任务推进了多少，没做完的任务也按推进的程度计分，它是评测框架 <a href="https://arxiv.org/abs/2401.13178">AgentBoard</a> 提出的指标。</figcaption>
   </figure>
   <p>从表里可以读出两点。G-Memory 的平均分高于全部六种对照方案。多 agent 框架自带的记忆不一定有帮助：ChatDev 自带的记忆平均分比不带记忆还低。</p>
 </section>
 
 <section class="sec" id="patterns">
   <h2>agent 自己商量出来的三种做法</h2>
-  <p>CooperBench 让两个 agent 各做一个功能，改动可能互相冲突，它们可以互相发消息。研究者在运行记录里观察到三种自发的协调方式。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读这一节之前要知道的事。</b>论文把这三种方式叫作自发出现的协调行为（emergent coordination behavior），这个叫法本身没有说明它们出现得多不多。论文另外写明了这一点：这些行为很少见，出现在成功的例子里，在失败的例子里基本看不到，也没有人提示 agent 这样做。同一个评测的总体结论是两个 agent 协作不如一个 agent，见<a href="failures.html#cooper">第五部分</a>。所以这三个例子说明的是「成功的协调长什么样」。</div></div>
+  <p>CooperBench 让两个 agent 各做一个功能，改动可能互相冲突，它们可以用评测给的沟通工具互相发消息。系统没有给它们任务台账，两个功能要改的代码有重叠或互相依赖，这部分代码谁改哪里要靠它们自己商量。研究者在运行记录（agent 每一步做了什么的完整记录）里观察到 agent 自己商量出来的三种做法：分角色、分资源和协商。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读这一节之前要知道的事。</b>论文把这三种做法叫作自发出现的协调行为（emergent coordination behavior），这个叫法本身没有说明它们出现得多不多。论文另外写明了这一点：这些行为很少见，出现在成功的例子里，在失败的例子里基本看不到，也没有人提示 agent 这样做。同一个评测的总体结论是两个 agent 协作不如一个 agent，见<a href="failures.html#cooper">第五部分</a>。所以读下面三个例子时要记住：它们是协调成功时的样子，这样的行为并不常见。</div></div>
   <h3>分角色：商定谁做哪一部分</h3>
   {{fig 65 | 图片来源：<a href="https://arxiv.org/abs/2601.13295">CooperBench</a>。}}
+  <p>「分角色」是论文起的名字（role division），指两个 agent 商定各自负责任务的哪一部分。下面的例子里，商定的是往同一个文件里各加哪几样东西。</p>
   <p>Agent 1 先快速检查了一遍，然后说：「我来在 outlines/types/__init__.py 里加小节标题和 octal_str；你把 binary_str 加在它们中间，保持字母顺序。」Agent 2 查看了文件，确认插入的位置，回复说：「我在自己的分支上按这个顺序插入：标题，binary_str，octal_str。」</p>
   <h3>分资源：把共享的东西划开，各用各的</h3>
   {{fig 66 | 图片来源：<a href="https://arxiv.org/abs/2601.13295">CooperBench</a>。}}
   <p>Agent 1 说：「我要改 types.py 的第 68 到 84 行。」Agent 2 回答：「我不会改第 68 到 84 行。我计划在第 84 行之后插入 get_image_mimetype()，从新的第 85 行开始。」这里被划分的资源是同一个文件里的行号范围。</p>
-  <h3>协商：做法冲突时，收敛到同一个计划</h3>
+  <h3>协商：计划有冲突时，讨论并商定一个计划</h3>
   {{fig 67 | 图片来源：<a href="https://arxiv.org/abs/2601.13295">CooperBench</a>。}}
-  <p>Agent 2 发现两个人的计划可能重叠。Agent 1 检查文件后给出两个方案：「（1）我来加 IsHash，你加 import re 和 IsRegex，__init__.py 的导出全部由我来处理。（2）你加 IsRegex，我来加 IsHash，导出由你来处理。你想选哪个？」Agent 2 选了方案（1）。</p>
-  <p>三个例子有一个共同点：<mark>说出来的话具体到了文件、行号和先后顺序，对方不需要再猜</mark>。论文对协商那个例子的评价是，一方把一个复杂的协调问题变成了一次简单的选择，而且每个选项都写清了双方各自要做什么。这和任务台账、认领文件做的是同一件事，只是这里靠的是 agent 自己在对话里商量。</p>
-  <p>也可以反过来看<a href="case_study.html#claims">C 编译器案例里的认领</a>为什么靠得住。那里的认领是往共享的 Git 仓库里写一个文件，表示这个任务已经有人在做。两个 agent 认领同一个任务时，Git 会让后到的那次推送失败。它由机制强制执行，不依赖 agent 记住对方说过什么。</p>
-  <p class="next">这些设计做了以后，多 agent 系统还会在哪里出问题？下一部分：<a href="failures.html">失败</a>。</p>
+  <p>Agent 2 发现双方的计划可能重叠。Agent 1 检查文件后给出两个方案：「（1）我来加 IsHash，你加 import re 和 IsRegex，__init__.py 的导出全部由我来处理。（2）你加 IsRegex，我来加 IsHash，导出由你来处理。你想选哪个？」Agent 2 选了方案（1）。</p>
+  <p>三个例子有一个共同点：<mark>说出来的话具体到了文件、行号和先后顺序，对方不需要再猜</mark>。论文对协商那个例子的评价是，一方把一个复杂的协调问题变成了一次简单的选择，而且每个选项都写清了双方各自要做什么。</p>
+  <p>这三种做法和在任务台账上认领做的是同一件事：把谁做哪一部分定下来。区别在于这里靠的是 agent 自己在对话里商量，商定的事只留在对话里，要靠双方记住并照做。</p>
+  <p>设计系统时不能把这样的商量当作依靠，理由有两条。第一，这三种做法很少出现。第二，在 CooperBench 里，有没有沟通工具，任务成功率的差别在统计上不显著，也就是这点差别可能只是偶然，见<a href="communication.html#chat">第三部分</a>。</p>
+  <p><a href="case_study.html#claims">C 编译器案例里的认领</a>可以拿来对照，它靠的是机制。那里的认领是往共享的 Git 仓库里写一个文件，表示这个任务已经有人在做。两个 agent 认领同一个任务时，Git 的同步会迫使后认领的那个 agent 换一个任务。这一步由机制强制执行，不依赖 agent 记住对方说过什么。</p>
+  <p class="next">有了这些设计以后，下一个问题是<b>失败</b>：<a href="failures.html">多 agent 系统还会在哪里出问题</a>。</p>
 </section>

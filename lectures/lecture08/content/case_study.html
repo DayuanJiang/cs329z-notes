@@ -1,31 +1,32 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>16 个 agent 用近 2000 次 Claude Code 会话、两周时间、不到 2 万美元，写出一个 10 万行、能编译 Linux 6.9 的 C 编译器。写代码的工作由 agent 自主完成；人负责设计环境、测试和反馈，并在 agent 卡住时想办法。</li>
-    <li>它没有 orchestrator，也就是没有统管全局、给其他 agent 分派任务的那个 agent。agent 之间也没有对话，只通过 Git 仓库里的文件互通消息。协调靠三样东西：认领文件、进度文件、每个 agent 自己的一份 clone。clone 是仓库的一份本地副本。</li>
-    <li>并行只在工作能拆开时有用。失败的测试有几百个时，每个 agent 各修一个；编译 Linux 内核变成一整个大任务时，16 个 agent 卡在同一个 bug 上，互相覆盖修改。作者想办法把它拆开，并行才恢复。</li>
-    <li>作者花精力最多的地方是测试和反馈。他说任务的检验程序必须接近完美，否则 agent 会去解决一个错的问题。</li>
+    <li>16 个 agent 用近 2000 次 Claude Code 会话、两周时间、不到 2 万美元，写出一个 10 万行的 C 编译器。这个编译器能编译 Linux 6.9，但还有局限，例如 x86 上有一段启动代码要调用成熟的开源编译器 GCC 来编译。Claude Code 是 Anthropic 的编程 agent，一次会话指它从启动到退出的一次运行。</li>
+    <li>这个项目是 Anthropic 的 Nicholas Carlini 做的，下面的「作者」都指他。写代码的工作由 agent 自主完成。作者负责设计 agent 周围的环境，包括测试和反馈，并在 agent 卡住时想办法。</li>
+    <li>这个项目没有 orchestrator，也就是没有统管全局、给其他 agent 分派任务的那个 agent。agent 之间也没有对话，只通过 Git 仓库里的文件互通消息。协调靠三样东西：认领文件、README 和进度文件、每个 agent 自己的一份 clone。认领文件表示一个任务已经有人在做。README 是仓库里的说明文档，它和进度文件一起记下项目的情况和做到了哪里。clone 是仓库的一份本地副本。</li>
+    <li>并行只在工作能拆开时有用。失败的测试有很多个、彼此不同时，每个 agent 各修一个。编译 Linux 内核是一整个大任务，16 个 agent 卡在同一个 bug 上，互相覆盖修改。作者想办法把它拆开，并行才恢复。</li>
+    <li>作者说他大部分的精力花在设计 agent 周围的环境上。他说检验程序必须接近完美，否则 agent 会朝着错的目标去做。检验程序指判断任务有没有做对的程序，测试就属于这一类。</li>
     <li>这个案例没有和单 agent 比过，成品也有明显的局限。</li>
   </ul>
 </section>
 
 <section class="sec" id="background">
   <h2>背景</h2>
-  <p>这个案例来自 Anthropic 网站上的一篇文章，标题是「用一组并行的 Claude 写一个 C 编译器」，作者是 Nicholas Carlini，发表于 2026 年 2 月 5 日。本页说的「原文」都指这篇文章。</p>
-  {{fig 84 | 图片来源：<a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic</a>。}}
+  <p>这个案例来自 Anthropic 网站上的一篇文章，标题是 Building a C compiler with a team of parallel Claudes，意思是「用一组并行的 Claude 写一个 C 编译器」。文章发表于 2026 年 2 月 5 日，作者是 Nicholas Carlini，这个项目就是他做的。本页说的「原文」都指这篇文章，「作者」都指他。</p>
+  {{fig 84 | 图片来源：<a href="https://www.anthropic.com/engineering/building-c-compiler">原文</a>。}}
   <p>看这个案例的理由是：已经有公司在用 agent swarm（一群并行工作的 agent）做工程和科研，从这个案例可以看到这样的 swarm 可能是怎样运作的。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>规模和成品。</b>下面的数字取自原文。
     <ul>
-      <li>16 个 agent 并行，用的模型是 Opus 4.6。</li>
-      <li>两周里跑了近 2000 次 Claude Code 会话，用了 20 亿输入 token 和 1.4 亿输出 token，总成本不到 2 万美元。</li>
-      <li>成品是一个用 Rust 写的 C 编译器，约 10 万行，能在 x86、ARM 和 RISC-V 上编译出可以启动的 Linux 6.9，也能编译 QEMU、FFmpeg、SQLite、PostgreSQL 和 Redis。开发过程中 agent 不能上网。</li>
-      <li>它有局限：没有自己的汇编器和链接器，启动 Linux 需要的 16 位 x86 部分也要调用 GCC。GCC 是一个成熟的开源 C 编译器。其余的局限见<a href="#limits">本页最后一节</a>。</li>
+      <li>16 个 agent 并行，用的都是 Anthropic 的模型 Claude，型号是 Opus 4.6。</li>
+      <li>两周里运行了近 2000 次 Claude Code 会话，用了 20 亿输入 token 和 1.4 亿输出 token，总成本不到 2 万美元。token 是模型处理文字的最小单位。</li>
+      <li>成品是一个用 Rust 写的 C 编译器，约 10 万行，能在 x86、ARM 和 RISC-V 三种处理器架构上编译出可以启动的 Linux 6.9，也能编译 QEMU、FFmpeg、SQLite、PostgreSQL 和 Redis 这几个开源软件。开发过程中 agent 不能上网。</li>
+      <li>它有局限。第一，它没有自己的汇编器和链接器，这是把编译结果变成可执行文件的后两步工具。第二，在 x86 上，Linux 启动时先要经过一个 16 位的阶段，原文叫 real mode，所以最先运行的那一段代码要编译成 16 位的。这个编译器编译这一段得到的结果超出了 Linux 规定的大小，所以这一段改为调用 GCC 来编译，GCC 是一个成熟的开源 C 编译器。ARM 和 RISC-V 上没有这个问题。其余的局限见<a href="#limits">本页最后一节</a>。</li>
     </ul>
     出处：<a href="https://www.anthropic.com/engineering/building-c-compiler">Building a C compiler with a team of parallel Claudes</a>。本页其余绿色框的出处相同。</div></div>
 </section>
 
 <section class="sec" id="loop">
-  <h2>编排：没有人分派任务</h2>
+  <h2>编排：没有 agent 负责分派任务</h2>
   <p>这个项目里没有负责分派任务的 agent，做什么由每个 agent 自己决定。每个 agent 都在这样一个循环里运行：</p>
   <figure class="plate">
 <pre class="code"><code>#!/bin/bash
@@ -41,64 +42,67 @@ done</code></pre>
     <figcaption>脚本取自原文。</figcaption>
   </figure>
   <ul>
-    <li><code>while true</code>：循环永不结束。一次会话跑完，马上开始下一次。</li>
+    <li><code>while true</code>：循环永不结束。一次会话结束，马上开始下一次。本页说的一个 agent，指的就是这样一个不停运行的循环，它先后启动很多次会话。</li>
     <li><code>claude -p "$(cat AGENT_PROMPT.md)"</code>：每次都用同一份提示词文件，以非交互的方式启动一次 Claude Code 会话。</li>
-    <li><code>--dangerously-skip-permissions</code>：跳过所有权限询问，agent 做什么都不用等人批准。作者在原文里提醒：要在容器里运行，不要在自己的机器上运行。</li>
-    <li>其余两行用当前提交的哈希给日志文件命名，把输出写进日志。</li>
+    <li><code>--dangerously-skip-permissions</code>：跳过所有权限询问，agent 做什么都不用等人批准。作者在原文里提醒：要在容器里运行，不要在自己的机器上运行。容器是和主机隔开的运行环境。</li>
+    <li>其余两行用当前提交的哈希（标识这次提交的一串编号）给日志文件命名，把输出写进日志。</li>
   </ul>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>没有负责编排的 agent。</b>作者明确说他没有用负责编排的 agent，也就是没有 orchestrator。他也没有规定管理高层目标的流程，做什么由每个 agent 自己决定。多数时候 agent 会挑眼下最容易看出来该做的那个问题去做。提示词里要求 agent 把问题拆成小块，记录自己在做什么，想清楚下一步做什么，一直做到完美为止。</div></div>
-  <p>对照<a href="orchestration.html#four">第二部分</a>：这里没有 orchestrator，agent 自己挑任务，通过共享仓库里的文件交换信息。这符合去中心方式通常的定义。去中心方式是第二部分讲的四种编排方式之一，通常指没有 orchestrator、agent 通过一块共享的留言板或通信通道交换信息、自己领任务的做法。</p>
-  <p>第二部分引用的 Kim 等人 2026 年的论文也测了去中心方式。那里是几个 agent 就同一个问题一轮一轮辩论，最后按多数票定出答案，和这里的做法不一样。所以那篇论文里去中心方式的数字不能直接套到这个案例上，见<a href="orchestration.html#swarm">「去中心」的两种意思</a>。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>没有负责编排的 agent。</b>作者明确说他没有用负责编排的 agent，也就是没有 orchestrator。他也没有规定一套流程来管项目的大方向，做什么由每个 agent 自己决定。多数时候 agent 会挑最明显的下一个问题去做。提示词里要求 agent 把问题拆成小块，记录自己在做什么，想清楚下一步做什么，一直做到完美为止。</div></div>
+  <p>对照<a href="orchestration.html#four">第二部分</a>：这里没有 orchestrator，agent 自己挑任务，通过共享仓库里的文件交换信息。这符合去中心方式通常的定义。去中心方式是第二部分讲的四种编排方式之一，通常指没有 orchestrator、agent 通过一块共享的留言板或通信通道交换信息、自己领任务的做法。留言板指一块所有 agent 都能读写的共享区域。</p>
+  <p>第二部分里四种编排方式的成绩和开销数字，来自 Kim 等人 2026 年的论文。这篇论文在六个评测上比较了单 agent 和四种编排方式。论文实现的去中心方式是几个 agent 就同一个问题一轮一轮辩论，最后按多数票定出答案，和这里的做法不一样。所以第二部分里去中心方式的数字不能直接套到这个案例上，见第二部分的<a href="orchestration.html#swarm">「去中心」的两种意思</a>一节。</p>
 </section>
 
 <section class="sec" id="claims">
   <h2>协调：在 Git 里认领</h2>
-  <p>agent 之间靠认领来分工：开始做一个任务之前，先在共享的 Git 仓库里写一个文件，表示这个任务已经有人在做。每个 agent 的一次会话按下面五步走。</p>
-  {{fig 87 | 示意图参考了 <a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic 的文章</a>。}}
+  <p>agent 之间靠认领来分工：开始做一个任务之前，先在共享的 Git 仓库里写一个文件，表示这个任务已经有人在做。这个文件在本页叫认领文件。每个 agent 的一次会话按下面五步走。</p>
+  {{fig 87 | 示意图参考了<a href="https://www.anthropic.com/engineering/building-c-compiler">原文</a>。}}
   <figure class="plate">
     <ol class="steps">
-      <li><span class="n">1</span><div><h4>认领任务</h4><p>agent 在 <code>current_tasks/</code> 文件夹里写一个文本文件，相当于给这个任务上了锁。原文的例子是一个 agent 锁住 <code>current_tasks/<wbr>parse_if_statement.txt</code>，另一个锁住 <code>current_tasks/<wbr>codegen_function_<wbr>definition.txt</code>。两个 agent 想认领同一个任务时，Git 的同步会让后到的那个失败，它就换一个任务。</p></div></li>
+      <li><span class="n">1</span><div><h4>认领任务</h4><p>agent 在 <code>current_tasks/</code> 文件夹里写一个文本文件，这就是认领文件。原文把这一步叫作给任务上锁（lock）。原文的例子是一个 agent 写下 <code>current_tasks/<wbr>parse_if_statement.txt</code>，另一个写下 <code>current_tasks/<wbr>codegen_function_<wbr>definition.txt</code>，各认领一个任务。认领文件通过 Git 同步到共享仓库。原文说，两个 agent 想认领同一个任务时，Git 的同步会迫使后认领的那个 agent 换一个任务。Git 具体怎样做到这一点，原文没有写明。</p></div></li>
       <li><span class="n">2</span><div><h4>实现</h4><p>在本地修改并测试。</p></div></li>
-      <li><span class="n">3</span><div><h4>拉取、合并、推送</h4><p>把别人的改动拉下来，合并，再把自己的改动推上去。作者说合并冲突很频繁，但 agent 自己能解决。</p></div></li>
-      <li><span class="n">4</span><div><h4>释放认领</h4><p>任务做完，把锁文件删掉。</p></div></li>
+      <li><span class="n">3</span><div><h4>拉取、合并、推送</h4><p>把别人的改动拉下来，合并，再把自己的改动推上去。作者说合并冲突（两份改动合并时对不上的情况）很频繁，但 agent 自己能解决。</p></div></li>
+      <li><span class="n">4</span><div><h4>释放认领</h4><p>任务做完，把认领文件删掉。</p></div></li>
       <li><span class="n">5</span><div><h4>开始新的会话</h4><p>循环在一个全新的容器里启动下一次会话，回到第 1 步。</p></div></li>
     </ol>
     <figcaption>步骤整理自上面的图，例子和细节取自原文。</figcaption>
   </figure>
   <p>下面这张图画的是共享仓库和各个 agent 的容器之间的关系。</p>
-  {{fig 88 | 示意图参考了 <a href="https://www.anthropic.com/engineering/building-c-compiler">Anthropic 的文章</a>。}}
+  {{fig 88 | 示意图参考了<a href="https://www.anthropic.com/engineering/building-c-compiler">原文</a>。}}
   <ul>
-    <li><b>上面</b>是一个共享的裸 Git 仓库，路径是 <code>/upstream</code>。裸仓库只存历史，没有工作目录。里面有三样东西：代码、任务认领、进度记录。</li>
+    <li><b>上面</b>是一个共享的裸 Git 仓库，路径是 <code>/upstream</code>。裸仓库只存历史，没有工作目录。里面有三样东西：代码、放认领文件的 <code>current_tasks/</code> 文件夹、README 和进度文件。配图上把最后一样标作 Progress notes。</li>
     <li><b>下面</b>是三个容器，每个容器里有一个 agent 和它自己的一份本地 clone，路径是 <code>/workspace</code>。</li>
     <li>每个容器和共享仓库之间只有拉取和推送。</li>
   </ul>
-  <p><a href="coordination.html">第四部分</a>讲了系统可以提供的三样东西：任务台账、分开的工作区、共享记忆。这里三样都用上了。第一样是任务台账，也就是一份记录谁在做什么的工作记录：<code>current_tasks/</code> 是一份很简单的任务台账，只回答「这件事有没有人在做」。第二样是分开的工作区：每个 agent 有自己的一份 clone。第三样是共享记忆：仓库里的进度记录让新启动的 agent 知道前面做到了哪里，<a href="#progress">下一节</a>讲。</p>
-  <p>分开的工作区在第四部分叫作 worktree 隔离。严格说这里用的是容器里各自的 clone，没有用 git 的 worktree 功能，作用相同。</p>
+  <p>容器和会话的关系，原文有两句话。前面说给每个 agent 启动一个容器，agent 把共享仓库 clone 一份到容器里，做完后从容器推送回共享仓库。后面说循环每次都在一个全新的容器里启动新的会话。照这两句话，图上的容器是各个 agent 当前这一次会话用的容器。</p>
+  <p><a href="coordination.html">第四部分</a>讲了系统可以提供的三样东西：任务台账、分开的工作区、共享记忆。这里三样都用上了。第一样是任务台账，也就是一份记下计划、谁负责什么和进度的工作记录：<code>current_tasks/</code> 是一份很简单的任务台账，只回答「这件事有没有人在做」。第二样是分开的工作区：每个 agent 有自己的一份 clone。第三样是共享记忆：仓库里的 README 和进度文件让 agent 在新的一次会话里知道前面做到了哪里，<a href="#progress">下一节</a>讲。</p>
+  <p>第四部分讲分开的工作区时，举的现成办法是 git 的 worktree 功能，它让同一个仓库同时有几个独立的工作目录。这个案例没有用 worktree，每个 agent 用的是自己容器里的一份 clone。两种办法的作用相同：每个 agent 改自己那一份文件，做的时候互不干扰。</p>
 </section>
 
 <section class="sec" id="progress">
   <h2>通信：只有文件</h2>
-  <p>agent 之间没有对话，互通消息只靠仓库里的文件。上一节的流程图里，「README 和进度文件」旁边用红字标了两个作用：agent 之间的通信，和共享记忆。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>为什么要有进度文件。</b>作者说，除了上面的认领办法，他还没有实现任何别的 agent 之间的通信方式。每个 agent 被放进一个全新的容器，没有任何上下文，在大项目上要花不少时间弄清状况。所以他在提示词里要求 agent 维护详细的 README 和进度文件，并且经常更新当前的状态。agent 被某个 bug 卡住时，常常会自己维护一份文档，记下试过哪些失败的办法、还剩哪些任务。</div></div>
-  <p>对照<a href="communication.html#ladder">第三部分</a>的四种通信方式，这是一块用文件做的留言板。留言板指一块所有 agent 都能读写的共享区域：谁都能写，后来的 agent 都能读，而且一直留着。这里的留言板没有消息格式，也没有订阅，只靠提示词里的一句要求来维持。</p>
-  <p>这种做法顺带回答了一个问题：agent 多了以后，别人的消息会不会塞满每个 agent 的上下文。这里消息不直接推给任何 agent，都写成仓库里的文件。新启动的 agent 自己读文档、用工具搜索，只取用得上的部分。<a href="communication.html#practice">第三部分</a>把它和另一个例子放在一起讲。</p>
+  <p>agent 之间没有对话，互通消息只靠仓库里的文件。「协调：在 Git 里认领」一节的两张图里，README 和进度文件旁边都用红字标了两个作用：agent 之间的通信，和共享记忆。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>为什么要有 README 和进度文件。</b>作者说，除了「协调：在 Git 里认领」一节讲的通过共享的 Git 仓库同步以外，他还没有实现任何别的 agent 之间的通信方式。认领文件、README 和进度文件都放在这个仓库里，靠拉取和推送传给别的 agent。每次会话开始时，agent 都在一个全新的容器里，没有任何上下文。上下文是模型这一次能读到的全部内容，这时里面没有项目此前的任何情况，agent 在大项目上要花不少时间弄清状况。所以作者在提示词里要求 agent 维护详细的 README 和进度文件，并且经常更新当前的状态。agent 被某个 bug 卡住时，常常会自己维护一份文档，记下试过哪些失败的办法、还剩哪些任务。</div></div>
+  <p>对照<a href="communication.html#ladder">第三部分</a>的四种通信方式，这是一块用文件做的留言板：谁都能写，后来的 agent 都能读，而且一直留着。</p>
+  <p>这块留言板比第三部分举的例子简单。第三部分的例子是多 agent 框架 MetaGPT：它的消息有固定的字段，每个 agent 可以订阅自己关心的那几类消息，让这几类消息送到自己这里。这里两样都没有：文件怎么写没有固定的格式，也没有订阅的机制，只靠提示词里的一句要求来维持。</p>
+  <p>这种做法顺带回答了一个问题：agent 多了以后，别人的消息会不会占满每个 agent 的上下文。上下文能装下的内容有限。这里的消息都写成仓库里的文件。agent 在新的一次会话里自己读文档、用工具搜索，只取用得上的部分。工具指 agent 可以调用的外部功能，这里是在文件里搜索。<a href="communication.html#practice">第三部分</a>把它和另一个例子放在一起讲。</p>
 </section>
 
 <section class="sec" id="roles">
   <h2>几个职责互补的专门 agent</h2>
-  <p>所有 agent 都在同一份编译器代码上工作，但各有各的职责。</p>
+  <p>所有 agent 都在同一份编译器代码上工作，职责分成下面六种。</p>
   <figure class="plate">
     <div class="cards cols-3">
       <div class="card"><h4>实现和调试</h4><p>修复各个不同的编译失败。</p></div>
       <div class="card"><h4>去重</h4><p>合并重复的代码。</p></div>
       <div class="card"><h4>文档</h4><p>维护项目文档。</p></div>
       <div class="card"><h4>编译器的性能</h4><p>让编译更快。</p></div>
-      <div class="card"><h4>生成代码的效率</h4><p>让编译出来的程序跑得更快。</p></div>
+      <div class="card"><h4>生成代码的效率</h4><p>让编译出来的程序运行得更快。</p></div>
       <div class="card"><h4>Rust 的设计和代码质量</h4><p>审查并重构代码结构。</p></div>
     </div>
   </figure>
-  <p>原文解释了为什么要有去重的 agent：模型写的代码经常重新实现已经有的功能。下面第六条经验「分配互补的目标」就来自这里。</p>
-  <p>这些职责是作者指定给各个 agent 的。具体怎么指定，例如是否给它们用了不同的提示词，原文没有说明。和编排一节合起来看：平时挑哪个任务由 agent 自己决定，长期的职责由人事先定好。</p>
+  <p>六种职责里，原文写明有五种各交给了一个 agent：去重、文档、编译器的性能、生成代码的效率、Rust 的设计和代码质量。这五个就是标题里说的专门 agent。实现和调试是解决问题本身的工作，做这件事的 agent 有几个，原文没有写明。</p>
+  <p>原文解释了为什么要有去重的 agent：模型写的代码经常重新实现已经有的功能。下面第六条经验「分配互补的目标」就来自这里，经验里的「目标」指的就是这一节说的职责。</p>
+  <p>这些职责是作者指定给各个 agent 的。具体怎么指定，例如是否给它们用了不同的提示词，原文没有说明。和编排一节合起来看：平时挑哪个任务由 agent 自己决定，长期的职责由作者事先定好。</p>
 </section>
 
 <section class="sec" id="kernel">
@@ -106,11 +110,12 @@ done</code></pre>
   <p>并行只在工作能拆开时有用。下面的六条经验里有一条「为并行而设计」，原文里它背后有一段经过，是整个案例里最能说明这一点的一段。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>原文的经过。</b>
     <ul>
-      <li><b>能拆开时，并行很容易。</b>失败的测试有很多个、彼此不同时，每个 agent 各挑一个去修。测试通过率到 99% 之后，每个 agent 各自去让一个不同的小型开源项目通过编译，例如 SQLite、Redis、Lua。</li>
-      <li><b>拆不开时，并行没有用。</b>开始编译 Linux 内核时，agent 卡住了。内核不像测试集那样由几百个互相独立的测试组成，它是一整个大任务。每个 agent 都碰到同一个 bug，各自修掉，然后互相覆盖对方的修改。作者的原话是：跑 16 个 agent 没有帮助，因为每一个都卡在同一个任务上。</li>
-      <li><b>办法是把大任务拆开。</b>作者拿 GCC 当作已知正确的编译器来对照：随机挑大部分内核文件用 GCC 编译，只有剩下的文件用 Claude 写的编译器编译。内核能跑，说明问题不在剩下的这一批文件里；不能跑，就再缩小范围。这样每个 agent 可以在不同的文件上修不同的 bug，并行恢复了。原文补充说，这一步做完之后，还要再找出那些单独编译没问题、放在一起才出错的文件组合。</li>
+      <li><b>能拆开时，并行很容易。</b>作者用编译器测试集来检验这个编译器，测试集由几百个互相独立的测试组成。失败的测试有很多个、彼此不同时，每个 agent 各挑一个去修。测试集里通过的测试占到 99% 之后，每个 agent 各自去让一个不同的小型开源项目通过编译，例如 SQLite、Redis、Lua。</li>
+      <li><b>拆不开时，并行没有用。</b>开始编译 Linux 内核时，agent 卡住了。测试集里的测试互相独立，编译内核却是一整个大任务。每个 agent 都碰到同一个 bug，各自修掉，然后互相覆盖对方的修改。作者的原话是：运行 16 个 agent 没有帮助，因为每一个都卡在同一个任务上。「协调：在 Git 里认领」一节的认领办法在这里为什么没有起作用，原文没有说明。</li>
+      <li><b>办法是换一种检验方式，把大任务拆开。</b>原来的检验是用 Claude 写的编译器编译整个内核。作者写了一套新的测试，拿 GCC 当作已知正确的编译器来对照：随机挑大部分内核文件用 GCC 编译，只有剩下的文件用 Claude 写的编译器编译。编出来的内核能正常运行，说明问题不在剩下的这一批文件里。不能正常运行，就再缩小范围。文件是随机挑的，每次剩下的那一批不一样，所以各个 agent 可以在不同的文件上修不同的 bug，并行恢复了。原文补充说，这一步做完之后，还要再找出那些单独编译没问题、放在一起才出错的文件组合。</li>
     </ul></div></div>
-  <p>这段经过和<a href="sas_vs_mas.html#task">第一部分</a>的证据说的是同一件事：agent 的数量帮不上忙，决定并行有没有用的是工作能不能拆成互不依赖的几块。这里更进一步的一点是，<mark>拆不开的工作，有时人可以想办法让它变得能拆开</mark>，这里的办法是换一种检验方式。</p>
+  <p>这段经过和<a href="sas_vs_mas.html#task">第一部分</a>的证据说的是同一件事：并行有没有用，要看工作能不能拆开。第一部分把<a href="sas_vs_mas.html#split">「能拆开」</a>归纳成两个条件：各块不改同一份东西，做的过程中也不需要对方的中间结果。编译内核时不满足的是前一个条件：16 个 agent 碰到同一个 bug，改的是同一处代码。</p>
+  <p>这里更进一步的一点是，<mark>拆不开的工作，有时人可以想办法让它变得能拆开</mark>。这里的办法是换一种检验方式：原来用 Claude 写的编译器编译整个内核，后来每次只让随机剩下的一部分文件用它编译。</p>
 </section>
 
 <section class="sec" id="lessons">
@@ -120,28 +125,28 @@ done</code></pre>
     <table class="tbl">
       <thead><tr><th scope="col">经验</th><th scope="col">原文里对应的做法</th></tr></thead>
       <tbody>
-        <tr><th scope="row">1. 可靠的测试引导自主工作</th><td>作者说任务的检验程序必须接近完美，否则 agent 会去解决一个错的问题。项目后期 agent 每加一个新功能就常常弄坏已有的功能，他为此建了持续集成，不让新提交弄坏已有的代码。</td></tr>
-        <tr><th scope="row">2. 为并行而设计</th><td>把可以分开的失败或子任务暴露出来。见上一节 Linux 内核的例子。</td></tr>
-        <tr><th scope="row">3. 把协调做成显式的</th><td>认领任务，在各自的 clone 里工作，通过 Git 合并。</td></tr>
-        <tr><th scope="row">4. 跨会话保留知识</th><td>维护共享的文档、进度记录，以及失败过的做法的记录。</td></tr>
-        <tr><th scope="row">5. 让反馈高效</th><td>测试只打印几行输出，详细信息写进日志文件，出错时在同一行写上 ERROR 和原因，方便搜索。agent 感觉不到时间，会花几个小时跑测试，所以提供一个只跑 1% 或 10% 抽样的快速选项。</td></tr>
-        <tr><th scope="row">6. 分配互补的目标</th><td>给每个 agent 不同的职责，见上面的专门 agent。</td></tr>
+        <tr><th scope="row">1. 自主工作要靠可靠的测试</th><td>作者说检验程序必须接近完美，否则 agent 会朝着错的目标去做。检验程序指判断任务有没有做对的程序，测试就属于这一类。项目后期 agent 每加一个新功能就常常弄坏已有的功能，他为此建了持续集成，也就是每次提交之后自动运行测试，不让新提交弄坏已有的代码。</td></tr>
+        <tr><th scope="row">2. 为并行而设计</th><td>让失败的测试或子任务能一个个分开，各个 agent 才能分头去做。见「并行什么时候失灵」一节 Linux 内核的例子。</td></tr>
+        <tr><th scope="row">3. 把协调做成显式的</th><td>谁在做哪个任务写在仓库里，别的 agent 查得到。做法是先认领任务，在各自的 clone 里工作，再通过 Git 合并。</td></tr>
+        <tr><th scope="row">4. 跨会话保留知识</th><td>维护 README 和进度文件，并记下失败过的做法。</td></tr>
+        <tr><th scope="row">5. 让反馈高效</th><td>测试只打印几行输出，详细信息写进日志文件。出错时把 ERROR 和原因写在同一行里，方便搜索。agent 不知道时间过去了多久，没人管的话会花几个小时运行测试，所以提供一个快速选项，只随机抽 1% 或 10% 的测试来运行。</td></tr>
+        <tr><th scope="row">6. 分配互补的目标</th><td>给不同的 agent 分派不同的职责，见「几个职责互补的专门 agent」一节。</td></tr>
       </tbody>
     </table>
     <figcaption>右列取自原文。</figcaption>
   </figure>
-  <p>六条里有四条（1、2、4、5）讲的都是 agent 周围的环境：测试、反馈、记录。第 2 条也算在里面，因为内核那一次的办法是换一套检验方式。作者自己也说，他大部分的精力花在设计 agent 周围的环境上，好让 agent 在没有人的情况下自己弄清方向。</p>
+  <p>六条里有四条（1、2、4、5）讲的都是 agent 周围的环境，也就是测试、反馈和记录。第 2 条也算在里面，因为内核那一次的办法是换一种检验方式。作者自己也说，他大部分的精力花在设计 agent 周围的环境上，好让 agent 在他不在场时，自己弄清项目现在的状况和下一步该做什么。</p>
 </section>
 
 <section class="sec" id="limits">
   <h2>这个案例没有说明什么</h2>
   <p>这个案例做成了一个很大的项目，容易被当作多 agent 有效的证明。下面五点说的是它的限度，前三点取自原文，后两点是对照这一讲前面的标准得出的。</p>
   <ul>
-    <li><b>成品有明显的局限。</b>它还不能直接替代真正的编译器。开启全部优化后生成的代码，效率还不如关闭全部优化的 GCC。它没有自己的汇编器和链接器，启动 Linux 需要的 16 位 x86 部分也要调用 GCC。</li>
-    <li><b>到了能力的边界。</b>作者说这个编译器已经接近模型能力的极限，新功能和 bug 修复经常弄坏已有的功能。</li>
+    <li><b>成品有明显的局限。</b>它还不能直接替代真正的编译器。它开启全部优化后生成的代码，效率还不如 GCC 关闭全部优化时生成的代码。它没有自己的汇编器和链接器，x86 上 Linux 启动时最先运行的那段 16 位代码也要调用 GCC 来编译。</li>
+    <li><b>已经接近模型能力的极限。</b>作者说这个编译器已经接近模型能力的极限，新功能和 bug 修复经常弄坏已有的功能。</li>
     <li><b>测试通过不等于做完了。</b>作者在结尾说，自主运行的系统很容易让人看到测试通过就以为完成了，而实际上很少如此。</li>
-    <li><b>没有和单 agent 比。</b>第一部分建议先做单 agent 基线并测量收益，单 agent 基线指先只用一个 agent 把任务做好，当作比较的基准。这个案例没有这样的对照，所以它说明的是「这样做能做成」，说明不了「这样做比一个 agent 更好」。</li>
-    <li><b>用的通信方式是最简单的一种。</b>只有共享的文件，相当于一块没有格式、没有订阅的留言板。第三部分讲的共用对话、交接、把 agent 当工具用和 A2A 协议，这里都没有用到。所以这个案例说明不了那些方式好不好。</li>
+    <li><b>没有和单 agent 比。</b>第一部分建议先做单 agent 基线并测量收益，单 agent 基线指先只用一个 agent 把任务做好，当作比较的基准。这个案例没有这样的对照。所以它能说明的是这样做可以做成，用多个 agent 是否比用一个 agent 做得更好，它回答不了。</li>
+    <li><b>只用了一种通信方式。</b>只有共享的文件，相当于一块留言板，消息没有固定的格式，也没有订阅的机制。第三部分讲的另外几种方式这里都没有用到：几个 agent 在同一个群里发言的共用对话，把整场对话交给另一个 agent 的交接，一个 agent 调用另一个 agent 替它做一件事的「把 agent 当工具用」，以及让不同系统里的 agent 互相通信的 A2A 协议。所以这个案例说明不了那些方式好不好。</li>
   </ul>
-  <p class="next">回到<a href="index.html">总览</a>，看五个问题的答案。</p>
+  <p class="next">回到<a href="index.html">总览</a>，那里把这一讲的五个问题和答案列在一张表里：要不要用多个 agent，编排，通信，协调，会怎样失败。</p>
 </section>

@@ -1,8 +1,8 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>DSPy 有三个核心概念。signature（签名）声明模型的输入和输出，回答「要什么」。module（模块）决定用什么方式调用模型，回答「怎么做」。optimizer（优化器）根据数据和度量（给程序的输出打分的函数）自动改进 prompt 或模型权重。这一页讲前两个，优化器在<a href="optimizer.html">下一部分</a>。</li>
-    <li>signature 里只有字段的名字、类型、一句可选的描述，和一句任务说明。发给模型的 prompt（给模型的输入文字）由 DSPy 按固定的规则拼出来，拼的过程不调用模型。</li>
+    <li>DSPy 是一个 Python 库，用它可以把模型调用写成程序。它有三个核心概念。signature（签名）声明模型的输入和输出，回答「要什么」。module（模块）决定用什么方式调用模型，回答「怎么做」。optimizer（优化器）根据数据和度量（给程序的输出打分的函数）自动改进程序，改的是程序里的 prompt（给模型的输入文字）或模型权重（模型里经过训练得到的参数）。这一页是第二部分，讲前两个，优化器在<a href="optimizer.html">第三部分</a>。</li>
+    <li>signature 里最少只要写出字段的名字。每个字段的类型和一句描述，还有整个 signature 的一句任务说明，都可以按需要加上。发给模型的 prompt 由 DSPy 按固定的规则把这些内容拼出来，拼的过程不调用模型。</li>
     <li>换一种推理方式只需要换 module。<code>dspy.Predict</code> 直接要结果，<code>dspy.ChainOfThought</code> 让模型先写一段推理再给结果，signature 不用改。</li>
     <li>自定义的 module 里可以把几次模型调用和普通的 Python 代码写在一起。步骤的顺序和分支都由代码决定，这样的程序就是一个 workflow（步骤由程序写定的多次模型调用）。</li>
   </ul>
@@ -11,9 +11,10 @@
 <section class="sec" id="three">
   <h2>三个概念：signature、module、optimizer</h2>
   <p>以前要让模型做一件事，得手写一段 prompt，说明任务和回答的格式。DSPy 的论文把这种做法叫作 prompt 模板：人靠反复试验写出很长的字符串。</p>
-  <p>DSPy 是为了减少甚至省掉这种手写而做的一个 Python 框架（framework，写程序时调用的库，它规定了一套写法，并替你处理底层的细节）。它出自斯坦福大学 Omar Khattab 等人 2023 年的论文，名字是 Declarative Self-improving Python 的缩写，意思是「声明式的、能自我改进的 Python」。官方文档在 <a href="https://dspy.ai/">dspy.ai</a>。</p>
+  <p>DSPy 是为了减少甚至省掉这种手写而做的一个 Python 框架（framework，写程序时调用的库，它规定了一套写法，并替你处理底层的细节）。它出自斯坦福大学 Omar Khattab 等人 2023 年的论文，官方文档在 <a href="https://dspy.ai/">dspy.ai</a>。</p>
+  <p>DSPy 的代码仓库说明里写着，这个名字是 Declarative Self-improving Python 的缩写，意思是「声明式的、能自我改进的 Python」。声明式指代码里只声明模型的输入和输出。</p>
   <p class="lead-in">它的主张是：<mark>用代码声明你要模型做什么，prompt 的具体措辞交给框架去生成和改进</mark>。</p>
-  <p>拿这一讲的例子来说，任务是读一封邮件，把里面提到的日程加到日历上。用 DSPy 来写，要用到三个概念。下面的图和表列出这三个概念，表的第三列是它们在这个例子里各指什么。</p>
+  <p>拿这一讲的例子来说，任务是读一封邮件，把里面提到的日程加到日历上。DSPy 有三个概念：写这个程序用到 signature 和 module，改进它时用到 optimizer。下面的图和表列出这三个概念，表的第三列是它们在这个例子里各指什么。</p>
   {{fig 22 | DSPy 的三个概念。signature 标着 What，module 标着 How。}}
   <figure class="plate">
     <table class="tbl">
@@ -24,22 +25,22 @@
         <tr><th scope="row">optimizer<br><span class="muted small">优化器</span></th><td>改进程序里的 prompt 或模型权重，让一个度量的分数尽量高</td><td>让一个小模型的提取准确率从 55% 升到 100%</td></tr>
       </tbody>
     </table>
-    <figcaption>55% 和 100% 是 20 封测试邮件上的结果，见<a href="optimizer.html#result">第三部分</a>。DSPy 的论文把 optimizer 叫作 teleprompter，现在的文档统一叫 optimizer。</figcaption>
+    <figcaption>55% 和 100% 是 Google 的小模型 Gemma 3 12B 在 20 封测试邮件上的结果，一封邮件的日期、开始时间、时长三项全对才算对，见<a href="optimizer.html#result">第三部分</a>。DSPy 的论文把 optimizer 叫作 teleprompter，现在的文档统一叫 optimizer。</figcaption>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>DSPy 的论文提出了什么。</b>论文是 Khattab 等人的 <a href="https://arxiv.org/abs/2310.03714">DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</a>，2023 年 10 月上传，发表在 ICLR 2024。它提出把一次模型调用写成带参数的模块。参数指模块能从数据里学到的内容，论文里主要是放进 prompt 的示例。再由一个「编译器」根据一个度量自动生成指令和示例。编译的过程由上面表里的 optimizer 来做，现在的代码里优化器的方法名仍然叫 <code>compile</code>。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>论文报告的效果。</b>论文在数学应用题和多步问答这两类任务上做了评测。摘要里报告，几行 DSPy 代码经过几分钟的编译，也就是上面说的自动优化，得到的程序比标准的 few-shot prompt（在 prompt 里放几个示例的做法）好：用 GPT-3.5 时普遍高出 25% 以上，用 llama2-13b-chat 时普遍高出 65% 以上。摘要没有写明这两个数是百分点还是相对比例。出处：<a href="https://arxiv.org/abs/2310.03714">论文的摘要和第 1 节</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>DSPy 的论文提出了什么。</b>论文是 Khattab 等人的 <a href="https://arxiv.org/abs/2310.03714">DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</a>，2023 年 10 月上传到公开发布论文预印本的网站 arXiv，发表在 ICLR 2024，ICLR 是机器学习领域的一个学术会议。它提出两件事。第一，把一次模型调用写成带参数的 module，参数指 module 能从数据里学到的内容，论文里主要是放进 prompt 的示例。第二，根据一个度量自动生成 prompt 里的指令和示例，论文把这个过程叫作编译（compile）。做编译的部件就是上面表里的 optimizer，现在的代码里优化器的方法名仍然叫 <code>compile</code>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>论文报告的效果。</b>论文在数学应用题和多步问答这两类任务上做了评测，多步问答的问题要把几条信息连起来才能回答。摘要里报告，几行 DSPy 代码经过几分钟的编译，也就是上面说的自动优化，得到的程序比标准的 few-shot prompt（在 prompt 里放几个示例的做法）好。摘要举了 GPT-3.5 和 llama2-13b-chat 两个模型：用 GPT-3.5 时普遍高出 25% 以上，用 llama2-13b-chat 时普遍高出 65% 以上。摘要没有写明比的是哪一项指标，也没有写明这两个数是百分点还是相对比例。出处：<a href="https://arxiv.org/abs/2310.03714">论文的摘要和第 1 节</a>。</div></div>
 </section>
 
 <section class="sec" id="example">
   <h2>贯穿整讲的例子：把邮件里的日程加到日历</h2>
-  <p>这一讲的第二、三、四、六部分反复使用同一个小任务：读一封邮件，如果里面提到了一个日程，就提取它的名称、日期、开始时间和时长，挑一个表情符号，把它加到日历上。这个程序会用 DSPy、LangGraph、Temporal 各写一遍，方便比较三者各自多做了什么。</p>
-  <p>日历是配套仓库里自带的一个小应用，叫 tinycal。它只用 Python 标准库写成，有一个每秒刷新的网页界面。</p>
+  <p>这一讲的第二、三、四、六部分反复使用同一个小任务：读一封邮件，如果里面提到了一个日程，就提取它的名称、日期、开始时间和时长，挑一个表情符号，把它加到日历上。这个程序会用 DSPy、LangGraph、Temporal 各写一遍，程序做的事一样，方便比较三者的写法和各自提供的功能。LangGraph 是另一个写程序时调用的库，Temporal 是一个平台，它让程序在某一步失败或者进程重启之后还能接着运行。</p>
+  <p>日历是一个叫 tinycal 的小应用。它只用 Python 标准库写成，有一个每秒刷新的网页界面。它和这一讲的全部代码放在同一个配套仓库里，仓库的地址见这一节末尾的「代码在哪里」。</p>
   <p>tinycal 提供七个 Python 函数：<code>today</code>、<code>list_events</code>、<code>add_event</code>、<code>update_event</code>、<code>delete_event</code>、<code>find_free_slots</code>、<code>clear_calendar</code>。这七个函数既可以由程序直接调用，也可以原样交给 agent（能自己调用工具、分很多步完成任务的语言模型系统）当工具用。</p>
-  <p>演示开始时日历里有两节课，分别在 2026 年 10 月 5 日和 10 月 7 日的 13:30 到 14:50。</p>
+  <p>下面说的演示，指配套仓库里保存下来的那一次运行。演示开始时日历里有两节课，分别在 2026 年 10 月 5 日和 10 月 7 日的 13:30 到 14:50。</p>
   <p>模型通过 OpenRouter（一个用同一套接口转接多家模型的服务）调用，默认用的是 <code>openai/gpt-5.4-nano</code>。配置只有两行：</p>
   <pre class="code"><code>dspy_llm = dspy.LM(f"openrouter/{MODEL}", api_key=OPENROUTER_API_KEY)
 dspy.configure(lm=dspy_llm)</code></pre>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>代码在哪里。</b>这一讲的全部代码在课程的配套仓库 <a href="https://github.com/cs329z/lecture5-frameworks">cs329z/lecture5-frameworks</a> 的 <code>lecture5.ipynb</code> 里。它是一个 Jupyter notebook，也就是把代码和运行结果放在一起的文档。页面上的代码和输出都取自这个 notebook，个别地方为了排版把几行并成了一行。仓库的说明写着，把整个 notebook 跑一遍大约花 1 美分的 OpenRouter 额度。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>代码在哪里。</b>这一讲的全部代码在配套仓库 <a href="https://github.com/cs329z/lecture5-frameworks">cs329z/lecture5-frameworks</a> 的 <code>lecture5.ipynb</code> 里。它是一个 Jupyter notebook，也就是把代码和运行结果放在一起的文档。页面上的代码和输出都取自这个 notebook，个别地方为了排版把几行并成了一行。仓库的说明写着，把整个 notebook 跑一遍大约花 1 美分的 OpenRouter 额度。</div></div>
 </section>
 
 <section class="sec" id="string">
@@ -79,7 +80,7 @@ print(typed_sentiment_classifier(message="I am very happy today!"))</code></pre>
     </table>
     <figcaption>notebook 里保存的输出。confidence 是模型自己报的一个数。它没有经过校准，也就是没有人检查过模型报 0.9 的那些回答里是不是真有九成是对的，所以不一定能当作概率来用。</figcaption>
   </figure>
-  <p>现在输出是一个结构化的 <code>Prediction</code> 对象，<code>sentiment</code> 一定是三个取值之一，<code>confidence</code> 一定是浮点数。</p>
+  <p>加了类型之后，<code>sentiment</code> 一定是三个取值之一，<code>confidence</code> 一定是浮点数。两个值都装在 DSPy 返回的 <code>Prediction</code> 对象里，按字段名取用。上一节用 <code>.response</code> 取回答时，用的也是这种对象。</p>
 </section>
 
 <section class="sec" id="prompt">
@@ -106,9 +107,9 @@ In adhering to this structure, your objective is:
   <ul>
     <li><b>它是确定性的。</b>从 signature 到 prompt 是普通的代码按规则拼字符串，不经过语言模型。同一个 signature，在 adapter 和输入都相同时，每次拼出来的 prompt 都一样。</li>
     <li><b>格式由 DSPy 检查。</b>模型的回答如果切不开，或者类型对不上，DSPy 会发现。上面这种带 <code>[[ ## 字段名 ## ]]</code> 标记的格式出自名叫 ChatAdapter 的 adapter。它解析失败时，会换成要求模型输出 JSON 的 JSONAdapter 把请求重发一次。还是不行才报错。</li>
-    <li><b>没有写任务说明时，DSPy 会补一句。</b>上面最后一行「给定字段 message，产生字段 sentiment、confidence」就是自动补的。</li>
+    <li><b>没有写任务说明时，DSPy 会补一句。</b>上面那段 system message 节选的最后一行「给定字段 message，产生字段 sentiment、confidence」就是自动补的。</li>
   </ul>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这里看到的 prompt 格式属于 DSPy 3.4。</b>演示是在 2026 年 10 月初运行的，当时 DSPy 默认使用 ChatAdapter。2026 年 11 月 10 日发布的 3.5.0 把默认的 adapter 换成了 XMLAdapter，用 XML 风格的标签来标记字段，文档还说明 ChatAdapter 将来会被弃用。signature 的写法没有变，变的是它被拼成的 prompt。用新版本运行同样的代码，<code>inspect_history</code> 打印出来的内容会和这里不同。出处：<a href="https://dspy.ai/current/diving-deeper/adapters/">DSPy 文档的 adapter 一节</a>；<a href="https://github.com/stanfordnlp/dspy/releases/tag/3.5.0">3.5.0 的发布说明</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这里看到的 prompt 格式属于 DSPy 3.4。</b>演示是在 2026 年 10 月初运行的，当时 DSPy 默认使用 ChatAdapter。2026 年 11 月 10 日发布的 3.5.0 把默认的 adapter 换成了 XMLAdapter，用 XML 风格的标签来标记字段，文档还说明 ChatAdapter 将来会被弃用。这次升级之后 signature 的写法照旧，它被拼成的 prompt 换了格式。用新版本运行同样的代码，<code>inspect_history</code> 打印出来的内容会和这里不同。出处：<a href="https://dspy.ai/current/diving-deeper/adapters/">DSPy 文档的 adapter 一节</a>；<a href="https://github.com/stanfordnlp/dspy/releases/tag/3.5.0">3.5.0 的发布说明</a>。</div></div>
 </section>
 
 <section class="sec" id="class">
@@ -127,15 +128,15 @@ class ExtractEvent(dspy.Signature):
 extract = dspy.Predict(ExtractEvent)
 extract(email="We have a meeting scheduled for this Friday, October 9th at 10 AM PST.")</code></pre>
   <p>运行的结果是 <code>event_name='meeting'</code>、<code>date=datetime.date(2026, 10, 9)</code>、<code>start=datetime.time(10, 0)</code>、<code>duration_minutes=None</code>。日期和时间已经是 Python 的日期和时间对象，后面的代码可以直接用。</p>
-  <p>类里的每一样东西都会进到 prompt 里：</p>
+  <p>类里的每一样东西都会进到 prompt 里，下表逐项列出。表里的文档字符串（docstring）指紧跟在 <code>class</code> 那一行下面、用三个引号括起来的说明文字，在上面的代码里是 <code>Extract event details from an email.</code> 这一句。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">signature 里写的</th><th scope="col">作用</th><th scope="col">在 prompt 里的样子</th></tr></thead>
       <tbody>
         <tr><th scope="row">类的文档字符串<br><span class="muted small">docstring</span></th><td>任务说明。DSPy 把它当作这个 signature 的指令</td><td><code>your objective is: Extract event details from an email.</code></td></tr>
-        <tr><th scope="row">字段名</th><td>告诉模型这一格该填什么</td><td><code>[[ ## date ## ]]</code></td></tr>
-        <tr><th scope="row">类型</th><td>规定这一格的格式。<code>| None</code> 表示邮件里没有这一项时可以留空</td><td>要求取值符合一个 JSON schema（描述数据格式的规范），比如日期格式的字符串或 null</td></tr>
-        <tr><th scope="row"><code>desc</code></th><td>对这一格的补充提示</td><td>跟在字段名后面，比如 <code>24-hour clock</code></td></tr>
+        <tr><th scope="row">字段名</th><td>告诉模型这个字段该填什么</td><td><code>[[ ## date ## ]]</code></td></tr>
+        <tr><th scope="row">类型</th><td>规定这个字段的格式。<code>| None</code> 表示邮件里没有这一项时可以留空</td><td>要求取值符合一个 JSON schema（描述数据格式的规范），比如日期格式的字符串或 null</td></tr>
+        <tr><th scope="row"><code>desc</code></th><td>对这个字段的补充提示</td><td>跟在字段名后面，比如 <code>24-hour clock</code></td></tr>
       </tbody>
     </table>
     <figcaption>右边一列取自 notebook 里 <code>inspect_history</code> 的输出。</figcaption>
@@ -150,12 +151,12 @@ extract(email="We have a meeting scheduled for this Friday, October 9th at 10 AM
     <table class="tbl">
       <thead><tr><th scope="col">问题</th><th scope="col">回答</th></tr></thead>
       <tbody>
-        <tr><th scope="row">模型凭什么知道 <code>date</code> 这一格填什么？</th><td>只凭字段名、类型和 <code>desc</code>。没有 <code>desc</code> 的时候，模型看到的就是 date 这个词和「日期类型」</td></tr>
+        <tr><th scope="row">模型凭什么知道 <code>date</code> 这个字段填什么？</th><td>关于这个字段本身，模型看到的是字段名、类型和 <code>desc</code>。没有 <code>desc</code> 的时候，就是 date 这个词和「日期类型」。文档字符串里的任务说明是对所有字段一起说的，也可以在那里写针对这个字段的规则，见下面「邮件里有两个日期怎么办」这一行</td></tr>
         <tr><th scope="row">模型觉得还有别的值得说，能多输出一点吗？</th><td>不能。输出有哪些字段由 signature 规定，模型只能填这些字段。聊天式的 agent 没有固定的输出格式，要自己决定告诉你什么。<a href="optimizer.html#react">第三部分</a>用 <code>dspy.ReAct</code> 搭的 agent 也带 signature：它自己决定中间走哪些步骤，最后交回的仍是规定的字段</td></tr>
-        <tr><th scope="row">邮件里有两个日期怎么办？</th><td>把规则写进文档字符串，比如「有多个日期时取第一个」。文档字符串的内容会进到上面说的 system message 里，作用相当于这次调用的任务指令</td></tr>
-        <tr><th scope="row">文档字符串写得越细越好吗？</th><td>看任务。可以把任务里关键的、必须遵守的要求写上，细枝末节留给优化器去补。<a href="optimizer.html">下一部分</a>会看到优化器怎样把一句话扩成一长段</td></tr>
-        <tr><th scope="row">可以自己写 prompt，不用优化器吗？</th><td>可以，写在文档字符串里。之后如果再用优化器，它会从你写的这一版出发继续改</td></tr>
-        <tr><th scope="row">为什么任务说明放在文档字符串里，不单设一个字段？</th><td>一个 signature 只有一条任务说明，它是一段文字。如果把它做成一个字段，就可能有人声明两个，或者给它标上 <code>float</code> 这样的类型，框架得逐个检查。一个类只能有一个文档字符串，文档字符串也只能是文字，这两种错都写不出来。读代码的人还能一眼看到这个 signature 是做什么的。代价是文档变成了会被执行的东西，注释和代码的界线变模糊了</td></tr>
+        <tr><th scope="row">邮件里有两个日期怎么办？</th><td>把规则写进文档字符串，比如「有多个日期时取第一个」。文档字符串的内容会进到上面说的 system message 里，作用相当于这次调用的指令</td></tr>
+        <tr><th scope="row">文档字符串写得越细越好吗？</th><td>看任务。可以把任务里关键的、必须遵守的要求写上，细枝末节留给优化器去补。<a href="optimizer.html">第三部分</a>会看到优化器怎样把一句话扩成一长段</td></tr>
+        <tr><th scope="row">可以自己手写一份详细的任务说明，不用优化器吗？</th><td>可以，写在文档字符串里。之后如果再用优化器，它会从你写的这一版出发继续改</td></tr>
+        <tr><th scope="row">为什么任务说明放在文档字符串里，不单设一个字段？</th><td>一个 signature 只有一条任务说明，它是一段文字。如果把它做成一个字段，就可能有人声明两个，或者给它标上 <code>float</code> 这样的类型，框架得逐个检查。一个类只能有一个文档字符串，文档字符串也只能是文字，这两种错都写不出来。读代码的人还能一眼看到这个 signature 是做什么的。代价是文档字符串成了程序的一部分：改它的文字，发给模型的指令就跟着变，注释和代码的界线变模糊了</td></tr>
       </tbody>
     </table>
   </figure>
@@ -163,13 +164,13 @@ extract(email="We have a meeting scheduled for this Friday, October 9th at 10 AM
 
 <section class="sec" id="module">
   <h2>module：换一种推理方式</h2>
-  <p>signature 说的是要什么，module 说的是怎么让模型给出来。有时想让模型先把推理写出来，再给答案。模型是从前往后生成文字的，所以只要让推理排在答案前面，它就得先写推理，再填答案。</p>
+  <p>signature 说的是要什么，module 说的是怎么让模型给出来。有时想让模型在给答案之前，先把要给的内容推理一遍并写出来。模型是从前往后生成文字的，所以只要让推理排在答案前面，它就得先写推理，再填答案。</p>
   <p>在 DSPy 里做这件事不用改 signature，只要把 <code>dspy.Predict</code> 换成 <code>dspy.ChainOfThought</code>：</p>
   <pre class="code"><code>extract_cot = dspy.ChainOfThought(ExtractEvent)
 extract_cot(email="We have a meeting scheduled for this Friday, October 9th at 10 AM PST.")</code></pre>
   <p>结果里多了一个排在最前面的字段 <code>reasoning</code>，内容是模型的推理：邮件说这个星期五 10 月 9 日上午 10 点有一个会议，所以名称是 meeting，日期是 10 月 9 日，开始时间是 10:00，没有给出时长。后面四个字段和之前一样。</p>
   <p><code>ChainOfThought</code> 做的事很简单：在输出字段的最前面加一个 <code>reasoning</code>。字段的顺序在这里起了作用，排在最前面的字段最先生成。</p>
-  <p>这是演示所用的 DSPy 3.4 的行为。从 3.5.0 起，如果模型本身带有推理功能，<code>ChainOfThought</code> 会直接使用模型自带的推理，<code>reasoning</code> 字段里可能是空的。</p>
+  <p>这是演示所用的 DSPy 3.4 的行为。从 3.5.0 起有一处变化。有些模型自带推理功能：模型在给出回答之前自己先推理一遍，这段推理和回答分开，由模型服务单独返回。用这样的模型时，<code>ChainOfThought</code> 直接取这段自带的推理放进 <code>reasoning</code> 字段。模型服务没有把推理的内容返回时，这个字段是空的。</p>
   <p>DSPy 自带的 module 还有几个。下表列出这一讲提到的五个，和每一个怎样得到 signature 规定的输出：</p>
   <figure class="plate">
     <table class="tbl">
@@ -177,7 +178,7 @@ extract_cot(email="We have a meeting scheduled for this Friday, October 9th at 1
       <tbody>
         <tr><th scope="row"><code>dspy.Predict</code></th><td>把 signature 变成 prompt，调用一次模型</td></tr>
         <tr><th scope="row"><code>dspy.ChainOfThought</code></th><td>先让模型写出推理，再给出各个输出字段</td></tr>
-        <tr><th scope="row"><code>dspy.BestOfN</code></th><td>把一个 module 最多运行 N 次，用一个打分函数给每次的结果打分，返回分数最高的一次，或者第一次达到及格线的那次</td></tr>
+        <tr><th scope="row"><code>dspy.BestOfN</code></th><td>把一个 module 最多运行 N 次，用一个打分函数给每次的结果打分。写程序的人给它一个分数门槛，某一次的分数达到门槛，就不再往下运行，直接返回这一次。N 次都没有达到门槛，就返回分数最高的一次</td></tr>
         <tr><th scope="row"><code>dspy.ReAct</code></th><td>让模型在「想一步、调用一个工具、看结果」的循环里自己决定怎么做，见<a href="optimizer.html#react">第三部分</a></td></tr>
         <tr><th scope="row"><code>dspy.RLM</code></th><td>把很长的输入放进一个代码执行环境，让模型写代码去查看它，见<a href="optimizer.html#rlm">第三部分</a></td></tr>
       </tbody>
@@ -185,7 +186,7 @@ extract_cot(email="We have a meeting scheduled for this Friday, October 9th at 1
     <figcaption><code>dspy.BestOfN</code> 的说明来自 <a href="https://dspy.ai/current/diving-deeper/built-in-module-variants/">DSPy 的文档</a>，演示里没有用到它。</figcaption>
   </figure>
   <p>按表里的说明，选哪一个要看任务需要什么。要模型自己决定调用哪些工具时用 <code>dspy.ReAct</code>，输入很长时用 <code>dspy.RLM</code>，手里有一个能给结果打分的函数、又愿意多运行几次时用 <code>dspy.BestOfN</code>。</p>
-  <p><code>dspy.Predict</code> 和 <code>dspy.ChainOfThought</code> 之间，演示没有比较过准确率。在上面这封邮件上，两者给出的四个字段相同，<code>dspy.ChainOfThought</code> 只是多了一段可以读的推理。</p>
+  <p><code>dspy.Predict</code> 和 <code>dspy.ChainOfThought</code> 之间，演示没有比较过准确率，所以这里说不出哪一个更准。在上面这封邮件上，两者给出的四个字段相同，<code>dspy.ChainOfThought</code> 多了一段可以读的推理。想读到模型怎样得出结果时，可以用 <code>dspy.ChainOfThought</code>。</p>
 </section>
 
 <section class="sec" id="compose">
@@ -199,7 +200,7 @@ extract_cot(email="We have a meeting scheduled for this Friday, October 9th at 1
 pick_emoji = dspy.ChainOfThought(PickEmoji)
 pick_emoji(event_name="Dentist")</code></pre>
   <p>输入 Dentist（牙医），模型选了一颗牙齿的表情符号。</p>
-  <p>然后写一个自己的 module，把两次模型调用、一个判断和一次日历调用串起来。写法模仿了 PyTorch：在 <code>__init__</code> 里声明要用的子模块，在 <code>forward</code> 里写执行的过程。</p>
+  <p>然后写一个自己的 module，把两次模型调用、一个判断和一次日历调用串起来。写法模仿了 PyTorch 这个用来训练神经网络的 Python 框架：在 <code>__init__</code> 里声明要用的 module，在 <code>forward</code> 里写执行的过程。</p>
   <pre class="code"><code>class UpdateCalendarFromEmail(dspy.Module):
     def __init__(self):
         self.extract = dspy.ChainOfThought(ExtractEvent)   # LLM call 1
@@ -226,7 +227,7 @@ pick_emoji(event_name="Dentist")</code></pre>
     </table>
   </figure>
   <p>下面是第一封邮件处理完之后的日历界面。</p>
-  {{fig 34 | 运行之后的 tinycal 界面。10 月 9 日星期五多了一个 10:00 到 11:00 的 Meeting。这张截图里日历是空的，没有那两节课，和 notebook 开头的设置略有不同。}}
+  {{fig 34 | 运行之后的 tinycal 界面。10 月 9 日星期五有一个 10:00 到 11:00 的日程，它是这一周唯一的日程。这张截图和 notebook 里保存的那次运行有两处不同。截图里的名称是大写开头的 Meeting，保存的输出里是小写的 meeting。截图里也没有演示开始时日历里的那两节课。}}
   <p>这个 module 是一个标准的 workflow：模型被调用两次，每次只负责一件规定好的事；先做什么、后做什么、什么情况下停，全部写在 <code>forward</code> 里。模型没有机会决定流程。</p>
 </section>
 
@@ -238,14 +239,14 @@ pick_emoji(event_name="Dentist")</code></pre>
     <li>自定义的 module 把多个 signature 和 Python 逻辑组合成一个程序。</li>
     <li>想知道框架到底给模型发了什么，随时可以用 <code>inspect_history</code> 把 prompt 打印出来看。</li>
   </ul>
-  <p>到这里为止，prompt 里的任务说明还只是手写的一句话。下一部分看 <a href="optimizer.html">DSPy 的优化器怎样用数据把它改好</a>。</p>
+  <p>到这里为止，DSPy 拼出来的 prompt 里，任务说明还是人手写在文档字符串里的那一句话。第三部分看 <a href="optimizer.html">DSPy 的优化器怎样用数据把它改好</a>。</p>
 </section>
 
 <section class="sec" id="notes">
   <h2>资料说明</h2>
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
-    <li><b>DSPy 这个名字的全称。</b>「Declarative Self-improving Python」这个全称写在<a href="https://github.com/stanfordnlp/dspy">代码仓库的说明</a>里。</li>
+    <li><b>DSPy 这个名字的全称。</b>「Declarative Self-improving Python」这个全称出自<a href="https://github.com/stanfordnlp/dspy">代码仓库的说明</a>，原句是 DSPy stands for Declarative Self-improving Python。论文在 arXiv 上的第一版里没有出现这个全称。</li>
     <li><b>论文摘要里的 25% 和 65%。</b>摘要只说比标准的 few-shot prompt「普遍高出 25% 和 65% 以上」，没有写明是哪一项指标，也没有写明是百分点还是相对比例。论文正文的两组评测用的是数学应用题数据集 GSM8K 和多步问答数据集 HotPotQA。出处：<a href="https://arxiv.org/abs/2310.03714">论文的摘要和第 1 节</a>。</li>
   </ul>
 </section>

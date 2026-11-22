@@ -1,22 +1,34 @@
 <section class="sec" id="thesis">
-  <h2>一句话的结论</h2>
-  <p class="lead-in">RAG 的回答质量先由检索决定：<mark>证据没有被找回来，后面的模型就只能凭自己记住的东西回答</mark>。所以看一条 RAG 流水线，要按三个位置去看：索引里存的是什么，检索器怎么找，由谁决定查不查、查什么。</p>
-  <p>下面的表按这三个位置各列一栏。每一栏从上到下有六行：什么时候做，要定的事，代表的办法，一项测得的效果，会出什么问题，在哪一页讲。</p>
-  <p>表里多次提到向量。向量是一串固定个数的数字。模型把一段文字变成一个向量，意思相近的文字得到相近的向量。按向量找，就是找出向量和查询的向量最相近的内容。</p>
+  <h2>先看结论</h2>
+  <p class="lead-in">RAG 的回答质量先由检索决定：<mark>证据没有被找回来，后面的模型就只能凭自己记住的东西回答</mark>。</p>
+</section>
+
+<section class="sec" id="positions">
+  <h2>按三个位置看一条流水线</h2>
+  <p>回答质量先由检索决定，所以看一条 RAG 流水线，要看流水线上的三处，这一页把它们叫作三个位置。第一处是建索引，要看索引里存的是什么。第二处是检索和重排，要看检索器怎么找、找到之后怎么排。第三处是多轮检索，要看由谁决定查不查、查什么。</p>
+  <p>下面的表按这三个位置各列一栏，表头就是这三处的名字。每一栏从上到下有六行：什么时候做，要定的事，代表的办法，一项测得的效果，会出什么问题，在哪一页讲。</p>
+  <p>表里多次提到向量。向量是一串固定个数的数字。模型把一段文字变成一个向量，意思相近的文字得到相近的向量，这样的模型下面叫向量模型。按向量找，就是找出向量和查询的向量最相近的内容。</p>
+  <p>表里的块和段落指同一种东西。块是从文档里切出来的一小段文字，讲建索引的两部分用这个词。讲检索器和重排的论文把被检索的这一小段文字叫段落，表里讲到这些论文时照它们的叫法。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">建索引</th><th scope="col">检索和重排</th><th scope="col">多轮检索</th></tr></thead>
       <tbody>
-        <tr><th scope="row">什么时候做</th><td>提问之前，离线做</td><td>每次提问</td><td>每次提问，由模型决定做几轮</td></tr>
-        <tr><th scope="row">要定的事</th><td>文档切成多大的块，每一块带不带原文的背景，块之间要不要建成树或图</td><td>按词找还是按向量找，两种结果怎么合并，要不要再用更准的模型重新排序</td><td>查还是直接答，发出什么查询，查到的够不够好</td></tr>
+        <tr><th scope="row">什么时候做</th><td>提问之前，离线做</td><td>每次提问</td><td>每次提问，一个问题可以检索不止一次</td></tr>
+        <tr><th scope="row">要定的事</th><td>文档切成多大的块，每一块带不带原文的背景，块之间要不要建成树或图，向量多了怎么快速搜索</td><td>按词找还是按向量找，两种结果怎么合并，要不要再用更准的模型重新排序</td><td>查还是直接答，发出什么查询，查到的够不够好</td></tr>
         <tr><th scope="row">代表的办法</th><td>先切块，给每一块补背景用 Contextual Retrieval 或 late chunking，建成树用 RAPTOR，建成图用 GraphRAG，在大量向量里快速搜索用 HNSW</td><td>按词找用 BM25，按向量找用 DPR，合并两种结果用 RRF，重新排序用交叉编码器或 ColBERT</td><td>Self-RAG、CRAG、Search-R1 三个系统，各用一种办法做这些决定</td></tr>
-        <tr><th scope="row">一项测得的效果</th><td>给每一块补上背景，相关的内容没有出现在前 20 个结果里的比例从 5.7% 降到 3.7%</td><td>在 Natural Questions 这个问答数据集上，前 20 个结果里含有答案的问题所占的比例，BM25 是 59.1%，DPR 是 78.4%</td><td>七个问答数据集的平均完全匹配率（答案和标准答案一字不差的比例），只检索一次是 0.304，Search-R1 是 0.431</td></tr>
-        <tr><th scope="row">会出什么问题</th><td>块缺了背景，和查询对不上；文档变了，索引没更新；索引里混进了提问者无权看的内容</td><td>证据没有进入候选；看起来相关的内容干扰了回答；证据排在一长串段落的中间被忽略</td><td>前一轮的错误带到后一轮；不知道什么时候该停；检索回来的文字里夹带着指令</td></tr>
+        <tr><th scope="row">一项测得的效果</th><td>只用向量检索时，给每一块补上背景，全部相关内容里没有出现在前 20 个结果中的比例从 5.7% 降到 3.7%</td><td>在 Natural Questions 这个问答数据集上，前 20 个结果里含有答案的问题所占的比例，BM25 是 59.1%，DPR 是 78.4%</td><td>七个问答数据集的平均完全匹配率（答案和标准答案一字不差的比例），只检索一次是 0.304，Search-R1 是 0.431</td></tr>
+        <tr><th scope="row">会出什么问题</th><td>块缺了背景，和查询匹配不上；文档变了，索引没更新；检索时不区分是谁在问，用到了提问者无权看的内容</td><td>证据没有进入候选；排在前面的内容看起来相关，却答不了问题；证据排在一长串段落的中间</td><td>前一轮的错误带到后一轮；不知道什么时候该停；检索回来的文字里夹带着指令</td></tr>
         <tr><th scope="row">在哪一页</th><td><a href="chunking.html">第二部分</a>、<a href="structure.html">第三部分</a></td><td><a href="retrievers.html">第四部分</a>、<a href="rerank.html">第五部分</a></td><td><a href="agentic.html">第六部分</a></td></tr>
       </tbody>
     </table>
-    <figcaption>「代表的办法」一行里的名字在对应的页面里逐个讲。交叉编码器是把查询和段落放在一起读、再给出相关程度的模型。「一项测得的效果」一行的三个数字分别来自 Anthropic 2024 年的测试、DPR 的论文和 Search-R1 的论文，出处在对应的页面里。各种失败方式集中在<a href="failures.html">第七部分</a>。</figcaption>
+    <figcaption>「代表的办法」一行里的名字在对应的页面里逐个讲。交叉编码器是把查询和段落放在一起读、再给出相关程度的模型。候选指检索器先找出来、等着重新排序的那一批内容。「一项测得的效果」一行的三组数字分别来自 Anthropic（一家开发语言模型的公司）2024 年的测试、DPR 的论文和 Search-R1 的论文，出处在对应的页面里。</figcaption>
   </figure>
+  <p>「会出什么问题」一行按这张表的三栏各举了三个问题。各种失败方式集中在<a href="failures.html">第七部分</a>讲，那里换了一种分法：按出错的环节分成检索环节、阅读环节、多轮循环三组，每组三种。这一行的问题和第七部分的失败方式这样对应。</p>
+  <ul>
+    <li><b>检索环节</b>的三种失败是召回的上限、索引过期、权限泄漏。召回的上限指需要的证据没有被检索回来，后面的步骤再好也受它限制。检索和重排一栏的「证据没有进入候选」说的就是它，建索引一栏的「块缺了背景，和查询匹配不上」是造成它的原因之一。建索引一栏的另外两个问题里，「文档变了，索引没更新」是索引过期，「检索时不区分是谁在问，用到了提问者无权看的内容」是权限泄漏。</li>
+    <li><b>阅读环节</b>的三种失败是中间的内容被忽略、被干扰、证据冲突。这一组出错的是读检索结果、写回答的语言模型。检索和重排一栏的「排在前面的内容看起来相关，却答不了问题」是被干扰，「证据排在一长串段落的中间」是中间的内容被忽略。证据冲突指检索回来的几份证据互相矛盾，或者证据和模型自己记住的知识矛盾，这张表没有列。</li>
+    <li><b>多轮循环</b>的三种失败是错误累积、没有停止规则、提示注入，依次对应多轮检索一栏的三个问题。</li>
+  </ul>
 </section>
 
 <section class="sec" id="story">
@@ -26,16 +38,16 @@
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="why.html">一 为什么要检索，<br>RAG 是什么？</a></th><td>不要求模型把一切都记在权重里，在它需要的时候把相关的内容找来交给它。好处是知识可以随时更新，回答可以带出处。结构上是两段：检索器从几百万篇文档里挑出几段，后面的模型只读这几段</td><td>2020 年的 RAG 论文里，把索引从 2016 年的换成 2018 年的，模型不用重新训练就能答对 2018 年在任的国家领导人，正确率 68%。索引和年份错开时正确率很低：用 2018 年的索引回答 2016 年在任的领导人是 12%，用 2016 年的索引回答 2018 年在任的领导人是 4%</td></tr>
-        <tr><th scope="row"><a href="chunking.html">二 索引里<br>存什么？</a></th><td>存的是块。块太小没有背景，太大一个向量要代表很多话题。单独的一块常常缺少「哪家公司、哪一年」这类信息，可以用语言模型给它补一句背景，也可以先让向量模型读完全文再按块取平均</td><td>Anthropic 的测试：补背景之后，前 20 个结果的检索失败率（相关的内容没有出现在前 20 个结果里的比例）从 5.7% 降到 3.7%，再加 BM25 降到 2.9%。Late chunking 在四个常用的检索数据集上把 nDCG@10（衡量前 10 个结果排得好不好的指标）平均提高了不到 2 个百分点。在另外三个长文档的数据集上，块越小提高越多</td></tr>
+        <tr><th scope="row"><a href="why.html">一 为什么要检索，<br>RAG 是什么？</a></th><td>模型自己的知识存在权重里。RAG 把更多的知识放在模型的外面，在它需要的时候把相关的内容找来交给它。好处是知识变了只要更新索引、不用重新训练模型，回答可以带出处。结构上是两段：检索器从几百万篇文档里挑出一小批段落，后面的模型只读这一小批</td><td>2020 年的 RAG 论文里，把索引从 2016 年的换成 2018 年的，模型不用重新训练就能答对 2018 年在任的国家领导人，正确率 68%。索引和年份错开时正确率很低：用 2018 年的索引回答 2016 年在任的领导人是 12%，用 2016 年的索引回答 2018 年在任的领导人是 4%</td></tr>
+        <tr><th scope="row"><a href="chunking.html">二 索引里<br>存什么？</a></th><td>存的是块。块太小，里面没有背景。块太大，一个向量要代表很多话题。单独的一块常常缺少「哪家公司、哪一年」这类信息。有两种办法给块补上背景。Contextual Retrieval 用语言模型给每一块写一小段背景，加在块的前面。Late chunking 让向量模型先读完全文。这种模型内部会先给每个 token（模型处理文字的最小单位）算出一个向量，算的时候参考了全文。所以把每一块范围内的 token 向量取平均，得到的这一块的向量就带着全文的信息</td><td>Anthropic 的测试：只用向量检索时，补背景之后前 20 个结果的检索失败率（全部相关内容里没有出现在前 20 个结果中的比例）从 5.7% 降到 3.7%，再加上 BM25 降到 2.9%。Late chunking 在四个常用的检索数据集上把 nDCG@10（衡量前 10 个结果排得好不好的指标）平均提高了不到 2 个百分点，比的是先切块、再把每一块单独变成向量的通常做法。在另外三个长文档的数据集里，有两个上块越小提高越多。第三个数据集上，按第二部分讲 late chunking 的那张柱状图估读，不管块多大，late chunking 的 nDCG@10 比通常做法高出的幅度都不到 10 个百分点</td></tr>
         <tr><th scope="row"><a href="structure.html">三 索引<br>怎么组织？</a></th><td>答案分散在全文或很多篇文档里时，可以把块建成树（RAPTOR）或图（GraphRAG），用语言模型提前写好各层的摘要。向量多了之后用近似搜索，HNSW 是常用的一种</td><td>在 QASPER 这个对科学论文全文提问的数据集上用 GPT-4 回答，按 RAPTOR 检索时 F1 分数是 55.7，按 DPR 检索时是 53.0。GraphRAG 在总结性的问题上回答更全面，普通向量检索的回答更直接</td></tr>
-        <tr><th scope="row"><a href="retrievers.html">四 检索器<br>怎么找？</a></th><td>BM25 按词匹配，不用训练。DPR 把问题和段落各变成一个向量，段落的向量离线算好。两者漏掉的东西不同，可以一起用，再按名次把两份结果合成一份</td><td>五个问答数据集里的四个，DPR 前 20 个结果的命中率比 BM25 高 9 到 19 个百分点。在第五个数据集 SQuAD 上，BM25 更高。只用 1,000 个样本训练的 DPR 已经超过 BM25</td></tr>
-        <tr><th scope="row"><a href="rerank.html">五 准确和速度<br>怎么兼顾？</a></th><td>把查询和段落放进同一个模型一起读通常最准，但没法提前算，只能用来给少量候选重排。ColBERT 让每个 token（模型处理文字的最小单位）留一个向量，打分时才逐个比较，取了中间的位置。实际的系统先用快的方法检索，再用准的方法重排</td><td>在 MS MARCO 这个段落排序的数据集上重排 1,000 个段落：用预训练语言模型 BERT-base 做的交叉编码器用 10,700 毫秒，ColBERT 用 61 毫秒，两者的 MRR@10（衡量第一个相关结果排得多靠前的指标，越高越好）是 34.7 和 34.9</td></tr>
-        <tr><th scope="row"><a href="agentic.html">六 由谁决定<br>查不查、查什么？</a></th><td>把检索变成 agent（能自己调用工具、分很多步完成任务的语言模型系统）的一个动作，要做三个决定：查不查，查什么，够不够好。可以把判断训练进生成模型（Self-RAG），可以外加一个小的评估模型（CRAG），也可以用强化学习让模型自己学（Search-R1）</td><td>Search-R1 的一条运行记录：为了比较两个人的年龄，模型自己搜了三次，每次的查询都根据上一次的结果来写</td></tr>
-        <tr><th scope="row"><a href="failures.html">七 会在哪里<br>出问题？</a></th><td>失败方式按出错的环节分成三组，每组三种：检索这一侧（召回的上限、索引过期、权限泄漏），阅读这一侧（中间的内容被忽略、被干扰、证据冲突），循环这一侧（错误累积、没有停止规则、提示注入）</td><td>20 个段落里含答案的那一个放在中间时，GPT-3.5-Turbo 的准确率是 53.8%，比一个段落都不给时的 56.1% 还低</td></tr>
+        <tr><th scope="row"><a href="retrievers.html">四 检索器<br>怎么找？</a></th><td>BM25 按词匹配，不用训练。DPR 把查询和段落各变成一个向量，段落的向量离线算好。两者漏掉的东西不同，可以一起用，再按名次把两份结果合成一份</td><td>在五个问答数据集里的四个上，只用被测的那一个数据集训练的 DPR，前 20 个结果的命中率比 BM25 高 9 到 19 个百分点。在第五个数据集 SQuAD 上，BM25 更高。在 Natural Questions 上，只用 1,000 个样本训练的 DPR，命中率已经超过 BM25</td></tr>
+        <tr><th scope="row"><a href="rerank.html">五 准确和速度<br>怎么兼顾？</a></th><td>把查询和段落放进同一个模型一起读，通常比把两者分开处理判断得更准，也慢得多。这种做法没法提前算，只能用来给少量候选重排。查询和段落各变成一个向量再比较最快，但整段文字只有一个向量，细节会丢。ColBERT 的做法介于这两种之间：查询和段落仍然分开处理，每个 token 留一个向量，打分时才拿查询的 token 向量和段落的 token 向量逐个比较。实际的系统先用快的方法检索，再用准的方法重排</td><td>在 MS MARCO 这个段落排序的数据集上重排 1,000 个段落：用预训练语言模型 BERT-base 做的交叉编码器用 10,700 毫秒，ColBERT 用 61 毫秒，两者的 MRR@10（衡量第一个相关结果排得多靠前的指标，满分 100，越高越好）是 34.7 和 34.9</td></tr>
+        <tr><th scope="row"><a href="agentic.html">六 由谁决定<br>查不查、查什么？</a></th><td>把检索变成 agent（能自己调用工具、分很多步完成任务的语言模型系统）的一个动作，要做三个决定：查不查，查什么，够不够好。可以把判断训练进生成模型，也就是写回答的那个语言模型（Self-RAG），可以外加一个给检索结果打分的小模型，叫评估器（CRAG），也可以用强化学习让模型自己学（Search-R1）</td><td>Search-R1 的一条运行记录：为了比较两个人的年龄，模型自己搜了三次，第二次和第三次查什么，是它读了前面的结果之后才定的</td></tr>
+        <tr><th scope="row"><a href="failures.html">七 会在哪里<br>出问题？</a></th><td>失败方式按出错的环节分成三组，每组三种。检索环节的三种是召回的上限、索引过期、权限泄漏，其中召回的上限指需要的证据没有被检索回来。阅读环节的三种是中间的内容被忽略、被干扰、证据冲突。多轮循环的三种是错误累积、没有停止规则、提示注入</td><td>20 个段落里含答案的那一个放在中间时，GPT-3.5-Turbo 的准确率是 53.8%，比一个段落都不给时的 56.1% 还低</td></tr>
       </tbody>
     </table>
-    <figcaption>F1 分数衡量回答和标准答案在用词上的重合程度，满分 100。召回的上限指需要的证据没有被检索回来，后面的步骤再好也受它限制。强化学习是一种训练办法：让模型反复去做题，按结果的好坏给奖励，再据此调整模型。提示注入指检索回来的文字里夹带着指令，模型照着这些指令去做，也就是前一张表「会出什么问题」一行里的最后一项。每一行的出处和细节在对应的页面里。</figcaption>
+    <figcaption>权重是模型训练出来的参数。预训练指在用目标任务的数据训练之前，先让模型在大量文字上训练一轮。近似搜索指不保证找到的一定是最相近的那几个向量，换来快得多的速度。F1 分数衡量回答和标准答案在用词上的重合程度，满分 100。前 20 个结果的命中率指前 20 个结果里含有答案的问题所占的比例。召回指应该找到的内容里实际找到了多少。证据没有被检索回来，后面的步骤再好也受它限制，所以这种失败叫召回的上限。强化学习是一种训练办法：让模型反复去做题，按结果的好坏给奖励，再据此调整模型。提示注入指检索回来的文字里夹带着指令，模型照着这些指令去做，也就是前一张表「会出什么问题」一行里的最后一项。每一行的出处和细节在对应的页面里。</figcaption>
   </figure>
 </section>
 
@@ -43,7 +55,7 @@
   <h2>页面里三种颜色的框</h2>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲只有一处橙色的框，在<a href="retrievers.html#bm25-intuition">第四部分</a>，讲的是 BM25 给到处都有的词算出负的权重这件事。同类的出入一共有六件，其余五件写在正文和蓝色的框里，六件一起汇总在后面的<a href="#gaps">「容易想当然的六件事」</a>。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲只有一处橙色的框，在<a href="retrievers.html#bm25-intuition">第四部分</a>，讲的是 BM25 给到处都有的词算出负的权重这件事。这里的权重指 BM25 的公式给每个词算出的一个数，表示这个词有多重要，和模型的参数是两回事。同类的出入一共有六件，其余五件写在正文和蓝色的框里，六件一起汇总在后面的<a href="#gaps">「容易想当然的六件事」</a>。</div></div>
 </section>
 
 <section class="sec" id="modules">
@@ -51,10 +63,10 @@
   <div class="modlist">
     <a href="why.html"><span class="m">第一部分</span><span><b>为什么要检索，RAG 是什么</b><p>有检索和没检索的回答差在哪；两段式的来历；2020 年的 RAG 模型和它的成绩；后来的三种形态。</p></span></a>
     <a href="chunking.html"><span class="m">第二部分</span><span><b>索引里存什么：切块，和给每一块补背景</b><p>五种向量表示；四种切块办法；同一段文字的三种切法；Contextual Retrieval；late chunking。</p></span></a>
-    <a href="structure.html"><span class="m">第三部分</span><span><b>索引怎么组织：树、图，和快速的向量搜索</b><p>RAPTOR 的摘要树；GraphRAG 的知识图谱和社区摘要；什么时候值得用；IVF、PQ 和 HNSW 三种快速搜索向量的办法。</p></span></a>
+    <a href="structure.html"><span class="m">第三部分</span><span><b>索引怎么组织：树、图，和快速的向量搜索</b><p>RAPTOR 的摘要树；GraphRAG 的知识图谱和社区摘要；什么时候值得用；倒排文件索引（IVF）、乘积量化（PQ）和 HNSW 三种快速搜索向量的办法。</p></span></a>
     <a href="retrievers.html"><span class="m">第四部分</span><span><b>检索器怎么找：BM25、DPR 和混合检索</b><p>BM25 公式里的三个设计；DPR 的两个阶段和训练；五个评分指标；两者的对比；RRF。</p></span></a>
-    <a href="rerank.html"><span class="m">第五部分</span><span><b>重排和 ColBERT：准确和速度怎么兼顾</b><p>双编码器和交叉编码器；四种结构；ColBERT 的 MaxSim；四种方法的对比；先检索再重排。</p></span></a>
-    <a href="agentic.html"><span class="m">第六部分</span><span><b>agentic RAG：让模型自己决定查不查、查什么</b><p>三个决定；Self-RAG 的反思 token；CRAG 的评估器；Search-R1 的强化学习；三者的对比。</p></span></a>
+    <a href="rerank.html"><span class="m">第五部分</span><span><b>重排和 ColBERT：准确和速度怎么兼顾</b><p>查询和段落分开编码的双编码器，和把两者放在一起读的交叉编码器；查询和段落在哪一步比较的四种结构；ColBERT 的打分办法 MaxSim；BM25、DPR、ColBERT 和交叉编码器四种方法的对比；先检索再重排。</p></span></a>
+    <a href="agentic.html"><span class="m">第六部分</span><span><b>agentic RAG：让模型自己决定查不查、查什么</b><p>查不查、查什么、够不够好三个决定；Self-RAG 的反思 token，也就是模型写回答时输出的、表示判断的特殊 token；CRAG 的评估器；Search-R1 的强化学习；三者的对比。</p></span></a>
     <a href="failures.html"><span class="m">第七部分</span><span><b>RAG 会在哪里出问题</b><p>九种失败方式和研究里测得的数字；前面的办法各对应哪一种；整讲的小结。</p></span></a>
   </div>
 </section>
@@ -67,12 +79,12 @@
     <table class="tbl">
       <thead><tr><th scope="col">这件事讲的是什么</th><th scope="col">容易以为</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
-        <tr><td>BM25 是按词匹配的检索算法。它的公式给查询里的每个词一个权重，越罕见的词权重越高</td><td>到处都有的词对区分文档没有帮助，所以 BM25 给出现在半数以上文档里的词负的权重，正好符合需要</td><td>公式本身确实会算出负的权重。但权重是 0 就已经不加分了，负的权重还会让含有这个词的文档被扣分。Manning 等人的信息检索教材认为这样的负权重多半不合适。Lucene 和 Elasticsearch 实际用的公式在对数里多加了 1，权重永远是正的</td><td><a href="retrievers.html#bm25-intuition">检索器</a></td></tr>
-        <tr><td>混合检索是同一个查询分别按向量和按 BM25 各查一次，再把两份结果合成一份</td><td>向量检索加上 BM25，一定比单用向量检索好</td><td>取决于怎么合并。DPR 论文把两种分数加权相加，用多个数据集合起来训练时，前 20 个结果的命中率在五个数据集里的三个上略低于单用 DPR。Anthropic 的测试里用排名融合的办法合并，前 20 个结果的检索失败率从 5.7% 降到 5.0%</td><td><a href="retrievers.html#hybrid">检索器</a></td></tr>
-        <tr><td>DPR 是按向量找的检索器。ORQA 和 REALM 是比它早的两个问答系统。它们在用问答数据训练之前，都先让检索器在专门设计的任务上多训练一轮，这一轮叫额外的预训练</td><td>DPR 不需要额外的预训练，整套问答系统的成绩也超过了 ORQA 和 REALM</td><td>在 Natural Questions 和 TriviaQA 上是这样。在 WebQuestions 和 TREC 上，只用单个数据集训练的 DPR 低于 REALM，把几个数据集合起来训练之后才超过</td><td><a href="retrievers.html#dpr-results">检索器</a></td></tr>
-        <tr><td>给检索器打分的三个指标。Hit@k 是前 k 个结果里至少有一个相关段落的查询所占的比例，Failed@k 是 1 减去 Hit@k。recall@20 是全部相关的内容里出现在前 20 个结果中的比例</td><td>Anthropic 报告的「检索失败率」就是 Failed@k</td><td>它的定义是 1 减去 recall@20。每个查询只有一块相关内容时两者相等，否则不相等</td><td><a href="chunking.html#contextual-results">切块</a></td></tr>
-        <tr><td>HNSW 是在大量向量里快速找出最相近的几个的办法。N 是向量的总数</td><td>HNSW 搜索一次大约走 log N 步</td><td>论文的对数复杂度有两个依据：在一个理想的假设下做的推导，和实验里观察到的结果。论文自己说明实际的算法不满足这个假设，这个规律对高维的数据是否成立，还需要理论分析来确认</td><td><a href="structure.html#hnsw">索引结构</a></td></tr>
-        <tr><td>Search-R1 用强化学习训练模型自己决定搜几次、搜什么。论文拿它和几种已有的做法比较，这些用来比较的做法叫基线</td><td>Search-R1 比 RAG 基线提高了百分之几十，摘要里有一个确定的数</td><td>论文各个版本的摘要里，以 Qwen2.5-7B 为基础模型时的提高幅度先后写过 26%、41%、24%。最新的 24% 写在第四版和第五版 PDF 的摘要里，比的是后来加进去的一个更强的基线。arXiv 摘要页上显示的文字仍是 41%。按论文表里的数算，Search-R1 比只检索一次的 RAG 相对高出约 42%</td><td><a href="agentic.html#search-r1">agentic RAG</a></td></tr>
+        <tr><td>BM25 是按词匹配的检索算法。它的公式给查询里的每个词算一个权重，也就是表示这个词有多重要的一个数，越罕见的词权重越高</td><td>到处都有的词对区分文档没有帮助，所以 BM25 给出现在半数以上文档里的词负的权重，正好符合需要</td><td>公式本身确实会算出负的权重。但权重是 0 就已经不加分了，负的权重还会让含有这个词的文档被扣分。Manning 等人的信息检索教材认为这样的负权重多半不合适。开源的搜索库 Lucene 和基于它的搜索引擎 Elasticsearch 实际用的是改过的公式，算出的权重永远是正的</td><td><a href="retrievers.html#bm25-intuition">第四部分</a></td></tr>
+        <tr><td>混合检索是同一个查询分别按向量和按 BM25 各查一次，再把两份结果合成一份</td><td>向量检索加上 BM25，一定比单用向量检索好</td><td>取决于怎么合并。DPR 论文把两种分数加权相加，在多个数据集放在一起训练的那一组结果里，前 20 个结果的命中率在五个数据集里的三个上略低于单用 DPR。Anthropic 的测试按两份结果里各自的名次来合并，这类办法叫排名融合，前面第一张表里的 RRF 是其中常用的一种。合并之后，前 20 个结果的检索失败率从只用向量检索时的 5.7% 降到 5.0%</td><td><a href="retrievers.html#hybrid">第四部分</a></td></tr>
+        <tr><td>DPR 是按向量找的检索器。它用的是预训练好的语言模型，也就是先在大量文字上训练过一轮的模型。ORQA 和 REALM 是比它早的两个问答系统。它们在这之外又多做了一轮：用问答数据训练之前，先让检索器在专门设计的任务上训练，这一轮叫额外的预训练</td><td>DPR 不需要额外的预训练，整套问答系统的成绩也超过了 ORQA 和 REALM</td><td>在问答数据集 Natural Questions 上是这样。在问答数据集 TriviaQA 上，DPR 超过了 ORQA，REALM 没有报告这个数据集的成绩。在 WebQuestions 和 TREC 这两个问答数据集上，只用单个数据集训练的 DPR 低于 REALM，把几个数据集放在一起训练之后才超过</td><td><a href="retrievers.html#dpr-results">第四部分</a></td></tr>
+        <tr><td>Hit@k、Failed@k 和 Recall@20 是给检索器打分的五个指标里的三个。Hit@k 是前 k 个结果里至少有一个相关段落的查询所占的比例，前面说的前 20 个结果的命中率就是 k 取 20 时的 Hit@k。Failed@k 是 1 减去 Hit@k。Recall@20 是全部相关的内容里出现在前 20 个结果中的比例</td><td>Anthropic 报告的「检索失败率」就是 Failed@k</td><td>它的定义是 1 减去 Recall@20。每个查询只有一块相关内容时，两者是同一个数。一个查询有不止一块相关内容时，两者不一定相等</td><td><a href="chunking.html#contextual-results">第二部分</a></td></tr>
+        <tr><td>HNSW 是在大量向量里快速找出最相近的几个的办法。它把向量连成一张分了很多层的图，一个向量是图上的一个点，查询时沿着图上的边一步步走向查询。N 是向量的总数</td><td>HNSW 搜索一次大约走 log N 步</td><td>这句话来自 HNSW 的论文：论文说搜索的计算量可以随 N 按对数的规律增长。这有两个依据：在一个理想的假设下做的推导，和论文在低维数据上做的模拟实验的结果。假设是每一层的图都是一种理想的图：从任何一点出发，每一步都走到有边相连的点里离查询最近的那一个，最后一定停在全部的点里离查询最近的那一个上。论文自己说明，实际的算法建的是这种图的近似，不满足这个假设。这个规律对高维的数据是否成立，论文说还需要理论分析来确认</td><td><a href="structure.html#hnsw">第三部分</a></td></tr>
+        <tr><td>Search-R1 用强化学习训练模型自己决定搜几次、搜什么。论文拿它和几种已有的做法比较，这些用来比较的做法叫基线。各种做法拿来直接使用或接着训练的那个现成的语言模型叫基础模型。这篇论文发布在 arXiv 上。arXiv 是研究者公开发布论文的网站，同一篇论文可以先后更新出几个版本。每篇论文在网站上有一个摘要页，直接显示摘要的文字，全文是另外的 PDF 文件</td><td>Search-R1 比 RAG 基线提高多少，论文摘要里有一个确定的数，可以直接引用</td><td>论文各个版本的摘要里，以 Qwen2.5-7B 为基础模型时，七个数据集平均完全匹配率的相对提高幅度先后写过 26%、41%、24%。最新的 24% 写在第四版和第五版 PDF 的摘要里，比的是后来加进去的一个更强的基线。arXiv 摘要页上显示的文字和 PDF 不一致，仍是 41%。按论文表里的数算，Search-R1 的 0.431 比只检索一次的 RAG 的 0.304 相对高出约 42%，和摘要里的 41% 是同一个比较</td><td><a href="agentic.html#search-r1">第六部分</a></td></tr>
       </tbody>
     </table>
   </figure>
@@ -85,9 +97,9 @@
     <table class="tbl">
       <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
       <tbody>
-        <tr><th scope="row">Lewis 等，2020</th><td><a href="https://arxiv.org/abs/2005.11401">Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</a>：提出 RAG 这个名字的论文，发表在 NeurIPS 2020。把一个向量检索器和一个生成模型接在一起训练，在四个开放域问答数据集上报告了成绩</td><td>一、七</td></tr>
-        <tr><th scope="row">Karpukhin 等，2020</th><td><a href="https://arxiv.org/abs/2004.04906">Dense Passage Retrieval for Open-Domain Question Answering</a>：DPR 的论文，发表在 EMNLP 2020。说明只用「问题，段落」样本就能训练出比 BM25 好的向量检索器</td><td>一、三、四、五、七</td></tr>
-        <tr><th scope="row">Khattab 和 Zaharia，2020</th><td><a href="https://arxiv.org/abs/2004.12832">ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT</a>：ColBERT 的论文，发表在 SIGIR 2020。提出后期交互（late interaction），并给出了几种排序模型在同一个数据集上的质量和延迟</td><td>五</td></tr>
+        <tr><th scope="row">Lewis 等，2020</th><td><a href="https://arxiv.org/abs/2005.11401">Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</a>：提出 RAG 这个名字的论文，发表在学术会议 NeurIPS 2020 上。把一个向量检索器和一个生成模型接在一起训练，在四个开放域问答数据集上报告了成绩。开放域问答是只给问题、不给参考材料，系统要自己从一个很大的文档库里找答案的任务</td><td>一、七</td></tr>
+        <tr><th scope="row">Karpukhin 等，2020</th><td><a href="https://arxiv.org/abs/2004.04906">Dense Passage Retrieval for Open-Domain Question Answering</a>：DPR 的论文，发表在学术会议 EMNLP 2020 上。说明只用「问题，段落」样本就能训练出向量检索器，它在五个问答数据集里的四个上比 BM25 好</td><td>一、三、四、五、七</td></tr>
+        <tr><th scope="row">Khattab 和 Zaharia，2020</th><td><a href="https://arxiv.org/abs/2004.12832">ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT</a>：ColBERT 的论文，发表在学术会议 SIGIR 2020 上。提出后期交互（late interaction）：查询和段落分开处理，每个 token 留一个向量，到打分时才逐个比较。论文还给出了几种排序模型在同一个数据集上的质量和延迟</td><td>五</td></tr>
       </tbody>
     </table>
   </figure>

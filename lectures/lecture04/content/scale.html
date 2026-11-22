@@ -1,42 +1,46 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li><a href="learn.html">第三部分</a>的 Toolformer 让模型自己给训练文本加上工具调用，再用这些文本微调，它只有 5 个工具。ToolLLM 把规模扩大到 3,451 个工具提供的 16,464 个真实 API（应用程序接口，一个程序提供给别的程序调用的入口）。这些工具来自 RapidAPI 这个 API 平台，平台上一个工具下面有若干个 API，每个 API 带一份文档。</li>
+    <li><a href="learn.html">第三部分</a>的 Toolformer 让模型自己给训练文本加上工具调用，再用这些文本微调，它只有 5 个工具。Qin 等人 2023 年提出的 ToolLLM 把规模扩大到 3,451 个工具提供的 16,464 个真实 API（应用程序接口，一个程序提供给别的程序调用的入口）。这些工具来自 RapidAPI 这个 API 平台，平台上一个工具下面有若干个 API，每个 API 带一份文档。</li>
     <li>ToolLLM 的训练数据由 ChatGPT 生成：先让它扮演用户写出请求，再让它真的调用 API 把请求办成，留下成功的过程，用来微调一个开源的小模型（微调是在已经训练好的模型上用新数据继续训练）。</li>
-    <li>工具一多，模型会编造不存在的 API，或者选错库。Gorilla 是一个为调用机器学习 API 而微调的模型，提出它的论文给编造这种错误下了定义，并用语法树匹配来自动度量。语法树匹配是把模型写的调用按语法结构拆开，再和已有的 API 逐项比对。</li>
+    <li>工具一多，模型容易写出看上去合理、实际不存在的 API 调用，这种错误叫编造。Gorilla 是一个为调用机器学习 API 而微调的模型，提出它的论文给编造下了定义，并用语法树匹配来自动度量。语法树匹配是把模型写的调用按语法结构拆开，再和已有的 API 逐项比对。</li>
     <li>Gorilla 的论文训练了两个版本。一个版本训练时不附文档。另一个版本训练时在请求后面附上一份 API 文档，让模型学会参考文档，这样 API 更新之后，换一份文档就行，不用重新训练。</li>
-    <li>不带检索时，拿来比的是训练时不附文档的那个版本，它比 GPT-4 准确得多，编造也少得多。加上检索之后几个模型的差距缩小，检索器不好时准确率反而会下降。</li>
-    <li>上一部分的两种方法和这一部分的两种方法有一个共同的代价：工具的知识训练在模型里，新增工具就要再训练。Gorilla 靠检索文档能跟上已有 API 的改动，但它仍然是为一批特定的 API 训练的。</li>
+    <li>论文拿 Gorilla 和 GPT-4 等模型比较时，分使用时不带检索和带检索两种情况。带检索指使用时先由一个检索器找出相关的 API 文档，附在请求后面交给模型。不带检索时，训练时不附文档的那个 Gorilla 比 GPT-4 准确得多，编造也少得多。带上检索之后，几个模型的差距缩小。检索也不总是有帮助：给训练时不附文档的那个 Gorilla 接上一个按关键词匹配的检索器，准确率比不接时还低。</li>
+    <li><a href="learn.html">第三部分</a>讲了 Toolformer 和 ToolkenGPT 两种训练方法，这一部分讲 ToolLLM 和 Gorilla。这四种方法都靠训练让模型学会用工具。其中 Toolformer、ToolkenGPT 和 Gorilla 每新增一个工具都要再训练。Gorilla 靠检索文档能跟上已有 API 的改动，但它仍然是为一批特定的 API 训练的。ToolLLM 微调出的模型叫 ToolLLaMA。论文报告，ToolLLaMA 只靠 API 文档就能用上训练时没见过的 API，但它仍然是在一批收集来的 API 上微调出来的。</li>
   </ul>
 </section>
 
 <section class="sec" id="toolllm">
   <h2>ToolLLM：让更强的模型来造数据</h2>
   <p>Toolformer 只有 5 个工具。真实世界里的 API（应用程序接口，一个程序提供给别的程序调用的入口）成千上万。Qin 等人 2023 年的 ToolLLM 把规模扩大到了 16,000 多个 API。它的数据集叫 ToolBench，全部由机器构造。</p>
-  <p>这些 API 来自 RapidAPI，一个汇集了大量第三方 API 的平台。平台上的内容分三层。最上面是类别，比如金融、电影、求职。类别下面是工具。一个工具下面有若干个 API，每个 API 带一份文档。所以后面的数字既数工具，也数 API。</p>
-  <p>RapidAPI 另外还有一种更细的分组，叫合集（collection），比如「中文 API」「数据库 API」。同一个合集里的 API 有共同的特点，功能或用途相近，一个合集里的工具可以来自不同的类别。</p>
-  <p>从收集 API 到训练出模型一共四个阶段。下面的图是整个流程，图后面的表列出每个阶段怎么做、规模多大。表里的解题路径，指完成一条指令的全过程记录：每一步模型先写下的想法，接着调用了哪个 API，传了什么参数，返回了什么。</p>
-  {{fig 38 | 左半边是数据构造：从 RapidAPI 收集 API，由 ChatGPT 生成指令并标注解题路径，得到 ToolBench，再用它微调 LLaMA（Meta 发布的开源语言模型）得到 ToolLLaMA。右半边是使用时的流程：检索器按指令找出相关的 API，ToolLLaMA 多轮调用 API，给出最终答案，由 ToolEval（这篇论文配套的自动评分工具）评分。图片来源：<a href="https://arxiv.org/abs/2307.16789">Qin 等，2023</a>。}}
+  <p>这些 API 来自 RapidAPI，一个汇集了大量第三方 API 的平台。平台上的内容分三层。最上面是类别，比如金融、电影、求职。类别下面是工具。一个工具下面有若干个 API，每个 API 带一份文档。所以后面的数有的按工具计，有的按 API 计。</p>
+  <p>RapidAPI 另外还有一种分组，叫合集（collection），比如「中文 API」「数据库 API」。合集和类别是两套分法，合集不在类别下面。同一个合集里的工具有共同的特点，功能或用途相近，它们可以来自不同的类别。</p>
+  <p>论文说合集是比类别分得更细的一种分法。类别是 49 个大类，每个类别对应一个话题，合集有 500 多个。这里的「更细」指分出的组更多、每一组的范围更小，合集和类别仍然是并列的两套分法。</p>
+  <p>从收集 API 到训练出模型一共四个阶段。下面的图是整个流程，图后面的表列出每个阶段怎么做、规模多大。图和表里的指令（instruction）是论文的叫法，指数据集里的一条请求，也就是用户要模型办的一件事。解题路径，指完成一条指令的全过程记录：每一步模型先写下的想法，接着调用了哪个 API，传了什么参数，返回了什么。</p>
+  {{fig 38 | 左半边是数据构造：从 RapidAPI 收集 API，由 ChatGPT 生成指令并标注解题路径，得到 ToolBench，再用它微调 LLaMA（Meta 发布的开源语言模型）得到 ToolLLaMA。右半边是使用时的流程：检索器按用户的请求找出相关的 API，ToolLLaMA 多轮调用 API，给出最终答案，由 ToolEval（这篇论文配套的自动评分工具）评分。图片来源：<a href="https://arxiv.org/abs/2307.16789">Qin 等，2023</a>。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">阶段</th><th scope="col">怎么做</th><th scope="col">规模</th></tr></thead>
       <tbody>
         <tr><th scope="row">收集 API</th><td>从 RapidAPI 抓取 API 和它们的文档：功能说明、必填和选填的参数、调用的代码片段、返回的例子。再把返回错误、没人维护的筛掉</td><td>最初抓到 10,853 个工具，共 53,190 个 API。筛选后留下 3,451 个工具，共 16,464 个 API，分属 49 个类别</td></tr>
-        <tr><th scope="row">生成指令</th><td>抽出几个 API，把文档交给 ChatGPT，让它扮演用户，写出会用到这些 API 的请求。分三种：只用一个工具，用同一类别里的几个工具，用同一个合集里的几个工具</td><td>近 20 万条「指令加相关 API」，三种分别是 87,413 条、84,815 条和 25,251 条</td></tr>
-        <tr><th scope="row">标注解题路径</th><td>再把指令和 API 交给 ChatGPT，让它真的一步步调用 API 去完成。一条路走不通就退回去换一个 API 再试。只保留最后成功的路径</td><td>126,486 条「指令加解题路径」，过程中真实调用 API 469,585 次</td></tr>
+        <tr><th scope="row">生成指令</th><td>抽出几个 API，把文档交给 ChatGPT，让它扮演用户，写出会用到这些 API 的指令。分三种：只用一个工具，用同一类别里的几个工具，用同一个合集里的几个工具</td><td>近 20 万条「指令加相关 API」，三种分别是 87,413 条、84,815 条和 25,251 条</td></tr>
+        <tr><th scope="row">标注解题路径</th><td>再把指令和 API 交给 ChatGPT，让它真的一步步调用 API 去完成。某一步调用不成功，就退回去换一个 API 再试。只保留最后成功的路径</td><td>126,486 条「指令加解题路径」，过程中真实调用 API 469,585 次</td></tr>
         <tr><th scope="row">微调</th><td>用这些路径对 LLaMA-2 7B 做有监督的微调（fine-tuning，在已经训练好的模型上用新数据继续训练），得到 ToolLLaMA</td><td>模型有 70 亿参数</td></tr>
       </tbody>
     </table>
-    <figcaption>出处：<a href="https://arxiv.org/abs/2307.16789">Qin 等，2023</a>。ChatGPT 指 gpt-3.5-turbo-16k。有监督的微调，指每条训练数据都带着要模型照着输出的答案，这里的答案是 ChatGPT 走通的解题路径。</figcaption>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2307.16789">Qin 等，2023</a>。ChatGPT 指 gpt-3.5-turbo-16k。有监督的微调，指每条训练数据都带着要模型照着输出的答案，这里的答案是 ChatGPT 最后成功的解题路径。模型的参数是模型内部可以训练的数值，个数越多模型越大。</figcaption>
   </figure>
   <p>下面的图画出了 RapidAPI 的层次，以及表里「生成指令」一行的三种指令各是怎么抽样的。</p>
   {{fig 62 | 左：RapidAPI 的层次。最上面一行是类别和合集，图里的类别有金融、电影、求职，合集有 Top QR Code APIs。中间一行是工具。最下面一行是每个工具提供的 API，每个 API 带一份文档。右：三种指令是怎么抽样的。图片来源：<a href="https://arxiv.org/abs/2307.16789">Qin 等，2023</a>。}}
   <h3>退回去重试的搜索</h3>
-  <p>标注路径时，如果让 ChatGPT 从头到尾只走一条路，前面一步错了后面就全错，很多指令办不成。论文让它按深度优先的方式搜索：每一步可以选择继续往下走，也可以放弃当前这条路，退回上一步换一个做法。</p>
-  <p>论文用通过率来比较两种走法。通过率是在限定的调用次数内把指令办成的比例，办没办成由 ChatGPT 当评审来判，判法见<a href="eval.html#toolbench">第六部分</a>。论文的主表有六组测试题。按六组的平均算，ChatGPT 只走一条路时通过率是 40.2%，用这种搜索是 64.8%。</p>
+  <p>标注路径时，如果让 ChatGPT 从头到尾一步接一步地调用下去、中途不能退回，前面一步错了后面就全错，很多指令办不成。论文让它按深度优先的方式搜索：每一步可以选择接着做下一步，也可以放弃当前的做法，退回上一步换一个做法。</p>
+  <p>这种搜索是模型解题时的一种做法，标注和测试时都用得上。标注解题路径时 ChatGPT 用它。测试时，各个模型解题也可以用它，或者照中途不能退回的做法来解。</p>
+  <p>论文用通过率来比较这两种做法。通过率是在限定的调用次数内把指令办成的比例，办没办成由 ChatGPT 当评审来判，判法见<a href="eval.html#toolbench">第六部分</a>。</p>
+  <p>比较用的是论文里比较各个模型的那张结果表，下面叫主表。主表有六组测试题，每道题是一条指令，都不在微调 ToolLLaMA 用的数据里。六组按两件事来分：指令是前面三种里的哪一种，以及指令用到的工具在微调用的数据里有没有出现过。</p>
+  <p>在这些测试题上，按六组的平均算，ChatGPT 中途不能退回时通过率是 40.2%，用这种搜索是 64.8%。</p>
   <h3>使用时的流程</h3>
-  <p>16,000 多个 API 的文档不可能全部写进 prompt（交给模型的输入文字）。所以使用时先由一个检索器按用户的指令找出几个相关的 API，再把这几个 API 的文档交给 ToolLLaMA。ToolLLaMA 一轮一轮地调用 API、看返回的结果，直到给出最终答案。</p>
-  <p>论文报告的结果是：一个 70 亿参数的开源模型，学了 ChatGPT 的解题过程之后，达到了和 ChatGPT 相近的水平。下表是三个模型用同样的搜索办法时，在主表六组测试题上的平均通过率。</p>
+  <p>16,000 多个 API 的文档不可能全部写进 prompt（交给模型的输入文字）。所以使用时先由一个检索器按用户的请求找出几个相关的 API，再把这几个 API 的文档交给 ToolLLaMA。ToolLLaMA 一轮一轮地调用 API、看返回的结果，直到给出最终答案。</p>
+  <p>论文报告的结果是：一个 70 亿参数的开源模型，学了 ChatGPT 的解题路径之后，达到了和 ChatGPT 相近的水平。下表是三个模型用同样的搜索办法时，在主表六组测试题上的平均通过率。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">模型</th><th scope="col" class="r">平均通过率</th></tr></thead>
@@ -49,7 +53,7 @@
     <figcaption>三个模型都用退回去重试的搜索。出处：<a href="https://arxiv.org/abs/2307.16789">Qin 等，2023</a> 的主表。</figcaption>
   </figure>
   <p>如果想在自己的领域里训练一个会用工具的小模型，可以照这个办法分两步造数据：先让强模型根据工具写出用户可能提的请求，再让它带着工具把请求办成。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这种做法也是一种蒸馏，但和经典的知识蒸馏不同。</b>蒸馏指把一个强模型的能力转移给一个小模型，这篇论文就把 ChatGPT 叫作「老师模型」（teacher model）。经典的知识蒸馏是让小模型去拟合大模型输出的概率分布。这里的做法是收集强模型解决问题的过程，再用这些过程对小模型做有监督的微调。它用到的只是强模型看得见的行为：调用了哪个工具，传了什么参数，拿到了什么结果，最后怎么回答。强模型没有公开的内部推理过程，这个办法用不到，也不需要。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这种做法也是一种蒸馏，但和经典的知识蒸馏不同。</b>蒸馏指把一个强模型的能力转移给一个小模型，这篇论文就把 ChatGPT 叫作「老师模型」（teacher model）。经典的知识蒸馏是训练小模型，让它输出的概率分布尽量接近大模型输出的概率分布，也就是大模型给每个可能的下一个词算出的概率。这里的做法是收集强模型解决问题的过程，再用这些过程对小模型做有监督的微调。它用到的只是强模型写出来的内容和调用的记录：每一步写下的想法，调用了哪个 API，传了什么参数，拿到了什么结果，最后怎么回答。强模型写出这些内容之前在内部做的推理没有公开，这个办法用不到它，也不需要它。</div></div>
 </section>
 
 <section class="sec" id="hallucination">
@@ -62,70 +66,76 @@
       <thead><tr><th scope="col">模型</th><th scope="col">它写了什么</th><th scope="col">问题</th></tr></thead>
       <tbody>
         <tr><th scope="row">GPT-4</th><td>从 Torch Hub 的 silero-models 仓库加载一个叫 asr 的模型，并带了一个 source 等于 local 的参数</td><td>编造。论文的说法是它给出了一个不存在的模型</td></tr>
-        <tr><th scope="row">Claude</th><td>用 torchaudio 里的一条语音识别流水线，并把任务归成了「音频翻译」</td><td>选错了库。请求要的是 Torch Hub 上的 API</td></tr>
-        <tr><th scope="row">Gorilla</th><td>从同一个仓库加载语音转文字的模型，再调用它的转写方法</td><td>论文标为正确。图里的模型名 silero_sst，在这个仓库里实际的入口名是 silero_stt</td></tr>
+        <tr><th scope="row">Claude</th><td>用了 torchaudio 这个处理音频的代码库里现成的语音识别功能，并把任务归成了「音频翻译」</td><td>选错了代码库。请求要的是 Torch Hub 上的 API，它用的是 torchaudio</td></tr>
+        <tr><th scope="row">Gorilla</th><td>从同一个仓库加载语音转文字的模型，再调用它的转写方法</td><td>论文标为正确。图里把模型名写成了 silero_sst，这个仓库里对应的模型名是 silero_stt</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>这一讲到这里为止讲过的方法，评价一次工具调用只有对和错两种说法。要想减少编造，先得能把「编造」和一般的「用错」分开来量。Gorilla 做的就是这件事。下面先看它的数据和训练办法，再看它怎么度量编造。</p>
+  <p>这一页前面用到的度量只有通过率。它只看一条指令最后有没有办成，分不出一次调用是编造还是别的错。要想减少编造，先得能把「编造」和一般的「用错」分开来量。Gorilla 做的就是这件事。下面先看它的数据和训练办法，再看它怎么度量编造。</p>
 </section>
 
 <section class="sec" id="gorilla">
   <h2>Gorilla：数据是怎么来的</h2>
-  <p>要量出编造，先得有一个范围确定的 API 数据库：一次调用在数据库里找不到对应的 API，才能判它是编造。要减少编造，还得有一批「请求加正确调用」的训练数据。这一节讲这两样东西是怎么来的。</p>
-  <p>Gorilla 是加州大学伯克利分校的 Patil 等人 2023 年 5 月提出的系统。它涉及的 API 约 1,600 个，是 ToolLLM 的十分之一，全部是机器学习模型的调用接口。它的数据集叫 APIBench。下面四步里，前三步得到这个数据集，第四步用它训练出 Gorilla。</p>
+  <p>要量出编造，先得有一个范围确定的 API 数据库：一次调用在数据库里找不到对应的 API，才能判它是编造。要减少编造，还得有一批训练数据，每条是一个请求加上它该用的 API。这一节讲这两样东西是怎么来的。</p>
+  <p>Gorilla 是加州大学伯克利分校的 Patil 等人 2023 年 5 月提出的模型。它涉及的 API 约 1,600 个，是 ToolLLM 的十分之一，全部是机器学习模型的调用接口。它的数据集叫 APIBench。下面四步里，前两步得到 API 数据库，也就是整理好的 1,645 条 API 记录。第三步给每个 API 生成请求。API 数据库加上这些请求，合起来就是 APIBench。第四步用它训练出 Gorilla。</p>
   {{fig 41 | 从左到右：三个模型库的页面整理成 JSON，用 GPT-4 生成指令，再训练出 Gorilla。下面三个色块里写着每一步的数量。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
   <ul>
-    <li><b>收集。</b>API 来自三个模型库：Torch Hub 的 94 个，TensorFlow Hub 的 626 个，HuggingFace 的 925 个，一共 1,645 个。前两个库是全部收录。HuggingFace 上的模型太多，很多没有说明文档，所以只取每个任务类别里下载量最高的 20 个。</li>
+    <li><b>收集。</b>API 来自三个模型库：Torch Hub 的 94 个，TensorFlow Hub 的 626 个，HuggingFace 的 925 个，一共 1,645 个。前两个模型库是全部收录。HuggingFace 上的模型太多，很多没有说明文档，所以只取每个任务类别里下载量最高的 20 个。</li>
     <li><b>整理。</b>每个 API 的说明页整理成一条 JSON（一种用键值对表示数据的文本格式）记录，包括领域、框架、功能、API 名、调用方式、参数、环境要求、示例代码、性能和描述这些字段。</li>
-    <li><b>生成指令。</b>人工只写了 18 条示范，每个库 6 条。然后把示范和一个 API 的文档交给 GPT-4，让它写出真实场景里会用到这个 API 的请求，并要求请求里不出现 API 的名字。每个 API 生成 10 条，一共 16,450 条「指令加 API」。</li>
+    <li><b>生成指令。</b>人工只写了 18 条示范，每个模型库 6 条。然后把示范和一个 API 的文档交给 GPT-4，让它写出真实场景里会用到这个 API 的请求，并要求请求里不出现 API 的名字。论文把这样的一条请求叫作指令。每个 API 生成 10 条，一共 16,450 条「指令加 API」，每条里的 API 就是这条指令该用的那一个。</li>
     <li><b>训练。</b>用这些数据微调 LLaMA-7B，得到 Gorilla。</li>
   </ul>
 </section>
 
 <section class="sec" id="rat">
-  <h2>带着检索结果一起训练</h2>
+  <h2>带着文档一起训练</h2>
   <p>API 更新的速度比重新训练模型快得多。要让模型跟上，办法是使用时由检索器找出最新的文档，附在请求后面交给模型。但检索器会找错文档。Gorilla 的训练办法就是针对这两件事设计的。</p>
-  <p>Gorilla 使用时有两种模式。零样本模式（zero-shot）下，用户的请求直接交给模型，模型凭训练时学到的知识写出 API 调用。检索模式下，先由检索器从 API 数据库里找出最相关的一份文档，附在请求后面，再交给模型。</p>
-  {{fig 42 | 用户说想看几只猫跳舞庆祝。检索器从 API 数据库里找出一条生成图像的 API 文档，和请求一起交给 Gorilla。Gorilla 给出 Stable Diffusion 的调用，执行后得到图片。下面的蓝线是不经过检索、直接交给 Gorilla 的零样本模式。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
-  <p>为了让模型在检索模式下表现好，训练时就把一份 API 文档放进输入里。具体做法是在每条训练数据的请求后面加一句「请参考这份 API 文档」，后面跟着一份文档，而要模型输出的仍然是正确的调用。论文把这叫作带检索的训练（Retriever-Aware Training）。它想达到两个目的。</p>
+  <p>Gorilla 使用时有两种模式。零样本模式（zero-shot）下，用户的请求直接交给模型，模型凭训练时学到的知识写出 API 调用。这里的零样本指不接检索器、不附文档，和<a href="learn.html#results">第三部分</a> Toolformer 评测里「不给例子」的意思不同。检索模式下，先由检索器从 API 数据库里找出最相关的一份文档，附在请求后面，再交给模型。</p>
+  {{fig 42 | 用户说想看几只猫跳舞庆祝。检索器从 API 数据库里找出一条生成图像的 API 文档，和请求一起交给 Gorilla。Gorilla 给出 Stable Diffusion（一个生成图像的模型）的调用，执行后得到图片。下面的蓝线是不经过检索、直接交给 Gorilla 的零样本模式。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
+  <p>为了让模型在检索模式下表现好，训练时就把一份 API 文档放进输入里。具体做法是在每条训练数据的请求后面加一句「请参考这份 API 文档」，后面跟着一份文档，而要模型输出的仍然是正确的调用。论文把这叫作带检索的训练（Retriever-Aware Training）。</p>
+  <p>这个名字里的「检索」，指的是这种训练为检索模式做准备：训练时的输入，和使用时由检索器附上文档的输入，是同一种格式。训练时附的是哪一份文档，论文的两处写法不同，见下面表后的说明框。</p>
+  <p>这一页说「带检索」「不带检索」时，都指使用时接不接检索器。训练时的两种做法，这一页写作「训练时附上文档」和「训练时不附文档」。「带检索的训练」只用作论文给前一种做法起的名字。</p>
+  <p>训练时附上文档，论文想达到两个目的。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">目的</th><th scope="col">说明</th></tr></thead>
       <tbody>
         <tr><th scope="row">文档变了，模型跟着变</th><td>模型学会了「读后面的文档来回答前面的请求」，文档一改，回答就跟着改。论文的例子：文档里的模型从 ResNet-50 换成 ResNet-101，或者模型仓库从 pytorch/vision 换成另一个，Gorilla 给出的调用都随之改变</td></tr>
-        <tr><th scope="row">检索错了，模型不跟着错</th><td>如果训练时模型见到的文档永远是对的，它只会学到照抄。论文的说法是：训练时附上的文档可能不准确，而要求输出的调用是对的，这等于教模型判断检索结果该不该用，文档不相关时就靠自己学到的知识回答</td></tr>
+        <tr><th scope="row">检索错了，模型不跟着错</th><td>如果训练时模型见到的文档永远是对的，它只会学到照抄。论文的说法是：训练时附上的文档可能不正确，而要求输出的调用是对的，这等于教模型判断检索结果该不该用，文档不相关时就靠自己学到的知识回答</td></tr>
       </tbody>
     </table>
   </figure>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>第二个目的，论文的两处写法不完全一致。</b>表里的说法出自论文的方法一节：训练时附上的文档「可能不正确」。实验一节写的是：微调用的参考文档来自标准答案对应的那一份，也就是始终正确的文档。出处：<a href="https://proceedings.neurips.cc/paper_files/paper/2024/hash/e4c61f578ff07830f5c37378dd3ecb0d-Abstract-Conference.html">Gorilla 在 NeurIPS 2024 发表的版本</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>第二个目的，论文的两处写法不完全一致。</b>表里的说法出自论文的方法一节：训练时附上的文档「可能不正确」。论文的实验一节写的是另一种做法：微调用的参考文档来自标准答案对应的那一份，也就是始终正确的文档。这一页后面<a href="#results">讲结果的一节</a>里，训练时附上文档的那个 Gorilla 按论文实验一节的做法来理解：它训练时附的是每道题对应的正确文档。这个版本只见过正确的文档，所以它的成绩说明不了第二个目的有没有达到。出处：<a href="https://proceedings.neurips.cc/paper_files/paper/2024/hash/e4c61f578ff07830f5c37378dd3ecb0d-Abstract-Conference.html">Gorilla 在 NeurIPS 2024 发表的版本</a>。NeurIPS 是机器学习领域的一个主要学术会议。</div></div>
 </section>
 
 <section class="sec" id="ast">
   <h2>用语法树匹配来度量编造</h2>
   <p>怎么自动判断模型写的一次 API 调用对不对？直接比较字符串太严：参数顺序不同、多写一个可选参数，字符串就不一样了。真的去执行，准备的成本又太高：要装依赖、配环境，有的还要显卡。</p>
   <p>Gorilla 的办法是把调用解析成抽象语法树（AST，把一段代码按语法结构拆成的树：函数名是一个节点，每个参数是它下面的节点），再到 API 数据库里看这棵树能不能对上。</p>
-  {{fig 43 | 左：模型写出的一次调用和它的语法树，从上到下是 torch、hub、load、仓库名、模型名、一个可选参数。右：数据库里所有合法调用合成的一棵大树。左边的树是右边大树里的一条路径（棕色），所以这次调用是合法的。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
+  {{fig 43 | 左：模型写出的一次调用和它的语法树。配图把这棵树画成从上到下的一串：函数名 torch.hub.load 拆成 torch、hub、load 三层，下面依次是仓库名、模型名和一个可选参数，每层一个方框。右：数据库里所有合法调用合成的一棵大树，同一层并排的方框是这一层可以取的不同的值。左边这一串从 torch 到模型名的每一层，都能在右边大树里沿着棕色标出的那条路径逐层找到，所以这次调用是合法的。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
+  <p>「对上」就是图里的这种情况：模型写的调用从函数名到要比较的各个参数，每一层的值都能在数据库的大树里沿着同一条路径找到。</p>
   <p>按能不能对上、对上的是不是该用的那个 API，一次调用有三种结果。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">结果</th><th scope="col">怎么判</th><th scope="col">例子</th></tr></thead>
       <tbody>
         <tr><th scope="row">正确</th><td>语法树和这道题的参考 API 对上了</td><td>题目要图像分类模型，写出了加载 densenet121 的调用</td></tr>
-        <tr><th scope="row">编造<br><span class="muted small">hallucination</span></th><td>语法树在整个数据库里都对不上任何一个 API，也就是调用了一个想象出来的工具</td><td>加载一个仓库里不存在的模型名</td></tr>
+        <tr><th scope="row">编造<br><span class="muted small">hallucination</span></th><td>语法树在整个数据库里都对不上任何一个 API，也就是调用了一个数据库里没有的 API</td><td>加载一个仓库里不存在的模型名</td></tr>
         <tr><th scope="row">用错<br><span class="muted small">error</span></th><td>调用的 API 在数据库里存在，但不是这道题该用的</td><td>题目要语音识别，调用了一个真实存在的翻译模型</td></tr>
       </tbody>
     </table>
     <figcaption>出处：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a> 的 3.3 节。三种结果的比例相加等于 100%。例子一列是为了说明而举的。编造对应的英文 hallucination，和<a href="rag.html#citation">第一部分</a>说的幻觉是同一个词。在这篇论文里它专指调用了数据库里不存在的 API，这一页都写作编造。</figcaption>
   </figure>
+  <p>前面<a href="#hallucination">「编造 API」一节</a>的例子里，GPT-4 加载了一个仓库里不存在的模型名，属于这里的编造。</p>
+  <p>Claude 选错代码库的那次调用，按上表的定义推下去也该算编造：数据库只收了三个模型库的 API，torchaudio 的调用在里面对不上。但「编造 API」一节的配图把两个回答分开标：GPT-4 的回答下面标的是编造（Hallucinate），Claude 的回答下面标的是选错了代码库（Wrong library）。Claude 的这次调用算三种结果里的哪一种，论文没有说明。</p>
   <p>匹配时只比较关键的参数，比如仓库名和模型名。带默认值的可选参数（图里的 pretrained）不比较。</p>
-  <p>这个办法准不准，论文做过抽查：随机取 100 条 Gorilla 的输出，语法树匹配判对的有 78 条，人工判对的也是 78 条，而且是同样的 78 条。</p>
-  <p>这些代码真的拿去运行，有 72% 能成功执行。和 78% 相差的 6 个百分点，来自调用之外的配套代码。</p>
+  <p>这个办法准不准，论文做过抽查：从 Gorilla 在测试题上的输出里随机取 100 条，语法树匹配判对的有 78 条，人工判对的也是 78 条，而且是同样的 78 条。这 100 条来自哪个版本的 Gorilla、哪种检索设置，论文没有写明。</p>
+  <p>Gorilla 的输出除了 API 调用本身，还带着配套的代码，例如安装依赖、设置环境变量。把这 100 条输出真的拿去运行，能成功执行的有 72 条，比判对的 78 条少 6 条。论文说明，这 6 条的 API 调用本身没有错，是配套代码出了错，错处在 API 的调用之外。论文举的例子里，加载模型的调用是对的，出错的是后面处理返回结果的配套代码。</p>
 </section>
 
 <section class="sec" id="results">
-  <h2>结果：准确率更高，编造更少</h2>
-  <p>Gorilla 的论文把它和 GPT-4、GPT-3.5、Claude，以及没有微调的 LLaMA-7B 放在一起比。结论有两条。不带检索时，Gorilla 的准确率最高，编造最少。带上检索之后，几个模型的差距缩小，检索器不好时准确率还会下降。</p>
+  <h2>结果：不带检索时 Gorilla 最准，带上检索后差距缩小</h2>
+  <p>Gorilla 的论文把它和 GPT-4、GPT-3.5、Claude，以及没有微调的 LLaMA-7B 放在一起比。结论有三条。不带检索时，Gorilla 的准确率最高，编造最少。带上检索之后，几个模型的差距缩小。检索不总是有帮助：给训练时不附文档的那个 Gorilla 接上一个按关键词匹配的检索器，准确率比不接时还低。</p>
   <p>每个模型都在下面四种检索设置下各测一遍。</p>
   <figure class="plate">
     <table class="tbl">
@@ -133,14 +143,14 @@
       <tbody>
         <tr><th scope="row">零样本<br><span class="muted small">0-shot</span></th><td>只有用户的请求，不用检索器</td></tr>
         <tr><th scope="row">BM25 检索器</th><td>请求，加上 BM25 找出的最相关的一份文档。BM25 是一种按关键词匹配程度排序的经典检索方法</td></tr>
-        <tr><th scope="row">GPT 检索器<br><span class="muted small">论文的表里叫 GPT-Index</span></th><td>请求，加上用 OpenAI 的模型找出的最相关的一份文档</td></tr>
+        <tr><th scope="row">GPT 检索器<br><span class="muted small">论文的表里叫 GPT-Index</span></th><td>请求，加上用 OpenAI 的模型找出的最相关的一份文档。论文在 NeurIPS 2024 发表的版本写明它是一个 embedding 模型，也就是把一段文字表示成一串数字的向量的模型，检索时比较请求和各份文档的向量</td></tr>
         <tr><th scope="row">Oracle 检索器</th><td>请求，加上这道题对应的那份正确文档。它用来看检索器做到最好时，成绩能到多少</td></tr>
       </tbody>
     </table>
     <figcaption>出处：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a> 的第 4 节。</figcaption>
   </figure>
-  <p>论文训练了两个版本的 Gorilla：一个训练时不附文档，另一个按前面<a href="#rat">带着检索结果一起训练</a>的办法，训练时附上这道题对应的正确文档。论文写明，下面零样本的成绩用的是前一个版本。带检索器的成绩用的是哪个版本，论文没有明说。论文另有一张表，单独列出后一个版本接上各种检索器的成绩，那些数字和这里带检索器的成绩相同。按这一点推断，用的是后一个版本。核对的经过见<a href="#notes">资料说明</a>。</p>
-  {{fig 44 | 上排：用 GPT 检索器时，五个模型在三个模型库上的准确率。下排：四种检索设置下的散点图，从左到右是零样本、BM25 检索器、GPT 检索器和 Oracle 检索器，横轴是编造的比例，纵轴是准确率，越靠左上越好。上排中间那张是 HuggingFace 的图，图里 GPT-3.5 的准确率印的是 47.34，论文表 1 里同一项是 29.08，两处不一致。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
+  <p>论文训练了两个版本的 Gorilla：一个训练时不附文档，另一个按前面<a href="#rat">「带着文档一起训练」一节</a>的办法，训练时附上这道题对应的正确文档。下面的图和表里两个版本都会出现。讲到每张表、每组图时，会说明用的是哪个版本，论文没有写明的也在那里说明。</p>
+  {{fig 44 | 上排：用 GPT 检索器时，五个模型在三个模型库上的准确率。下排：四种检索设置下的散点图，从左到右是零样本、BM25 检索器、GPT 检索器和 Oracle 检索器，横轴是编造的比例，纵轴是准确率，越靠左上越好。上排中间那张是 HuggingFace 的图，图里 GPT-3.5 的准确率是 47.34%，论文表 1 里同一项是 29.08%，两处不一致。图片来源：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a>。}}
   <p>先看不带检索的零样本模式，也就是下排最左边那张图。</p>
   <figure class="plate">
     <table class="tbl">
@@ -154,10 +164,16 @@
         <tr><th scope="row">Gorilla</th><td class="r">59.13%</td><td class="r">6.98%</td><td class="r">71.68%</td><td class="r">10.95%</td><td class="r">83.79%</td><td class="r">5.40%</td></tr>
       </tbody>
     </table>
-    <figcaption>出处：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a> 的表 1。表里的 Gorilla 是训练时不附文档的版本。Claude 是 claude-v1，GPT-4 是 gpt-4-0314，GPT-3.5 是 gpt-3.5-turbo-0301。HuggingFace 一栏对 Gorilla 以外的模型放宽了标准，只检查它们给出的领域名对不对。</figcaption>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a> 的表 1，这里取的是表 1 里零样本的几行。论文写明，这几行的 Gorilla 是训练时不附文档的版本。Claude 是 claude-v1，GPT-4 是 gpt-4-0314，GPT-3.5 是 gpt-3.5-turbo-0301。HuggingFace 一栏的判法和另外两栏不同，见表后的说明。</figcaption>
   </figure>
-  <p>不带检索时，Gorilla 在三个库上的准确率都是最高的，编造的比例都最低。同一个 LLaMA-7B，微调前准确率是 0，几乎每次都在编造。</p>
-  <p>再看带检索的情况，也就是上排的三张柱状图。按上面的推断，这里的 Gorilla 是训练时附上文档的版本。几个模型的差距明显缩小了。Torch Hub 上，除了没有微调的 LLaMA，四个模型的准确率都在 59% 到 62% 之间。TensorFlow Hub 上，GPT-3.5 是 65.59%，Gorilla 是 64.96%，Gorilla 略低。有了文档可以参考，通用的大模型也能写对多数调用。</p>
+  <p>不带检索时，Gorilla 在三个模型库上的准确率都是最高的，编造的比例都最低。同一个 LLaMA-7B，微调前准确率是 0，几乎每次都在编造。</p>
+  <p>HuggingFace 一栏里，Gorilla 以外的模型是按更宽的标准判的。论文给的理由是数据集收不全：HuggingFace 上的模型太多，APIBench 只收了每个任务类别里下载量最高的 20 个。按前面讲的编造的定义推下去，调用一个真实存在、但数据集没有收录的模型，在数据库里对不上，也会被算成编造。所以对这些模型，论文只检查它们选的领域对不对。领域是 API 所属的任务类别，例如图像分类。</p>
+  <p>论文说，这样一来题目就变成了从几个选项里选一个。选项指的是领域的名字：数据集里 HuggingFace 的 API 分属 37 个领域，模型给出的领域名和这道题的对上了，就算对。除此之外，这些模型在这一栏的准确率和编造的比例具体怎么算，论文没有说明。</p>
+  <p>Gorilla 在这一栏仍然按语法树匹配来判。论文没有说明为什么对它不放宽。</p>
+  <p>所以读 HuggingFace 一栏时要记住，Gorilla 的数和另外四个模型的数出自两种判法。准确率可以这样读：另外四个模型按更宽的标准判，最高的也只有 19.80%，Gorilla 按语法树匹配来判是 71.68%。编造的比例则不宜直接比：只检查领域时哪些回答算编造，从论文里读不出来。</p>
+  <p>再看带检索的情况，也就是上排的三张柱状图。柱状图对应论文表 1 里用 GPT 检索器的那几行。表 1 除了上面引用的零样本成绩，还列了每个模型在三种检索器下的成绩。</p>
+  <p>柱状图里的 Gorilla 是哪个版本，论文没有明说，下排后三张带检索器的散点图也一样。论文的表 2 把两个版本并排列出，每个版本都测了四种检索设置。其中训练时附上正确文档的那个版本，用 GPT 检索器时的成绩和表 1 里这几行 Gorilla 的成绩相同，所以柱状图按这个版本来读。核对的经过见<a href="#notes">资料说明</a>。</p>
+  <p>带上检索之后，几个模型的差距明显缩小了。Torch Hub 上，除了没有微调的 LLaMA，四个模型的准确率都在 59% 到 62% 之间。TensorFlow Hub 上，GPT-3.5 是 65.59%，Gorilla 是 64.96%，Gorilla 略低。有了文档可以参考，通用的大模型里成绩最好的一个，在这两个模型库上已经和 Gorilla 相差很小。</p>
   <h3>检索不总是有帮助</h3>
   <p>论文自己指出，给模型加上检索并不总能提高成绩，有时反而会降低。下表是训练时不附文档的那个 Gorilla 的准确率：第一行是零样本，第二行是使用时给它接上 BM25 检索器。</p>
   <figure class="plate">
@@ -168,17 +184,17 @@
         <tr><th scope="row">接上 BM25 检索器</th><td class="r">37.63%</td><td class="r">11.28%</td><td class="r">34.30%</td></tr>
       </tbody>
     </table>
-    <figcaption>数字是准确率。出处：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a> 的表 2。</figcaption>
+    <figcaption>数字是准确率。出处：<a href="https://arxiv.org/abs/2305.15334">Patil 等，2023</a> 的表 2。表 2 的左半边是训练时不附文档的版本，右半边是训练时附上正确文档的版本，这里取的是左半边。</figcaption>
   </figure>
-  <p>三个库上的准确率都降了。检索器找来的文档不对，模型受它误导，出错更多。</p>
+  <p>三个模型库上的准确率都降了。论文的解释是，使用时接上一个不够好的检索器，有时会误导模型，让它出错更多。</p>
 </section>
 
 <section class="sec" id="compare">
   <h2>四种方法放在一起</h2>
-  <p>上一部分的 Toolformer、ToolkenGPT，和这一部分的 ToolLLM、Gorilla，是让模型学会用工具的四种有代表性的做法。前两种在<a href="learn.html">第三部分</a>讲过，这里各用几句话重述一遍。</p>
+  <p><a href="learn.html">第三部分</a>的 Toolformer、ToolkenGPT，和这一部分的 ToolLLM、Gorilla，是让模型学会用工具的四种有代表性的做法。前两种这里各用几句话重述一遍。</p>
   <ul>
     <li><b>Toolformer。</b>它让模型自己在训练文本里试着插入工具调用，只留下那些能让模型把后面的文字预测得更准的调用，再用留下的文本微调整个模型。预测得准不准用损失来量，损失越低越准，下表里的「按损失筛选」指的就是这一步。</li>
-    <li><b>ToolkenGPT。</b>它把每个工具当成词表里的一个新 token（模型处理文字的最小单位）。模型给每个 token 准备了一个向量，也就是一串数字，用它来算下一步选出这个 token 的概率。ToolkenGPT 保持原模型不动，只训练新加的这些向量。</li>
+    <li><b>ToolkenGPT。</b>它把每个工具当成词表里的一个新 token。token 是模型处理文字的最小单位，词表是模型能输出的所有 token 的清单。模型给每个 token 准备了一个向量，也就是一串数字，用它来算下一步选出这个 token 的概率。ToolkenGPT 保持原模型不动，只训练新加的这些向量。训练用的数据有两个来源：本来就标了工具调用的数据集，或者让语言模型合成的数据。使用时模型选出一个工具的 token 之后，参数由它照着 prompt 里这个工具的使用示范来填。</li>
   </ul>
   <p>下面的图和表从六个方面对照这四种方法。</p>
   {{fig 45 | 四种方法的对照。}}
@@ -188,8 +204,8 @@
       <tbody>
         <tr><th scope="row">一次调用是什么形式</th><td>嵌在文字里的一段文本</td><td>词表里的一个新 token</td><td>多轮的记录，每一轮写出想法、要调用的 API 和参数</td><td>一段调用 API 的代码</td></tr>
         <tr><th scope="row">训练的是什么</th><td>整个模型，GPT-J，67 亿参数</td><td>只有新 token 的向量</td><td>整个模型，LLaMA-2 7B</td><td>整个模型，LLaMA-7B</td></tr>
-        <tr><th scope="row">训练用的答案从哪来</th><td>模型自己生成，再按损失筛选</td><td>现成的标注，或合成的调用</td><td>ChatGPT 的解题过程</td><td>GPT-4 按示范给每个 API 生成指令，答案是这个 API 的调用</td></tr>
-        <tr><th scope="row">怎么学会什么时候调用</th><td>靠筛选留下的数据</td><td>靠新 token 的向量</td><td>微调</td><td>微调</td></tr>
+        <tr><th scope="row">训练用的答案从哪来</th><td>模型自己生成，再按损失筛选</td><td>现成的标注，或合成的调用</td><td>ChatGPT 最后成功的解题路径</td><td>GPT-4 按示范给每个 API 生成指令，答案是这个 API 的调用</td></tr>
+        <tr><th scope="row">怎么学会什么时候调用</th><td>微调，用的是筛选留下的数据</td><td>训练新 token 的向量</td><td>微调，每一轮接着调用还是给出最终答案，都从解题路径里学</td><td>微调。每个请求都要写出一个调用，学的是选哪个 API</td></tr>
         <tr><th scope="row">怎么学会参数怎么填</th><td>微调</td><td>看 prompt 里的示范</td><td>微调</td><td>微调</td></tr>
         <tr><th scope="row">规模</th><td>5 个工具</td><td>234 个工具</td><td>约 1.6 万个 API</td><td>约 1,600 个 API</td></tr>
       </tbody>
@@ -197,7 +213,9 @@
     <figcaption>模型的名称和参数量按各自的论文填写，和配图上的简写略有出入。</figcaption>
   </figure>
   <p>四种方法都靠训练让模型记住工具，把「有哪些工具、什么时候用、怎么用」变成模型自身的能力。</p>
-  <p>这样做有一个避不开的代价。API 每天都在增加和变化。模型训练完之后，只要有人发布了一个新的 API，要么重新微调模型，要么重新训练新 token 的向量。两样都要花钱花时间，也不灵活。Gorilla 的带检索训练缓解了文档变化的问题，但模型仍然是为一批特定的 API 训练的。</p>
+  <p>这样做有一个代价。API 每天都在增加和变化，而模型记住的只是训练时的那一批。对 Toolformer、ToolkenGPT 和 Gorilla 这三种方法来说，模型训练完之后，只要有人发布了一个新的 API，要让模型用上它就得再训练：要么重新微调模型，要么重新训练新 token 的向量。两样都要花钱花时间，也不灵活。</p>
+  <p>Gorilla 使用时会读检索器找来的文档。它带检索的训练，也就是训练时在请求后面附上一份 API 文档的做法，缓解了文档变化的问题。但 Gorilla 仍然是为一批特定的 API 训练的，也就是三个模型库里的机器学习 API。</p>
+  <p>ToolLLM 的论文报告的情况不一样：ToolLLaMA 只靠 API 文档就能用上训练时没见过的 API。前面说的主表六组测试题里，有三组用到的工具没有在微调用的数据里出现过。ToolLLaMA 也仍然是在一批收集来的 API 上微调出来的，这批 API 都来自 RapidAPI。</p>
   <p>下一部分换一个方向：<a href="interface.html">模型不动，改的是工具的描述方式</a>。</p>
 </section>
 
@@ -205,11 +223,12 @@
   <h2>资料说明</h2>
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
-    <li><b>配图里 Gorilla 回答的模型名。</b>编造 API 一节的配图把 Gorilla 加载的模型名写成了 silero_sst。silero-models 仓库里实际的入口名是 <a href="https://github.com/snakers4/silero-models/blob/master/hubconf.py">silero_stt</a>，图上的写法很可能是论文配图的笔误。</li>
-    <li><b>带检索的训练里，不相关的文档占多少。</b>论文的方法一节说训练时附上的文档可能不正确，实验一节写的是始终正确的文档。训练数据里不相关的文档占多大比例，论文里没有找到。出处：<a href="https://proceedings.neurips.cc/paper_files/paper/2024/hash/e4c61f578ff07830f5c37378dd3ecb0d-Abstract-Conference.html">Gorilla 在 NeurIPS 2024 发表的版本</a>。</li>
-    <li><b>GPT 检索器用的是哪个模型。</b>论文的两个版本写法不同。arXiv 上 2023 年的版本写的是 OpenAI 的 text-davinci-003，NeurIPS 2024 发表的版本写的是 OpenAI 的 text-embedding-ada-002-v2。正文只写「OpenAI 的模型」。</li>
-    <li><b>结果里的 Gorilla 是哪个版本。</b>论文写明表 1 的零样本成绩来自不带检索微调的 Gorilla。带检索器的成绩用的是哪个版本，论文没有明说。表 1 里这几行的数字，和表 2 里「训练时附上正确文档」那个版本在同一种检索器下的数字相同，只有 HuggingFace 上接 BM25 检索器的一项，表 1 是 17.03，表 2 是 17.04。正文据此推断是后一个版本，并写明这是推断。</li>
-    <li><b>柱状图和表 1 的一处不一致。</b>结果一节的配图上排中间那张图里，GPT-3.5 在 HuggingFace 上的准确率印的是 47.34。论文表 1 里同一项是 29.08。论文没有说明原因。</li>
+    <li><b>配图里 Gorilla 回答的模型名。</b>编造 API 一节的配图把 Gorilla 加载的模型名写成了 silero_sst。Torch Hub 按仓库里 hubconf.py 这个文件列出的名字加载模型，silero-models 仓库的这个文件里列出的模型名是 <a href="https://github.com/snakers4/silero-models/blob/master/hubconf.py">silero_stt</a>，没有 silero_sst。图上的写法很可能是论文配图的笔误。</li>
+    <li><b>训练时附上的文档里，不相关的占多少。</b>论文的方法一节说训练时附上的文档可能不正确，实验一节写的是始终正确的文档。训练数据里不相关的文档占多大比例，论文里没有找到。出处：<a href="https://proceedings.neurips.cc/paper_files/paper/2024/hash/e4c61f578ff07830f5c37378dd3ecb0d-Abstract-Conference.html">Gorilla 在 NeurIPS 2024 发表的版本</a>。</li>
+    <li><b>GPT 检索器用的是哪个模型。</b>论文的两个版本写法不同。2023 年发布在 arXiv（研究者公开发布论文的网站）上的版本写的是 OpenAI 的 text-davinci-003，NeurIPS 2024 发表的版本写的是 OpenAI 的 text-embedding-ada-002-v2，并把它称作 embedding 模型。arXiv 上的版本只把 text-davinci-003 称作检索模型（retrieval model），没有写它怎样检索。正文的模型名只写「OpenAI 的模型」，检索的办法按 NeurIPS 2024 发表的版本来写。</li>
+    <li><b>结果里的 Gorilla 是哪个版本。</b>论文写明表 1 的零样本成绩来自训练时不附文档的那个版本的 Gorilla。表 1 还列了三种检索器下的成绩，结果一节上排的柱状图对应其中用 GPT 检索器的几行。这些带检索器的成绩用的是哪个版本，论文没有明说。论文的表 2 把两个版本并排列出，各测了四种检索设置。表 1 里带检索器的这几行数字，和表 2 里「训练时附上正确文档」那个版本在同一种检索器下的数字相同，只有 HuggingFace 上接 BM25 检索器的一项，表 1 是 17.03%，表 2 是 17.04%。正文据此按训练时附上正确文档的那个版本来读。</li>
+    <li><b>柱状图和表 1 的一处不一致。</b>结果一节的配图上排中间那张图里，GPT-3.5 在 HuggingFace 上的准确率是 47.34%。论文表 1 里同一项是 29.08%。论文没有说明原因。</li>
+    <li><b>新增工具要不要再训练。</b>对照两个方向的那张配图在<a href="interface.html#why">第五部分</a>。图上「改模型去适应工具」一栏写的是 Toolformer、ToolkenGPT、Gorilla 三个名字，后面跟着「每个新 API 都要再训练一次」（every new API means another training），没有列 ToolLLM。ToolLLM 的论文写的是，ToolLLaMA 能用好训练时没见过的 API，只需要这些 API 的文档（原文是 requiring only the API documentation to adapt to new APIs）。论文主表的六组测试题里，有三组用的是微调时没见过的工具。所以正文把「每新增一个工具都要再训练」只写在 Toolformer、ToolkenGPT 和 Gorilla 这三种方法上，ToolLLM 按论文的说法单独写。出处：<a href="https://arxiv.org/abs/2307.16789">Qin 等，2023</a>。</li>
     <li><b>对照表里的模型名称和参数量。</b>四种方法的配图把 Toolformer 的模型写成 GPT-J 6B，把 ToolLLM 的模型写成 LLaMA 7B。按各自的论文，GPT-J 是 67 亿参数，ToolLLM 微调的是 LLaMA-2 7B，对照表按论文填写。</li>
   </ul>
 </section>

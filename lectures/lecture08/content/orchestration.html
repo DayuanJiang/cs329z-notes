@@ -2,10 +2,10 @@
   <h2>先看结论</h2>
   <ul class="takeaways">
     <li>编排要做两个选择：要不要一个 agent 统管全局，其余的 agent 之间能不能直接交流。统管全局的 agent 叫 orchestrator，其余干活的 agent 叫 worker。两个选择组合出四种方式：独立、集中、去中心、混合。</li>
-    <li>交流越多，开销越大。Kim 等人 2026 年的论文按通信开销换算：达到同样的成绩，四种方式的 token 用量是单 agent 的 1.6 到 6.2 倍。按实测的美元成本看有例外，独立方式在 Google 和 Anthropic 两家的模型上比单 agent 便宜。</li>
+    <li>交流越多，开销越大。Kim 等人 2026 年的论文在六个评测上比较了单 agent 和这四种方式。完成一个任务，四种方式用的轮数是单 agent 的 1.6 到 6.2 倍，一轮大致是一个 agent 推理一次、调用一次工具并拿到工具返回的结果，所有 agent 的轮数加在一起算。论文把这个倍数当作 token（模型处理文字的最小单位）用量的倍数。按实测的美元成本看有例外，独立方式在 Google 和 Anthropic 两家的模型上比单 agent 便宜。</li>
     <li>论文的实验里，只把各个 agent 的输出拼在一起、没人核对的独立方式，在论文六个评测里的五个上都是四种里最差的。</li>
-    <li>哪种方式好取决于任务：能拆成并行分析的任务用集中方式最好，要边找边调整的任务用去中心方式稍好，一步接一步的任务四种都比单 agent 差。</li>
-    <li>「去中心」这个词有两种意思。本页的数字测的是 agent 一轮一轮辩论。C 编译器案例是 16 个 agent 合写一个 C 编译器的项目，那里的 agent 各自在共享仓库里挑任务，是另一种做法。</li>
+    <li>哪种方式好取决于任务，论文里每类任务各有一个评测。金融分析评测的任务能拆成并行的分析，集中方式的成绩最高。网页浏览评测要边找边调整，去中心方式的成绩在四种里最高，比单 agent 略高。规划评测的任务一步接一步，四种方式都比单 agent 差。</li>
+    <li>「去中心」这个词有两种意思。本页去中心方式的数字，测的是 agent 一轮一轮辩论。C 编译器案例是 16 个 agent 合写一个 C 编译器的项目，那里的 agent 各自在共享仓库里挑任务，是另一种做法。</li>
   </ul>
 </section>
 
@@ -13,37 +13,41 @@
   <h2>两个选择，四种方式</h2>
   <p>编排定的是团队的结构：谁有权分派任务，谁做最后的决定。它在设计时定一次。它容易和<a href="coordination.html#overview">第四部分的协调</a>混在一起：协调管的是运行中每一件具体的事，现在归谁、谁先谁后、冲突了怎么办。</p>
   <p>四种方式的差别只在两处：有没有一个统管全局的 agent，agent 之间有没有直接的交流。统管全局的 agent 叫 orchestrator，其余干活的 agent 叫 worker。下表把这两处摆成行和列，每一格是一种方式和它的一句定义。</p>
+  <p>这里的「直接交流」指信息不经过 orchestrator 就到了别的 agent 那里。agent 之间互发消息算直接交流，读写同一块留言板或同一个仓库里的文件也算。留言板指一块所有 agent 都能读写的共享区域。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col"></th><th scope="col">worker 之间不交流</th><th scope="col">worker 之间直接交流</th></tr></thead>
+      <thead><tr><th scope="col"></th><th scope="col">agent 之间不直接交流</th><th scope="col">agent 之间直接交流</th></tr></thead>
       <tbody>
-        <tr><th scope="row">没有 orchestrator</th><td><span class="cell-h">独立 Independent</span>各做各的，最后由一个汇总者审阅、合并或挑选</td><td><span class="cell-h">去中心 Decentralized</span>每个 agent 都能和其他所有 agent 通信</td></tr>
-        <tr><th scope="row">有 orchestrator</th><td><span class="cell-h">集中 Centralized</span>orchestrator 分别和每个 worker 通信</td><td><span class="cell-h">混合 Hybrid</span>orchestrator 统管，worker 之间还有有限的直接通信</td></tr>
+        <tr><th scope="row">没有 orchestrator</th><td><span class="cell-h">独立 Independent</span>各做各的，最后由汇总者审阅、合并或挑选</td><td><span class="cell-h">去中心 Decentralized</span>每个 agent 都能和其他所有 agent 直接交流</td></tr>
+        <tr><th scope="row">有 orchestrator</th><td><span class="cell-h">集中 Centralized</span>orchestrator 分别和每个 worker 交流，worker 之间不交流</td><td><span class="cell-h">混合 Hybrid</span>orchestrator 统管，worker 之间还有有限的直接交流</td></tr>
       </tbody>
     </table>
+    <figcaption>独立方式里的汇总者指最后的那一步：各个 agent 做完之后，审阅、合并或挑选它们的输出。这一步只做一次，不给 agent 分派任务，所以不算 orchestrator。</figcaption>
   </figure>
+  <p>表里写的是通常的定义。Kim 等人 2026 年的论文实现独立方式时，汇总这一步只把各个 agent 的输出拼在一起，没有审阅和挑选。本页后面独立方式的数字，测的都是这种实现。</p>
   <p>四种方式画成示意图是下面的样子。</p>
-  {{figs 18 19 20 21 | 依次是独立、集中、去中心、混合。图里的 In 是任务的输入，Out 是最终的输出。示意图参考了 <a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。}}
-  <p>下表再说每种方式怎么运作，有什么取舍。表里的留言板指一块所有 agent 都能读写的共享区域。</p>
+  {{figs 18 19 20 21 | 依次是独立、集中、去中心、混合。图里的 In 是任务的输入，Out 是最终的输出。示意图参考了 Anthropic 的文章 <a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。}}
+  <p>下表再说每种方式怎么运作，有什么取舍。表里的子 agent 指被另一个 agent 派出去做一部分工作的 agent。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">方式</th><th scope="col">怎么运作</th><th scope="col">取舍</th></tr></thead>
       <tbody>
-        <tr><th scope="row">独立</th><td>各个 agent 分头做，中途不交换消息。最后有一步把它们的输出合并起来，或者从中挑一个。</td><td>能并行。但 agent 没法根据别人中途的发现调整自己的做法。</td></tr>
+        <tr><th scope="row">独立</th><td>各个 agent 分头做，中途不交换消息。最后由汇总者把它们的输出合并起来，或者从中挑一个。</td><td>能并行。但 agent 没法根据别人中途的发现调整自己的做法。</td></tr>
         <tr><th scope="row">集中</th><td>orchestrator 把任务拆开，分给各有专长的 worker。worker 把结果交回来，由 orchestrator 决定下一步做什么。</td><td>有人统管全局，协调简单。但 orchestrator 可能成为瓶颈。</td></tr>
-        <tr><th scope="row">去中心</th><td>所有 agent 通过一块共享的留言板或通信通道互相交流。agent 还可以自己派出子 agent。图中间的方框是共享的状态记录。</td><td>适合大规模的、彼此独立的探索和发现。agent 的数量多不会自动带来多样性，见<a href="failures.html#conformity">第五部分</a>。</td></tr>
-        <tr><th scope="row">混合</th><td>orchestrator 管整个任务并合并结果。worker 的任务需要配合时，它们之间直接交换信息。</td><td>既有全局的统管，又有局部的灵活。但谁负责什么、信息怎样共享，规则要定清楚。</td></tr>
+        <tr><th scope="row">去中心</th><td>所有 agent 通过一块共享的留言板或通信通道互相交流。任务记在一份共享的状态记录里，各个 agent 从里面领任务，图中间的方框就是这份记录。agent 还可以自己派出子 agent。</td><td>适合大规模的探索和发现：很多 agent 各自去试不同的方向，再通过留言板共享各自的发现。这样的探索要靠各个 agent 选不同的方向，而 agent 往往选到同样的方向，所以 agent 的数量多不会自动带来多样性，见<a href="failures.html#conformity">第五部分</a>。</td></tr>
+        <tr><th scope="row">混合</th><td>orchestrator 管整个任务并合并结果。worker 的任务需要配合时，它们之间直接交换信息。</td><td>有人统管全局，worker 之间又能直接配合。但谁负责什么、信息怎样共享，规则要定清楚。</td></tr>
       </tbody>
     </table>
   </figure>
   <h3>四种方式各是什么样子</h3>
   <ul>
-    <li><b>独立。</b>一个典型的用法是给每个 agent 指定一个角色，让它们各自看同一份材料。例如把一份产品方案同时交给「产品经理」和「工程师」两个 agent 审阅，各自从自己的角度提意见，最后一步从中挑选或合并。这种方式的局限是几个角度之间没有交流，一个 agent 的发现帮不到另一个。2023 年前后有不少多 agent 系统给 agent 指定角色，本页后面讲的 <a href="#dylan">DyLAN</a> 就是一个例子。</li>
-    <li><b>集中。</b>它和单 agent 派出并行的子任务很像，界线是模糊的。一个可用的区分是看 worker 拿到的任务有多大。单 agent 派出去的通常是很具体的小任务，主要的工作仍由它自己推进。多 agent 系统里，worker 拿到的可以是「让编译器跑得更快」这样的高层目标，怎么做由 worker 自己决定。</li>
-    <li><b>去中心。</b>共享的状态记录通常只是一份数据，不需要由某个 agent 来担任。它可以是一份待办清单，一个列着许多 bug 的仓库，或者一批没通过的测试，各个 agent 从里面领任务。agent 再派出子 agent 之后，谁在做什么很快就难以追踪。</li>
+    <li><b>独立。</b>一个典型的用法是给每个 agent 指定一个角色，让它们各自看同一份材料。例如把一份产品方案同时交给「产品经理」和「工程师」两个 agent 审阅，各自从自己的角度提意见，最后由汇总者从中挑选或合并。这种方式的局限是几个角度之间没有交流，一个 agent 的发现帮不到另一个。</li>
+    <li><b>集中。</b>它和单 agent 派出并行的子任务很像，界线是模糊的。<a href="sas_vs_mas.html#what">第一部分</a>的分法是看有几处在各自做决定，用在这里，可以看 worker 拿到的任务有多大。单 agent 派出去的通常是很具体的小任务，怎么做已经定好，主要的工作仍由它自己推进。多 agent 系统里，worker 拿到的可以是「让编译器跑得更快」这样的高层目标，怎么做由 worker 自己决定，系统里也就多了一处在做决定。</li>
+    <li><b>去中心。</b>共享的状态记录记的是有哪些事要做，各个 agent 从里面领任务。它通常只是一份数据，不必是一个 agent：可以是一份待办清单，一个列着许多 bug 的仓库，或者一批没通过的测试。它和留言板的用处不同，留言板是 agent 互相交流的地方。agent 再派出子 agent 之后，谁在做什么很快就难以追踪。</li>
     <li><b>混合。</b>实际的系统常常是前几种的混合：有一个统管的 orchestrator，worker 之间也互相发消息。</li>
   </ul>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>下一步由谁决定。</b>四种方式讲的是 agent 之间的关系。OpenAI Agents SDK 的文档还区分了另一件事：流程可以交给模型自己决定，也可以写在代码里。交给模型更灵活，适合开放的任务；写在代码里，速度、成本和结果都更可预测。两者可以混着用。出处：<a href="https://openai.github.io/openai-agents-python/multi_agent/">Agent orchestration</a>。</div></div>
+  <p>给 agent 指定角色的做法在 2023 年前后很常见，别的方式里也用。本页后面讲的 <a href="#dylan">DyLAN</a> 是一种按任务动态挑选 agent 组队的方法，它就给 agent 指定角色。它的 agent 一轮一轮回答，还给上一轮别的 agent 的回答打分，彼此有交流，所以 DyLAN 不属于独立方式。</p>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>下一步由谁决定。</b>四种方式讲的是 agent 之间的关系。OpenAI Agents SDK 是 OpenAI 的 agent 开发工具包，它的文档还区分了另一件事：流程可以交给模型自己决定，也可以写在代码里。交给模型更灵活，适合开放的任务；写在代码里，速度、成本和结果都更可预测。两者可以混着用。出处：<a href="https://openai.github.io/openai-agents-python/multi_agent/">Agent orchestration</a>。</div></div>
 </section>
 
 <section class="sec" id="swarm">
@@ -54,26 +58,26 @@
       <thead><tr><th scope="col">在哪里</th><th scope="col">agent 怎样交换信息</th><th scope="col">任务怎么分</th></tr></thead>
       <tbody>
         <tr><th scope="row">通常的定义</th><td>通过一块共享的留言板或通信通道</td><td>agent 自己领任务</td></tr>
-        <tr><th scope="row">C 编译器案例</th><td>通过共享仓库里的进度文件</td><td>agent 自己领任务，在仓库里登记认领</td></tr>
+        <tr><th scope="row">C 编译器案例</th><td>通过共享仓库里的 README 和进度文件，也就是记下项目的情况和各个 agent 做到了哪里的文件</td><td>agent 自己领任务，在仓库里登记认领</td></tr>
         <tr><th scope="row">论文的实验</th><td>几个 agent 就同一个问题一轮一轮辩论，最后按多数票定出答案</td><td>大家做的是同一个任务</td></tr>
       </tbody>
     </table>
     <figcaption>前两行是一种做法，第三行是另一种。</figcaption>
   </figure>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>所以本页「去中心」一列的数字，测的都是辩论。</b>它们不能直接用来判断<a href="case_study.html">C 编译器案例</a>里那种做法的好坏。案例也不能套用「独立」一列的数字。论文实现的独立方式只把各个 agent 的输出拼在一起，没有任何核对。案例里的 agent 能读到别人的进度文件，结果由一套测试来核对，这两样论文实现的独立方式都没有。</div></div>
-  <h3>swarm 这个词的宽窄两种用法</h3>
-  <p>去中心方式也被叫作 swarm，这个词本身也有宽窄两种用法。严格的用法里，swarm 指没有 orchestrator、所有 agent 都能互相通信的去中心方式。平时说的 agent swarm 要宽得多，泛指一大群一起工作的 agent，里面可以有 orchestrator，按本页的分法常常属于混合方式。</p>
-  <p>下表用这一讲提到的三个系统对照这两种用法。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>所以本页后面各张表里去中心方式的数字，测的都是辩论。</b>它们不能直接用来判断<a href="case_study.html">C 编译器案例</a>里那种做法的好坏。案例里的 agent 不互发消息，只通过共享仓库里的文件交换信息。按「两个选择，四种方式」一节的定义，读写同一个仓库里的文件也算直接交流，所以案例属于去中心方式。这些 agent 各做各的，看起来也像独立方式，但案例同样不能套用独立方式的数字。论文实现的独立方式只把各个 agent 的输出拼在一起，没有任何核对。案例里的 agent 能读到别人写的 README 和进度文件，结果由一套测试来核对，这两样论文实现的独立方式都没有。</div></div>
+  <h3>swarm 这个词的两种用法</h3>
+  <p>去中心方式也被叫作 swarm，这个词本身有两种用法。严格的用法里，swarm 指没有 orchestrator、所有 agent 都能互相交流的去中心方式。平时说的 agent swarm 是泛指的用法，指一大群一起工作的 agent，里面可以有 orchestrator，按本页的分法常常属于混合方式。</p>
+  <p>下表看这一讲提到的三个系统：按本页的分法各属于哪种方式，算不算严格意义上的 swarm。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">系统</th><th scope="col">谁来安排工作</th><th scope="col">按本页的分法</th></tr></thead>
+      <thead><tr><th scope="col">系统</th><th scope="col">谁来安排工作</th><th scope="col">按本页的分法属于哪种方式，算不算严格意义上的 swarm</th></tr></thead>
       <tbody>
-        <tr><th scope="row">HuggingFace 事件<br><span class="muted small"><a href="communication.html#unsanctioned">第三部分</a></span></th><td>没有人事先安排。这些 agent 本来各做各的评测任务，留言板是它们自己搭的，谁也没有被指定为上级。运行中出现了带头的 agent，它组织了多条工作线</td><td>结构不在设计之内。开始时符合严格意义上的 swarm；带头的 agent 出现以后，可以看作更接近混合方式</td></tr>
-        <tr><th scope="row">C 编译器案例<br><span class="muted small"><a href="case_study.html">案例页</a></span></th><td>没有 orchestrator，agent 自己领任务。各个 agent 的长期职责由人事先指定</td><td>去中心方式</td></tr>
-        <tr><th scope="row">OpenAI 解 Navier-Stokes 问题的系统</th><td>研究者把 agent 分成小组，组内可以通信，不同的小组拿到问题的不同版本。过一段时间，研究者用 Codex 把各组最有用的发现汇总起来，再发给各组</td><td>只有同组的 agent 能互相通信，组和组之间靠 Codex 汇总后再分发，所以它很可能不属于严格意义上的 swarm。有没有担任 orchestrator 的 agent，原文没有写明</td></tr>
+        <tr><th scope="row">HuggingFace 事件<br><span class="muted small"><a href="communication.html#unsanctioned">第三部分</a></span></th><td>没有人事先安排。这些 agent 本来各做各的评测任务，留言板是它们自己搭的，谁也没有被指定为上级。运行中出现了带头的 agent，它组织了多条工作线</td><td>结构不在设计之内。开始时是去中心方式，符合严格意义上的 swarm；带头的 agent 出现以后，可以看作更接近混合方式</td></tr>
+        <tr><th scope="row">C 编译器案例<br><span class="muted small"><a href="case_study.html">案例页</a></span></th><td>没有 orchestrator，agent 自己领任务。各个 agent 的长期职责由人事先指定</td><td>去中心方式，符合严格意义上的 swarm</td></tr>
+        <tr><th scope="row">OpenAI 解 Navier-Stokes 问题的系统</th><td>研究者把 agent 分成小组，组内可以交流，不同的小组拿到问题的不同版本。过一段时间，研究者用 Codex 把各组最有用的发现汇总起来，再发给各组</td><td>属于哪种方式定不下来，因为有没有担任 orchestrator 的 agent，原文没有写明。只有同组的 agent 能互相交流，组和组之间靠 Codex 汇总后再分发，所以它很可能不属于严格意义上的 swarm</td></tr>
       </tbody>
     </table>
-    <figcaption>HuggingFace 事件是 OpenAI 一批网络安全评测里出的事故，本应互相隔离的 agent 自己搭了一块留言板来合作。Navier-Stokes 问题是关于流体运动方程的一道数学难题，七道千禧年大奖难题之一。Codex 是 OpenAI 的编程 agent。第三行取自 OpenAI 的介绍文章 <a href="https://openai.com/index/navier-stokes-solution/">On the Navier-Stokes Millennium Prize Problem</a>。文章说得出解答的那一组约有 1 万个同时运行的 agent。</figcaption>
+    <figcaption>HuggingFace 事件是 OpenAI 一批网络安全评测里出的事故，本应互相隔离的 agent 自己搭了一块留言板来合作。工作线指留言板上一组 agent 合作推进的一件事。Navier-Stokes 问题是关于流体运动方程的一道数学难题，七道千禧年大奖难题之一。Codex 是 OpenAI 的编程 agent。第三行取自 OpenAI 的介绍文章 <a href="https://openai.com/index/navier-stokes-solution/">On the Navier-Stokes Millennium Prize Problem</a>。文章说，这些小组里得出解答的那一组约有 1 万个同时运行的 agent。</figcaption>
   </figure>
 </section>
 
@@ -83,9 +87,9 @@
   <p>下表有三列数字。通信开销看完成一个任务比单 agent 多用了多少轮，每 1000 token 的成功数看 token 用得有没有效率，错误放大系数看错误在运行过程中带来了多少额外的工作。三列的确切含义在表后。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">方式</th><th scope="col">论文的实验里，最终答案怎么合成</th><th scope="col" class="r">通信开销</th><th scope="col" class="r">每 1000 token 的成功数</th><th scope="col" class="r">错误放大系数</th></tr></thead>
+      <thead><tr><th scope="col">方式</th><th scope="col">论文的实验里，最终答案怎么得出</th><th scope="col" class="r">通信开销</th><th scope="col" class="r">每 1000 token 的成功数</th><th scope="col" class="r">错误放大系数</th></tr></thead>
       <tbody>
-        <tr><th scope="row">单 agent</th><td>只有一个 agent，不需要合成</td><td class="r">0%</td><td class="r">67.7</td><td class="r">1.0</td></tr>
+        <tr><th scope="row">单 agent</th><td>只有一个 agent，没有要合并的输出</td><td class="r">0%</td><td class="r">67.7</td><td class="r">1.0</td></tr>
         <tr><th scope="row">独立</th><td>把各个 agent 的输出拼在一起，不做交叉核对，也不投票</td><td class="r">58%</td><td class="r">42.4</td><td class="r">17.2</td></tr>
         <tr><th scope="row">集中</th><td>orchestrator 核对并综合 worker 的结果</td><td class="r">285%</td><td class="r">21.5</td><td class="r">4.4</td></tr>
         <tr><th scope="row">去中心</th><td>辩论固定的几轮，最后按多数票定出答案</td><td class="r">263%</td><td class="r">23.9</td><td class="r">7.8</td></tr>
@@ -94,98 +98,112 @@
     </table>
     <figcaption>数字来自 <a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a> 正文的 Table 5。去中心方式辩论之后还要按多数票定出答案，很可能是因为评测每次只收一个答案，论文没有说明原因。</figcaption>
   </figure>
+  <p>表里每种方式在每一列只有一个数。论文的表注说，这些数是按方式从运行记录里量出来的，六个评测都用同一个数，没有按评测或模型分开列。运行记录是 agent 每一步做了什么的完整记录。</p>
+  <p>读这张表要先知道「轮」怎么数。论文只用一个括注说明一轮是什么：推理一次并得到一次回应。回应来自谁，论文没有写。论文举的单 agent 例子里，一轮是 agent 推理一次、调用一次工具并拿到工具返回的结果：在游戏 Minecraft 里合成一面墙用了三轮，分别是查配方、把材料放进合成格、合成。在这个游戏里，合成指按配方把材料摆进一块叫合成格的格子，做出一件新物品。多 agent 方式里，agent 之间的消息怎样计入轮数，论文没有写明。</p>
+  <p>轮数按整个系统算：完成一个任务时，所有 agent 用的轮数加在一起。论文写明，实验里独立方式和去中心方式各用 3 个 agent，集中方式用 1 个 orchestrator 带 3 个 worker，混合方式的 agent 数量没有单独写明。</p>
+  <p>agent 多了，轮数没有按 agent 的数量成倍增加。独立方式有 3 个 agent，轮数加在一起只比单 agent 多 58%，不到单 agent 的 3 倍。一个很可能的原因是，论文为了让比较公平，给多 agent 方式里每个 agent 定的推理次数上限比单 agent 低。</p>
+  <p>论文说各种方式的计算预算调成了一样多，指的是两样东西。第一样是每次试验的 token 预算。「试验」是论文的词（trial），论文没有给它下定义，从论文别处把试验分成成功和失败来看，一次试验很可能是把一个任务做一遍。论文把这份预算叫作推理 token 的预算，没有写明推理 token 和全部 token 有什么区别。第二样是推理次数的总上限，论文叫作最大的总迭代次数，迭代一次就是 agent 推理一次。上一段说每个 agent 的推理次数上限更低，就是为了让这个总上限相同。</p>
+  <p>表里实测的轮数和每 1000 token 的成功数，以及后面<a href="#cost">成本</a>一节图上的美元成本，各种方式之间却差好几倍。预算相同而实测的用量不同，两者怎样同时成立，论文没有说明，见<a href="#notes">资料说明</a>。</p>
   <p>三列数字各是什么意思：</p>
   <ul>
-    <li><b>通信开销</b>指完成一个任务用的轮数比单 agent 多出的比例，一轮是一次推理加回应。单 agent 是基准，所以是 0%。论文测到单 agent 平均用 7.2 轮，独立方式用 11.4 轮，比单 agent 多出 58%。混合方式用 44.3 轮，多出 515%。论文说这个指标相当于 token 的用量：达到同样的成绩，四种多 agent 方式的 token 用量是单 agent 的 1.6 到 6.2 倍。58% 对应 1.6 倍，515% 对应 6.2 倍。</li>
-    <li><b>每 1000 token 的成功数</b>是论文的 token 效率指标。论文没有写明它怎么算，所以 67.7 这样的数值没法按字面解释，只适合用来比较几种方式的相对高低。不管哪种多 agent 方式，这个指标都比单 agent 低，混合方式只有单 agent 的五分之一。</li>
-    <li><b>错误放大系数</b>是和单 agent 比出来的倍数，单 agent 记作 1.0。论文没有给出算式，所以 17.2 具体是哪两个量相除，从论文里查不到。论文对它有两处描述。定义里说，它衡量 agent 之间的协调失误带来了多少额外的计算工作，是分析运行记录里的 token 估算出来的。讲结果时说，独立方式把运行记录里的错误放大到了单 agent 的 17.2 倍。两处合起来可以这样读：数值越大，错误在运行过程中带来的额外工作越多。</li>
+    <li><b>通信开销</b>指完成一个任务用的轮数比单 agent 多出的比例。单 agent 是基准，所以是 0%。论文给每种方式各报了一个平均轮数，不分评测和模型：单 agent 平均用 7.2 轮，独立方式用 11.4 轮，比单 agent 多出 58%，也就是单 agent 的大约 1.6 倍。混合方式用 44.3 轮，多出 515%，是单 agent 的大约 6.2 倍。这个指标的名字里有「通信」，算的是轮数，所以互不交流的独立方式也有数值：几个 agent 各做各的，轮数加在一起比单 agent 多。论文把 1.6 到 6.2 倍说成 token 用量的倍数，没有写明轮数怎样换算成 token，本页把它读成轮数的倍数，核对的经过见<a href="#notes">资料说明</a>。</li>
+    <li><b>每 1000 token 的成功数</b>是论文的 token 效率指标，只适合用来比较几种方式的相对高低。按字面读，67.7 表示单 agent 每用 1000 个 token 就做成 67.7 个任务，而做成一个任务要用的 token 远多于 1000 个。论文没有写明这个指标怎么算，所以数值本身没法解释。不管哪种多 agent 方式，这个指标都比单 agent 低，混合方式只有单 agent 的五分之一。</li>
+    <li><b>错误放大系数</b>看的是运行过程：一个 agent 出的错在后面的步骤里带来了多少额外的工作。额外的工作用 token 来量，论文说这个系数是从运行记录里的 token 估算出来的。它是一个倍数，比较的基准是单 agent，所以单 agent 记作 1.0，道理和通信开销一列里单 agent 是 0% 一样。论文对 17.2 的说法是，独立方式把运行记录里的错误放大到了单 agent 的 17.2 倍。数值越大，额外的工作越多。论文没有给出算式，哪些 token 算作额外的工作、17.2 是哪两个量相除都查不到。所以这一列读不出更具体的含义，这个系数也只适合用来比较几种方式的高低：四种多 agent 方式里，独立方式的 17.2 最高，集中方式的 4.4 最低。</li>
   </ul>
-  <p>论文里名字叫错误放大系数的指标有两个。上面说的是按运行记录估算的那一个，看的是运行过程，本页的「错误放大系数」都指它。另一个按任务算，看的是最终答案错了多少，本页把它叫作错误率之比：多 agent 方式没做对的任务所占的比例，除以单 agent 没做对的任务所占的比例。</p>
-  <p>两个指标的数值差得很远。多 agent 方式的错误率之比大约是 1.1 到 1.3，表里的错误放大系数在 4 到 17 之间。论文说这是因为两个指标看的是错误的不同方面。</p>
-  <p>独立方式的 agent 互不交流，定义里说的「协调失误」在它身上对不上，它的错误放大系数却最高。论文解释 17.2 时用的是另一个说法：错误没有经过核对就传了下去。独立方式没有任何核对的环节，单个 agent 的错误会原样进入合并后的输出。集中方式有 orchestrator 在合并之前核对，系数降到 4.4。</p>
+  <p>最终答案错了多少，要看论文的另一个指标，本页把它叫作错误率之比：多 agent 方式没做对的任务所占的比例，除以单 agent 没做对的任务所占的比例。论文说多 agent 方式的错误率之比大约是 1.1 到 1.3，只给了这个范围，没有写它是在哪些评测、哪些模型上算的，也没有分别列出四种方式的数值，核对的经过见<a href="#notes">资料说明</a>。表里的错误放大系数在 4 到 17 之间。两组数差得很远，论文说这是因为它们看的是错误的不同方面。所以 17.2 说的是运行过程。最终答案的错误率是单 agent 的多少倍，要看错误率之比。</p>
+  <p>独立方式的 agent 互不交流，错误放大系数却最高。论文的解释是错误没有经过核对就传了下去：独立方式没有任何核对的环节，单个 agent 的错误会原样进入合并后的输出。集中方式有 orchestrator 在合并之前核对，系数降到 4.4。</p>
+  <p>这个解释说的是错误有没有被拦下来。独立方式把输出拼在一起之后就结束了，后面没有别的步骤。这个系数衡量的额外工作出在哪里，论文没有说明，见<a href="#notes">资料说明</a>。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>读错误放大系数时要注意两点。</b>
     <ul>
       <li>17.2 测的是论文实现的独立方式：输出直接拼接，没有任何核对。前面定义的独立方式里，汇总者会审阅、合并或挑选，那样的做法没有被测到。</li>
-      <li>不要把 17.2 当作独立方式成绩差的原因来讲。论文的回归分析显示，把其他指标都考虑进去之后，这个系数对成绩的影响在统计上不显著，架构之间的成绩差别更多由效率和开销来解释。</li>
+      <li>不要把 17.2 当作独立方式成绩差的原因来讲。论文做了回归分析，这是一种估计几个因素各自对结果影响多大的统计方法。分析显示，把其他指标都考虑进去之后，这个系数对成绩的影响在统计上不显著，也就是可能只是偶然。论文认为，各种方式之间的成绩差别更多由另外两个指标来解释。一个是通信开销。另一个论文叫作协调效率，分两步算：先算出一种方式用的轮数是单 agent 的几倍，再用这种方式的成功率除以这个倍数。实测表里没有列出它。独立方式的通信开销是四种里最低的，成绩却在六个评测里的五个上最差，这两个指标怎样解释这一点，论文没有展开，见<a href="#notes">资料说明</a>。</li>
     </ul></div></div>
   <h3>大 O 记号的那张表</h3>
   <p>大 O 记号写的是数量随括号里的量增长的趋势，例如 O(nk) 表示增长得不比 n 乘 k 的某个固定倍数更快。表里用到六个字母：</p>
   <ul>
-    <li>k 是每个 agent 最多迭代的次数。</li>
+    <li>k 是每个 agent 最多迭代的次数，也就是一个 agent 每接到一次工作，自己最多连续推理几次。</li>
     <li>n 是 agent 的数量。</li>
     <li>r 是 orchestrator 的轮数。</li>
     <li>d 是辩论的轮数。</li>
-    <li>p 是同级之间通信的轮数。</li>
-    <li>m 是每一轮里同级之间请求的平均次数。</li>
+    <li>p 是 worker 和 worker 之间交流的轮数。</li>
+    <li>m 是每一轮里 worker 之间互相请求的平均次数。</li>
   </ul>
+  <p>k 和 r、d、p 数的东西不同，论文没有另外解释，下面是从表里的式子和论文对各种方式的描述读出来的。</p>
+  <p>k 数的是单个 agent 的推理次数：一个 agent 每接到一次工作，自己最多连续推理 k 次，然后交出结果。单 agent 和独立方式里，每个 agent 只接到一次工作，所以各自最多推理 k 次。</p>
+  <p>r、d、p 数的是整个团队的轮数。以辩论为例，所有 agent 各发言一遍算一轮。每个 agent 在一轮里发言之前，自己最多推理 k 次，下一轮又可以再推理 k 次。所以去中心方式的模型调用次数是 d 轮乘以 n 个 agent，再乘以每个 agent 每一轮的 k 次。集中方式同理，orchestrator 每一轮把工作派给 n 个 worker，每个 worker 每一轮最多推理 k 次。</p>
+  <p>这里的「轮」和前面实测表里的「轮」数法不同。按论文举的单 agent 例子，实测表里的一轮是一个 agent 推理一次、调用一次工具并拿到工具返回的结果。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">指标</th><th scope="col">单 agent</th><th scope="col">独立</th><th scope="col">集中</th><th scope="col">去中心</th><th scope="col">混合</th></tr></thead>
       <tbody>
         <tr><th scope="row">模型调用次数</th><td>O(k)</td><td>O(nk) + O(1)</td><td>O(rnk) + O(r)</td><td>O(dnk) + O(1)</td><td>O(rnk) + O(r) + O(p)</td></tr>
         <tr><th scope="row">串行的深度</th><td>k</td><td>k</td><td>r</td><td>d</td><td>r</td></tr>
-        <tr><th scope="row">通信开销</th><td>0</td><td>1</td><td>r·n</td><td>d·n</td><td>r·n + p·m</td></tr>
+        <tr><th scope="row">交换消息的次数</th><td>0</td><td>1</td><td>r·n</td><td>d·n</td><td>r·n + p·m</td></tr>
         <tr><th scope="row">并行倍数</th><td>1</td><td>n</td><td>n</td><td>n</td><td>n</td></tr>
         <tr><th scope="row">记忆的复杂度</th><td>O(k)</td><td>O(n·k)</td><td>O(r·n·k)</td><td>O(d·n·k)</td><td>O((r+p)·n·k)</td></tr>
-        <tr><th scope="row">怎么协调</th><td>顺序执行</td><td>并行，然后综合</td><td>分层</td><td>一轮一轮地辩论</td><td>分层，加同级之间的交流</td></tr>
+        <tr><th scope="row">怎么协调</th><td>顺序执行</td><td>并行，最后把输出拼在一起</td><td>分层</td><td>一轮一轮地辩论</td><td>分层，加 worker 之间的交流</td></tr>
       </tbody>
     </table>
-    <figcaption>译自论文的 Table 2，字母的含义取自原表的脚注。为了和本页其他表一致，集中和去中心两列对调了位置。</figcaption>
+    <figcaption>译自论文的 Table 2，字母的含义取自原表的脚注。为了和本页其他表一致，集中和去中心两列对调了位置。「交换消息的次数」一行在原表里叫通信开销，本页换了名字，原因见表后。独立方式「怎么协调」一格的原文是 Parallel + Synthesis，按论文的实现写成拼接。</figcaption>
   </figure>
-  <p>「串行的深度」「并行倍数」和「记忆的复杂度」三行，论文没有另外解释。按字面，串行的深度是必须依次完成的轮数，并行倍数是最多有几个 agent 同时工作，记忆的复杂度是系统要保存的上下文的量级。</p>
-  <p>这张表最值得看的是通信开销那一行，它和上面的实测数字对应得最直接。独立方式是常数 1，不随 agent 的数量增长。集中和去中心方式是轮数乘以 agent 的数量。混合方式在集中方式的基础上又多了同级通信的一项。这个顺序和实测的通信开销一致：独立最低，集中和去中心居中，混合最高。并行倍数一行，单 agent 是 1，四种多 agent 方式都是 agent 的数量 n，所以这一行在四种方式之间分不出高低。</p>
+  <p>「串行的深度」「并行倍数」和「记忆的复杂度」三行，论文没有另外解释。按字面，串行的深度是必须依次完成的轮数，并行倍数是最多有几个 agent 同时工作，记忆的复杂度是系统要保存的上下文的量级，上下文指模型这一次能读到的全部内容。</p>
+  <p>这张表最值得看的是交换消息的次数那一行。论文的原表把这一行也叫作通信开销，和实测表里的通信开销同名，数的东西不同：这一行数的是 agent 之间交换消息的次数，实测表里算的是轮数比单 agent 多出的比例。本页为了区分，只把实测表里的那一列叫作通信开销。按消息次数算，独立方式是常数 1，不随 agent 的数量增长。论文没有说明这个 1 指哪一次消息。按论文的定义，独立方式的 agent 之间中途不交换消息，每个 agent 只在最后把输出交给汇总的那一步，所以这个 1 很可能指最后汇总的那一步，论文把它整个算作一次。集中方式是 orchestrator 的轮数 r 乘以 agent 的数量 n，去中心方式是辩论的轮数 d 乘以 n。混合方式在集中方式的基础上又多了 worker 之间交流的一项。按消息次数和按通信开销排出的顺序一致：独立最低，集中和去中心居中，混合最高。</p>
+  <p>并行倍数一行，单 agent 是 1，四种多 agent 方式都是 agent 的数量 n，所以这一行在四种方式之间分不出高低。</p>
 </section>
 
 <section class="sec" id="fit">
   <h2>哪种方式适合哪种任务</h2>
-  <p><a href="sas_vs_mas.html#task">第一部分</a>用这组数据说明多 agent 好不好取决于任务。这里按架构分开看。表里的数字是每种多 agent 方式的成绩相对单 agent 成绩的变化比例：+81% 表示高出的部分相当于单 agent 成绩的 81%，−35% 表示比单 agent 的成绩低了 35%。</p>
+  <p>下表的数据来自 Kim 等人 2026 年的论文，是其中四个评测上的结果。<a href="sas_vs_mas.html#task">第一部分</a>用同一组数据说明多 agent 好不好取决于任务，这里按四种方式分开看。</p>
+  <p>成绩指任务的成功率或正确率。这四个评测各测了 9 个模型，每种方式的成绩是它在这些模型上的平均。表里的数字是每种多 agent 方式的成绩相对单 agent 成绩的变化比例：+81% 表示高出的部分相当于单 agent 成绩的 81%，−35% 表示比单 agent 的成绩低了 35%。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">评测</th><th scope="col" class="r">独立</th><th scope="col" class="r">集中</th><th scope="col" class="r">去中心</th><th scope="col" class="r">混合</th><th scope="col">怎么看</th></tr></thead>
       <tbody>
         <tr><th scope="row">Finance Agent</th><td class="r good">+57%</td><td class="r good"><b>+81%</b></td><td class="r good">+75%</td><td class="r good">+73%</td><td>能拆成并行的分析。有 orchestrator 综合的集中方式最好</td></tr>
-        <tr><th scope="row">BrowseComp-Plus</th><td class="r bad">−35%</td><td class="r">+0%</td><td class="r good"><b>+9%</b></td><td class="r good">+6%</td><td>网页浏览要边找边调整。agent 之间能互通消息的去中心方式稍好</td></tr>
+        <tr><th scope="row">BrowseComp-Plus</th><td class="r bad">−35%</td><td class="r">+0%</td><td class="r good"><b>+9%</b></td><td class="r good">+6%</td><td>网页浏览要边找边调整。agent 之间能互通消息的去中心方式在四种里最高，比单 agent 略高</td></tr>
         <tr><th scope="row">Workbench</th><td class="r bad">−11%</td><td class="r bad">−1%</td><td class="r good"><b>+6%</b></td><td class="r bad">−1%</td><td>工具很多。集中和混合方式接近单 agent，去中心方式略高，独立方式明显更低</td></tr>
         <tr><th scope="row">PlanCraft</th><td class="r bad">−70%</td><td class="r bad">−50%</td><td class="r bad">−41%</td><td class="r bad"><b>−39%</b></td><td>一步接一步的规划。四种都比单 agent 差，其中混合方式降得最少</td></tr>
       </tbody>
     </table>
-    <figcaption>数字读自论文的图（图在<a href="sas_vs_mas.html#task">第一部分</a>），相对单 agent 的变化，每行最好的加粗。「怎么看」一栏整理自论文正文。</figcaption>
+    <figcaption>数字读自论文的图（图在<a href="sas_vs_mas.html#task">第一部分</a>），是每种方式的成绩相对单 agent 成绩的变化比例。每一行里成绩最好的一种方式用粗体标出。「怎么看」一栏整理自论文正文，其中的工具指 agent 可以调用的外部功能，例如搜索网页或运行代码。</figcaption>
   </figure>
-  <p>还有一点四行都成立：<mark>独立方式在这四个评测上都是四种里最差的</mark>。</p>
+  <p>还有一点，在表里的四行上都成立：<mark>独立方式在这四个评测上都是四种里最差的</mark>。</p>
   <p>论文最新版本加了两个评测，结果一个相同，一个相反。编程评测 SWE-bench Verified 上也是独立方式最差，相对单 agent 的变化是 −14.9%。命令行任务评测 Terminal-Bench 上，独立方式比单 agent 略高，是 +1.7%，集中方式低了 19.2%。所以「独立方式最差」只在六个评测里的五个上成立。</p>
-  <p>论文实现的独立方式没有任何核对，这可能是原因之一。但论文自己的统计分析没有证实这一点，见<a href="#price">上一节</a>里读错误放大系数的第二点提醒。</p>
+  <p>论文实现的独立方式没有任何核对，这可能是原因之一。但论文自己的统计分析没有证实这一点，见<a href="#price">每种方式的代价</a>一节里读错误放大系数的第二点提醒。</p>
 </section>
 
 <section class="sec" id="cost">
   <h2>成本</h2>
-  <p>这一节看实测的花费。下面的图把每种方式一次实验花的钱和它的成绩画在一起。</p>
-  {{fig 24 | 横轴是每次实验花的钱（美元），纵轴是成绩，三格分别是 OpenAI、Google 和 Anthropic 的模型。图片来源：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。}}
+  <p>这一节看实测的花费。下面的图把每种方式的美元成本和它的成绩画在一起。</p>
+  {{fig 24 | 横轴是成本，图上标的是每次实验花的钱，单位是美元。纵轴是成绩，三格分别是 OpenAI、Google 和 Anthropic 的模型。图片来源：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。}}
+  <p>横轴上的「每次实验」对应论文的 experiment，和前面讲 token 预算时的「每次试验」（trial）是两个不同的词。论文没有给实验下定义。论文一共比较了 260 种配置，一种配置是一个模型、一种方式和一个评测的组合，它别处把这 260 种配置也叫作 260 次实验。照此来读，一次实验很可能是用一个模型、一种方式把一个评测做完。</p>
+  <p>图注还写明成本经过了换算，怎样换算没有交代。所以本页只用图上的金额比较各种方式之间的高低，不解读金额本身的大小，核对的经过见<a href="#notes">资料说明</a>。</p>
   <p>关于成本，图上能读出三件事：</p>
   <ul>
     <li>三格里最贵的都是混合方式。</li>
-    <li>去中心方式和集中方式的成本接近，谁更贵三格并不一致：OpenAI 那一格去中心便宜一点，Google 那一格集中便宜一点，Anthropic 那一格几乎一样。</li>
+    <li>去中心方式和集中方式的成本接近。哪一种更贵，三格的结果不一样：OpenAI 那一格去中心便宜一点，Google 那一格集中便宜一点，Anthropic 那一格几乎一样。</li>
     <li>在 Google 和 Anthropic 两格里，独立方式比单 agent 还便宜。</li>
   </ul>
-  <p>四种多 agent 方式之间的成本顺序，和前面通信开销的顺序一致：独立最低，集中和去中心在中间，混合最高。独立方式在两格里比单 agent 还便宜，这一点通信开销解释不了，图上也看不出原因。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「单 agent 最便宜，swarm 最贵」和图对不上。</b>容易想当然的排法是，成本从低到高依次是单 agent、有 orchestrator 的系统、swarm。图上有两处和它不符。第一处，最贵的混合方式有 orchestrator。swarm 按严格的用法指去中心方式，它的成本和有 orchestrator 的集中方式接近。只有按 swarm 宽的用法把混合方式也算进去，「swarm 最贵」才和图对得上，两种用法见前面的<a href="#swarm">「去中心」的两种意思</a>一节。第二处，单 agent 并不总是最便宜，有两格里独立方式更便宜。</div></div>
+  <p>四种多 agent 方式之间的成本顺序，和实测表里通信开销的顺序一致：独立最低，集中和去中心在中间，混合最高。独立方式在两格里比单 agent 还便宜，这一点通信开销解释不了，图上也看不出原因。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>「单 agent 最便宜，swarm 最贵」和图对不上。</b>容易想当然的排法是，成本从低到高依次是单 agent、有 orchestrator 的系统、swarm。图上有两处和它不符。第一处，最贵的混合方式有 orchestrator。swarm 按严格的用法指去中心方式，它的成本和有 orchestrator 的集中方式接近。只有按 swarm 泛指的用法把混合方式也算作 swarm，「swarm 最贵」才和图对得上，两种用法见前面的<a href="#swarm">「去中心」的两种意思</a>一节。第二处，单 agent 并不总是最便宜，有两格里独立方式更便宜。</div></div>
   <p>图上还能看到，花得多不一定成绩高。在 OpenAI 和 Anthropic 两格里，最贵的混合方式和便宜得多的单 agent 成绩差不多。成本居中的方式有时成绩最高：OpenAI 那一格里是去中心方式。所以不能按成本的高低推断成绩。选哪种方式是成本和成绩之间的取舍，要在自己的任务上量过才知道。</p>
 </section>
 
 <section class="sec" id="dylan">
   <h2>团队也可以按任务动态决定：DyLAN</h2>
-  <p>前面四种方式里，团队的组成是事先定好的。DyLAN（Liu 等，2023）让系统自己挑出该用哪些 agent。</p>
+  <p>前面四种方式讲的是 agent 之间的关系，没有讲团队里该用哪些 agent。DyLAN（Liu 等，2023）是一种按任务动态挑选 agent 组队的方法，它让系统自己挑出该用哪些 agent。</p>
   {{fig 25 | 左半边是团队优化，右半边是解决任务。图片来源：<a href="https://arxiv.org/pdf/2310.02170">arXiv 2310.02170</a>。}}
   <ul>
-    <li><b>先在几个问题上试运行，给每个 agent 算一个重要性分数。</b>试运行时 agent 一轮一轮地回答。算分分三步，论文把它们叫作传播、汇总和选择：
+    <li><b>先在几个问题上试运行，给每个 agent 算一个重要性分数。</b>试运行时 agent 一轮一轮地回答。重要性分数分三步算出来，论文把这三步叫作传播、汇总和选择：
       <ol>
         <li><b>传播。</b>每一轮里，每个 agent 给出自己的回答，同时给上一轮的各个回答打分，从 1 分到 5 分。一个 agent 打出的几个分数再换算成比例，加起来等于 1。</li>
-        <li><b>汇总。</b>从最后一轮往回，一轮一轮算出每个回答的贡献。在推理和决策类的任务上，最后一轮里答案和大家一致的那几个回答平分全部贡献。再往前，一个回答的贡献这样算：下一轮每个回答的贡献，乘以它给这个回答打的分，再加起来。所以一个回答被下一轮贡献大的回答打的分越高，它的贡献越大。</li>
+        <li><b>汇总。</b>从最后一轮往回，一轮一轮算出每个回答的贡献。在推理和决策类的任务上，最后一轮里答案一致的那几个回答平分全部贡献。举个例子：假设最后一轮有四个回答，其中三个给出同一个答案，按这条规则，这三个回答各得三分之一的贡献。再往前，一个回答的贡献由下一轮的回答来定。下一轮的每个回答都给它打过分：把下一轮每个回答自己的贡献，乘以那个回答给它打的分，再把这些乘积加起来，就是它的贡献。所以给一个回答打高分的那些下一轮回答贡献越大，这个回答的贡献也越大。</li>
         <li><b>选择。</b>把每个 agent 在各轮的贡献加起来，就是它的重要性分数。分数最高的几个 agent 留下，组成团队。</li>
       </ol></li>
     <li><b>解决新任务时还能中途精简。</b>用一个大语言模型给每个回答的用处打分，去掉用处小的 agent。三分之二的 agent 答案一致时提前停止。</li>
   </ul>
   {{figs 26 27 | 左：算重要性分数的三步（传播、汇总、选择）。右：解决新任务时中途去掉 agent。图片来源：<a href="https://arxiv.org/pdf/2310.02170">arXiv 2310.02170</a>。}}
-  <p>DyLAN 建立在「给每个 agent 一个角色」的思路上，论文里候选的 agent 是医生、律师、程序员、数学家这样的角色。放在这里，是用它说明团队的组成可以由系统按任务来定。负责统筹的模型变强以后，这样专门的选人算法是否还有必要，目前没有定论。</p>
+  <p>DyLAN 建立在「给每个 agent 一个角色」的思路上，论文里候选的 agent 是医生、律师、程序员、数学家这样的角色。本页介绍 DyLAN，是用它说明团队的组成可以由系统按任务来定。orchestrator 的能力变强以后，这样专门的选人算法可能不那么必要了，这是一个判断，没有实验数据。可以这样推想：到那时，挑选 agent 的事 orchestrator 很可能自己就能做。同样的挑选办法也许还能用在别的需要挑选的地方。</p>
   <p>论文在决策类任务上报告了结果。任务用的是 WebShop，它是一个购物网站环境，agent 要按顾客的一句要求找到对应的商品，论文取了其中 50 个测试环境。对照的方法里成功率最高的有两种。Reflexion 的做法是让 agent 反思前面的尝试之后再试。BOLAA 是另一种多 agent 方法。</p>
   <figure class="plate">
     <table class="tbl">
@@ -196,7 +214,7 @@
         <tr><th scope="row">BOLAA</th><td class="r">40.0%</td><td class="r">32.40</td></tr>
       </tbody>
     </table>
-    <figcaption>WebShop 的 50 个测试环境上的结果，数字来自 DyLAN 论文。</figcaption>
+    <figcaption>WebShop 的 50 个测试环境上的结果，数字来自 DyLAN 论文。调用 API 一次，就是向模型发一次请求。</figcaption>
   </figure>
   <p>也就是说，DyLAN 的成功率略高，调用次数和 Reflexion 相当，比 BOLAA 少。论文说明，调用次数主要统计的是解决任务的阶段，前面挑选团队那一步的开销没有算在里面。</p>
   <p class="next">指挥关系定了以后，下一个问题是<b>通信</b>：<a href="communication.html">谁看到什么</a>。</p>
@@ -206,8 +224,18 @@
   <h2>资料说明</h2>
   <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
   <ul>
-    <li><b>每 1000 token 的成功数怎么算。</b>Kim 等人论文的 Table 5 里，这个指标只有一行数字，行名是 Success/1K tokens。论文把它叫作 token 效率，全文没有找到它的算法。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
-    <li><b>通信开销按什么算。</b>Kim 等人的论文有一处把通信开销描述成每个任务里 agent 之间交换消息的次数，给出的算式用的是轮数：多 agent 方式的轮数减去单 agent 的轮数，再除以单 agent 的轮数。Table 5 里的数值和按轮数算出来的一致，本页按算式来解释。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
-    <li><b>去中心方式最后怎样定出答案。</b>Kim 等人论文的 Table 5 只有数字，没有写各种方式怎样合成最终答案。本页那张表里去中心方式的合成办法取自同一篇论文的 Table 2。这张表的脚注写明辩论的轮数是事先定的参数。表里有一行给每种方式配了一张小示意图，去中心一列的那张示意图上标着多数票（Majority Voting）。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>每 1000 token 的成功数怎么算。</b>Kim 等人论文的 Table 5 里，这个指标只有一行数字，行名是 Success/1K tokens。论文把它叫作 token 效率，全文没有找到它的算法。论文写明每次试验的推理 token 预算平均是 4800 个，按字面读出来的「每 1000 个 token 做成 67.7 个任务」和这个预算对不上。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>错误放大系数的定义。</b>Kim 等人的论文没有给出这个系数的算式，17.2 是哪两个量相除，从论文里查不到。论文对它有两处描述。定义里说，它衡量 agent 之间的协调失误带来了多少额外的计算工作，是分析运行记录里的 token 估算出来的。讲结果时说，独立方式把运行记录里的错误放大到了单 agent 的 17.2 倍。独立方式的 agent 互不交流，定义里的「协调失误」在它身上对不上，本页按两处描述合起来的意思来解释。论文解释独立方式的系数为什么最高时，说的是单个 agent 的错误直接进入合并后的输出，没有说额外的计算工作出在哪里。论文把按任务算的另一个指标也叫作错误放大系数，本页为了区分，把它叫作错误率之比。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>错误率之比的范围。</b>Kim 等人的论文把错误率定义为 1 减去成功率，错误率之比是多 agent 方式的错误率除以单 agent 的错误率。论文正文写这个比值大约是 1.1 到 1.3。Table 5 列了五种做法的成功率：单 agent 是 0.466，独立方式是 0.370，去中心方式是 0.477，集中方式是 0.463，混合方式是 0.452。按这一行的成功率照定义来算，独立方式的比值约是 1.18，混合方式约是 1.03，集中方式约是 1.01，去中心方式约是 0.98，范围是 0.98 到 1.18。1.1 到 1.3 是在哪些评测、哪些模型上算的，论文没有写，两个范围为什么不同也就查不出来。两个范围都在 1 上下，都远小于 4 到 17 的错误放大系数，所以正文里「两组数差得很远」的说法按哪一个范围读都成立。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>一轮指什么。</b>Kim 等人的论文只用一个括注说明轮数：推理和回应的往返（reasoning-response exchanges）。回应来自谁，论文没有写。论文讲 Minecraft 合成任务时列出了单 agent 的三轮，每一轮都是一次工具调用和它返回的结果，本页的「推理一次、调用一次工具并拿到工具返回的结果」取自这个例子。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>通信开销按什么算。</b>Kim 等人的论文有一处把通信开销描述成每个任务里 agent 之间交换消息的次数，给出的算式用的是轮数：多 agent 方式的轮数减去单 agent 的轮数，再除以单 agent 的轮数。Table 5 里的数值和按轮数算出来的一致，本页按算式来解释。Table 2 的脚注写明，那张表里通信开销一行数的是 agent 之间交换消息的次数，本页的大 O 表把这一行改叫交换消息的次数。这一行里独立方式写的是 1，论文没有解释。论文定义独立方式时写明 agent 只和汇总者有联系，agent 之间不交流，同一张表里独立方式的模型调用次数也只比各个 agent 自己的调用多出固定的一项 O(1)。本页据此把 1 读成最后汇总的那一步。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>1.6 到 6.2 倍是什么的倍数。</b>Kim 等人的论文在讲开销的一段里写，58% 到 515% 的开销相当于在成绩相同的条件下，token 预算是单 agent 的 1.6 到 6.2 倍。这句话里的 token 预算，意思是达到相同的成绩要用多少 token，所以本页正文说论文把这个倍数当作 token 用量的倍数。这两个倍数和轮数之比一致：11.4 轮除以 7.2 轮约等于 1.6，44.3 轮除以 7.2 轮约等于 6.2，论文另一处也写混合方式用的轮数是单 agent 的 6.2 倍。轮数怎样换算成 token、「成绩相同」的条件怎样得到，论文没有说明。Table 5 里五种做法的成功率并不相同，表注又写明各种做法的推理 token 总量调成了一样多。所以本页把 1.6 到 6.2 倍读成轮数的倍数。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>预算相同和实测的用量不同。</b>Kim 等人的论文有四处说各种做法的计算预算是一样的。引言里说，任务提示词、工具和计算预算在所有配置里都相同。实验设置里说，最大的总迭代次数调成了一样多。讲结果时说，计算预算是固定的，多 agent 方式和单 agent 的 token 总量相同。Table 5 的表注说，推理 token 的总量相同，每次试验平均 4800 个。同一张 Table 5 里，五种做法平均用的轮数从 7.2 到 44.3 不等，每 1000 token 的成功数从 67.7 到 13.6 不等，成本图上每次实验的美元成本也不相同。4800 个是上限还是实际的用量，推理 token 和全部 token 有什么区别，论文都没有写明。所以本页把「预算相同」读成论文对实验条件的说明，各种方式实际的开销以实测的轮数和美元成本为准。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>每个 agent 的推理次数上限。</b>Kim 等人的论文在实验设置里写明，为了公平，多 agent 方式和单 agent 的最大总迭代次数调成了一样多：多 agent 方式里每个 agent 的迭代次数更少，单 agent 相应地得到更多的推理轮数。Table 2 的字母 k、r、d、p 只在脚注里各有一个名字，没有进一步的定义。论文介绍各种方式时写，集中方式由一个 orchestrator 在 n 个子 agent 之间协调 r 轮，调用次数是 O(rnk)。去中心方式的 agent 依次辩论 d 轮，调用次数是 O(dnk)。本页据此把 k 读成每个 agent 每一轮最多推理的次数。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>各种方式用了几个 agent。</b>Kim 等人的论文在附录讲实现的一节里写明，独立方式用 3 个 agent，集中方式用 1 个 orchestrator 和 3 个 worker，去中心方式用 3 个 agent，混合方式只写了它在集中方式上加了有限的 agent 之间的交流，没有给出 agent 的数量。正文讲轮数时也写，3 个 agent 时独立方式平均用 11.4 轮，去中心方式平均用 26.1 轮。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>迭代次数的上限。</b>Kim 等人的论文在实验设置里写，多 agent 方式和单 agent 的最大总迭代次数调成了一样多。附录讲实现的一节给了具体的上限：单 agent 每个任务最多迭代 10 次。集中方式最多 5 轮，每个 agent 每一轮迭代 3 次。去中心方式辩论 3 轮，每一轮迭代 3 次。独立方式和混合方式没有写迭代次数。附录里的这些上限和「最大的总迭代次数调成了一样多」怎样对应，论文没有说明。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>成绩差别由哪些指标解释。</b>Kim 等人的论文讲回归分析的结果时写，各种方式之间的成绩差别更多由协调效率和开销这两个指标来解释。开销就是本页实测表里的通信开销。协调效率的算式是成功率除以一个倍数，这个倍数是这种方式的轮数除以单 agent 的轮数。Table 5 里有这一行，本页的实测表没有列。对独立方式，论文只写了一句：它成绩差是因为 agent 之间没有交流，各自重复犯错又没有机会纠正，这个影响已经包含在协调效率这个指标里。独立方式的开销最低而成绩最差，这一点论文没有再说明。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>成本图的横轴，以及「试验」和「实验」。</b>Kim 等人论文的成本图，横轴标的是 Cost / Experiment，图注写的是每次实验的成本（normalized cost per experiment），单位是美元。论文没有定义一次实验，normalized 指对成本做了什么换算也没有写明。论文讲结果时写「全部 260 次实验」（across all 260 experiments）。论文检验回归分析的结果时，每次留出一部分数据不参加分析，只用来检验。论文写，留出数据时按实验来分，也就是按配置来分（experiment-level holdout, splitting at the configuration level）。本页据此把一次实验读成一种配置。论文正文讲 token 预算和美元成本时用的词是每次试验（per trial），也没有定义。论文有一处写成功的试验和失败的试验（successful trials vs. failures），本页据此把一次试验读成把一个任务做一遍。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
+    <li><b>去中心方式最后怎样定出答案。</b>Kim 等人论文的 Table 5 只有数字，没有写各种方式怎样得出最终答案。本页那张表里去中心方式的办法取自同一篇论文的 Table 2。这张表的脚注写明辩论的轮数是事先定的参数。表里有一行给每种方式配了一张小示意图，去中心一列的那张示意图上标着多数票（Majority Voting）。出处：<a href="https://arxiv.org/abs/2512.08296">Kim 等，2026</a>。</li>
   </ul>
 </section>
