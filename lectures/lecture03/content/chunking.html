@@ -3,8 +3,8 @@
   <ul class="takeaways">
     <li>检索的基本单位是块（chunk）：把文档切成一段一段，每一段变成一个向量存进索引。检索器能找到的最小的东西就是一块，所以怎么切，决定了后面能找到什么。</li>
     <li>块太小，它的向量里没有背景。块太大，一个向量要同时代表很多话题。常见的大小是 100 到 500 个 token（模型处理文字的最小单位，大致是一个词或半个词），相邻的块重叠 10% 到 20%。</li>
-    <li>单独拿出来的一块，常常缺了「这是哪家公司、哪一年」这类背景。Contextual Retrieval 用语言模型给每一块补一两句背景。按 Anthropic 的测试，只看向量检索，相关的内容没有出现在前 20 个结果里的比例从 5.7% 降到 3.7%；再加上按词匹配的 BM25，降到 2.9%。</li>
-    <li>Late chunking 用另一种办法解决同一个问题：先让向量模型读完整篇文档，再按块取平均。它不需要调用语言模型，背景信息留在向量里。</li>
+    <li>单独拿出来的一块，常常缺了「这是哪家公司、哪一年」这类背景。Contextual Retrieval 用语言模型给每一块补一两句背景。按 Anthropic 的测试，只看向量检索，相关的内容没有出现在前 20 个结果里的比例从 5.7% 降到 3.7%。再加上按词匹配的 BM25，降到 2.9%。</li>
+    <li>Late chunking 用另一种办法解决同一个问题：先让向量模型读完整篇文档，得到每个 token 的向量，再把每一块范围内的 token 向量取平均，作为这一块的向量。它不需要调用语言模型，背景信息留在向量里。</li>
   </ul>
 </section>
 
@@ -25,7 +25,9 @@
 
 <section class="sec" id="embeddings">
   <h2>向量表示：一个向量代表多大的东西</h2>
-  <p>embedding（向量表示）是把一段内容变成一串固定个数的数字。训练得好的向量模型，会让意思相近的内容得到相近的向量。不同的向量模型，一个向量代表的东西大小不同。</p>
+  <p>embedding（向量表示）是把一段内容变成一串固定个数的数字。做这件事的模型，这一页叫向量模型。其他几部分讲模型的结构时把它叫作编码器，指的是同一种东西。训练得好的向量模型，会让意思相近的内容得到相近的向量。</p>
+  <p>检索需要两样东西：<mark>每一块有一个固定维数的向量，再加一个衡量相似度的办法</mark>。相似度通常用余弦相似度（两个向量夹角的余弦）或内积（两个向量对应位置上的数字相乘，再全部加起来），这两种简单的办法效果已经很好。</p>
+  <p>切块之前要先知道一个向量代表多大的东西，因为不同的向量模型不一样。下表列了五类。检索用的主要是第三行的段落向量：一个向量代表一整块文字，所以块切得越大，一个向量要代表的内容就越多。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">类型</th><th scope="col">例子</th><th scope="col">一个向量代表什么</th><th scope="col">说明</th></tr></thead>
@@ -39,8 +41,7 @@
     </table>
     <figcaption>括号里是各自论文发表的年份。</figcaption>
   </figure>
-  <p>列出这张表是想说明一件事：RAG 的做法不限于文字。只要一种数据能变成向量，就可以用同一套流程去检索它。</p>
-  <p>检索需要两样东西：<mark>每一块有一个固定维数的向量，再加一个衡量相似度的办法</mark>。相似度通常用余弦相似度（两个向量夹角的余弦）或内积，这两种简单的办法效果已经很好。</p>
+  <p>表的最后两行说明 RAG 的做法不限于文字。只要一种数据能变成向量，就可以用同一套流程去检索它。图结构的数据上怎么检索，见<a href="structure.html#graph-variants">第三部分</a>。</p>
 </section>
 
 <section class="sec" id="strategies">
@@ -52,18 +53,20 @@
       <tbody>
         <tr><th scope="row">固定大小<br><span class="muted small">Fixed-size chunking</span></th><td>按 token 数切，比如每块 100 到 500 个 token。相邻的块之间留 10% 到 20% 的重叠</td><td>块太小，向量里没有背景。块太大，一个向量要把很多话题平均在一起。重叠是为了让落在边界上的句子至少在一块里是完整的</td></tr>
         <tr><th scope="row">按语义的边界<br><span class="muted small">Semantic chunking</span></th><td>按文字本身的逻辑边界切：一句话一块，一段一块，或者一节一块</td><td>块的长短不一</td></tr>
-        <tr><th scope="row">带上附加信息<br><span class="muted small">Context-enriched chunking</span></th><td>每一块另外带上元数据或摘要，比如它属于哪篇文档、哪一节</td><td>附加的信息从哪里来。下面的 Contextual Retrieval 是这一类里的一种做法</td></tr>
+        <tr><th scope="row">带上附加信息<br><span class="muted small">Context-enriched chunking</span></th><td>每一块另外带上元数据或摘要，比如它属于哪篇文档、哪一节</td><td>要先想好附加的信息从哪里来。下面的 Contextual Retrieval 是这一类里的一种做法</td></tr>
         <tr><th scope="row">让语言模型来切<br><span class="muted small">AI-driven dynamic chunking</span></th><td>让语言模型读文档，找出话题自然转换的位置，在那里切开</td><td>切出来的块语义最完整，但每篇文档都要调用语言模型，花费最高</td></tr>
       </tbody>
     </table>
     <figcaption>这四种办法的名称来自 <a href="https://community.databricks.com/t5/technical-blog/the-ultimate-guide-to-chunking-strategies-for-rag-applications/ba-p/113089">Databricks 社区的一篇切块指南</a>。指南里还列了另外两种：按分隔符从粗到细逐级切分的递归切块，和按内容的疏密调整块大小的自适应切块。</figcaption>
   </figure>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>块的大小和重叠的比例是经验数字。</b>上面那篇指南的建议是：一般的文字每块 200 到 500 个 token，重叠 10% 到 20%；代码和技术性很强的内容每块 100 到 200 个 token，重叠 15% 到 25%。指南没有给出实验数据。重叠到底有没有用，也有相反的证据：late chunking 的论文（见<a href="#late">后面一节</a>）做过一个每块 256 个 token、相邻的块重叠 16 个 token 的实验，结论是没有看到重叠带来明显的好处。合适的大小和重叠要在自己的数据上试。</div></div>
+  <p>四种办法怎么选，这里按表里的说明和下一节的例子给一个判断。文档有标题、段落这类现成的边界时，先按语义的边界切：下一节的例子里，这样切出来的一块就能把问题答全。文档没有可用的边界时，按固定大小切，要不要加重叠、加多少，在自己的数据上试。切出来的块缺少背景、和查询对不上时，再给每一块带上附加信息，后面的 Contextual Retrieval 就是这样做的。让语言模型来切的花费最高，前面几种都不够用时再考虑。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>块的大小和重叠的比例是经验数字。</b>上面那篇指南建议，一般的文字每块 200 到 500 个 token，重叠 10% 到 20%。代码和技术性很强的内容每块 100 到 200 个 token，重叠 15% 到 25%。指南没有给出实验数据，合适的大小和重叠要在自己的数据上试。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>重叠有没有用，有相反的证据。</b>late chunking 的论文（见<a href="#late">后面一节</a>）做过一个每块 256 个 token、相邻的块重叠 16 个 token 的实验，结论是没有看到重叠带来明显的好处。</div></div>
 </section>
 
 <section class="sec" id="splits">
   <h2>同一段文字，三种切法</h2>
-  <p>用一个例子看切法的差别。原文是一门课的评分规定，一共三句话：项目的中期报告在第 6 周周四晚上 11:59 截止；中期报告不能使用延期天数；最终报告在第 10 周截止。</p>
+  <p>用一个例子看切法的差别。原文是一门课的评分规定，一共三句话。第一句说项目的中期报告在第 6 周周四晚上 11:59 截止，第二句说中期报告不能使用延期天数，第三句说最终报告在第 10 周截止。下面比较三种切法：固定大小，固定大小加重叠，按标题切。按标题切是上一节表里「按语义的边界」的一种，一节一块。</p>
   {{fig 25 | 最上面是原文。下面三列是三种切法得到的块。图上的切法是示意，实际的块要长得多。}}
   <figure class="plate">
     <table class="tbl">
@@ -75,7 +78,7 @@
       </tbody>
     </table>
   </figure>
-  <p>这个例子说明，切块决定了检索单位最底层的样子。后面的向量模型和检索器再好，也只能在切好的块里找。</p>
+  <p>这个例子里，同一个问题能不能被一块答全，取决于怎么切。后面的向量模型和检索器再好，也只能在切好的块里找。</p>
 </section>
 
 <section class="sec" id="lost-context">
@@ -88,17 +91,18 @@
 
 <section class="sec" id="contextual">
   <h2>Contextual Retrieval：让语言模型给每一块写背景</h2>
-  <p>Contextual Retrieval 是 Anthropic 在 2024 年 9 月提出的做法。它在建索引时多做一步：对每一块，把整篇文档和这一块一起交给语言模型，让它写一小段说明这一块在文档里位置的文字，再把这段文字加在块的前面。</p>
-  {{fig 27 | 建索引的流程。左上是文档库，文档切成块之后，每一块都跑一次 prompt。得到的「背景加原块」分两路：上面一路经过向量模型存进向量数据库，下面一路存进按词匹配的索引。右上角的框说明两路的分工。图片来源：<a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic，2024</a>。}}
+  <p>Contextual Retrieval 是 Anthropic 在 2024 年 9 月提出的做法。它在建索引时多做一步：对每一块，把整篇文档和这一块一起交给语言模型，让它写一小段背景文字，交代这一块在整篇文档里讲的是什么，再把这段文字加在块的前面。</p>
+  {{fig 27 | 建索引的流程。左上是文档库，文档切成块之后，每一块都用同一条 prompt 调用一次语言模型。得到的「背景加原块」分两路：上面一路经过向量模型存进向量数据库，下面一路存进按词匹配的索引。右上角的框说明两路的分工。图片来源：<a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic，2024</a>。}}
   <p>流程分三步。</p>
   <ol>
-    <li><b>写背景。</b>每一块跑一次 prompt，模型返回通常 50 到 100 个 token 的背景文字。</li>
+    <li><b>写背景。</b>对每一块，用同一条 prompt 调用一次语言模型，模型通常返回 50 到 100 个 token 的背景文字。</li>
     <li><b>拼接。</b>把背景文字加在原块的前面。</li>
     <li><b>建两个索引。</b>拼好的块一方面交给向量模型，得到向量，存进向量数据库；另一方面交给 BM25（一种按词匹配打分的传统算法，见<a href="retrievers.html#bm25">第四部分</a>），建一个按词查找的索引。</li>
   </ol>
-  <p>为什么要建两个索引？因为两种检索擅长的东西不同。向量能对上意思相近而用词不同的内容。BM25 能对上一字不差的东西，比如数字、编号、专有名词。Anthropic 举的例子是：用户在技术支持的资料库里搜「错误码 TS-999」，向量检索可能找回一堆泛泛讲错误码的内容，却漏掉恰好含有 TS-999 的那一条，BM25 则会直接按这串字符去找。查询时两个索引都查，再把两份结果合并。这种做法叫混合检索，<a href="retrievers.html#hybrid">第四部分</a>会讲怎么合并。</p>
+  <p>建两个索引，是因为两种检索擅长的东西不同。向量能对上意思相近而用词不同的内容。BM25 能对上一字不差的东西，比如数字、编号、专有名词。Anthropic 举的例子是：用户在技术支持的资料库里搜「错误码 TS-999」，向量检索可能找回一堆泛泛讲错误码的内容，却漏掉恰好含有 TS-999 的那一条，BM25 则会直接按这串字符去找。</p>
+  <p>查询时两个索引都查，再把两份结果合并。这种做法叫混合检索，<a href="retrievers.html#hybrid">第四部分</a>会讲怎么合并。</p>
   <h3>用的 prompt</h3>
-  <p>写背景这一步没有什么复杂的技术，就是一条 prompt：</p>
+  <p>写背景这一步靠的是下面这一条 prompt：</p>
   <pre class="code"><code>&lt;document&gt;
 &#123;&#123;WHOLE_DOCUMENT&#125;&#125;
 &lt;/document&gt;
@@ -109,11 +113,12 @@ Here is the chunk we want to situate within the whole document
 Please give a short succinct context to situate this chunk within
 the overall document for the purposes of improving search retrieval
 of the chunk. Answer only with the succinct context and nothing else.</code></pre>
-  <p>两处花括号分别换成整篇文档和当前这一块。后面的要求是：写一段简短的背景，说明这一块在整篇文档里的位置，用来改进对这一块的检索；只输出这段背景，别的都不要写。</p>
+  <p>两处花括号分别换成整篇文档和当前这一块。后面的要求有两条。第一条是写一段简短的背景，交代这一块在整篇文档里讲的是什么，用来改进对这一块的检索。第二条是只输出这段背景，别的都不要写。</p>
 </section>
 
 <section class="sec" id="contextual-results">
   <h2>效果和花费</h2>
+  <p>补背景有多大用，Anthropic 用检索失败率来衡量：相关的内容没有出现在前 20 个结果里的比例，越低越好。</p>
   {{fig 29 | 纵轴是相关的内容没有出现在前 20 个结果里的比例，越低越好，定义见下面的蓝色框。左边两根柱子是普通的检索，右边两根是加了背景之后的检索。图片来源：<a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic，2024</a>。}}
   <figure class="plate">
     <table class="tbl">
@@ -126,14 +131,15 @@ of the chunk. Answer only with the succinct context and nothing else.</code></pr
         <tr><th scope="row">上一行再加重排</th><td class="r">1.9%</td><td class="r">67%</td></tr>
       </tbody>
     </table>
-    <figcaption>失败率是 Anthropic 在代码库、小说、arXiv 论文、科学论文几类资料上的平均值，用的是他们测过的向量模型里效果最好的一个。35%、49%、67% 是原文给的数。约 12% 是按图上的 5.0% 算出来的，原文没有写。最后一行不在图上，来自同一篇文章的后半部分，重排见<a href="rerank.html#pipeline">第五部分</a>。</figcaption>
+    <figcaption>失败率是 Anthropic 在代码库、小说、arXiv 论文、科学论文几类资料上的平均值，用的是他们测过的向量模型里效果最好的一个。最后一行不在配图上，来自同一篇文章的后半部分。重排是再用一个更准的模型给候选的块重新排序，细节见<a href="rerank.html#pipeline">第五部分</a>。</figcaption>
   </figure>
-  <p>读这张表有两点。第一，补背景带来的改进比加 BM25 大：只加 BM25，失败率从 5.7% 降到 5.0%；只补背景，降到 3.7%。第二，两者可以叠加：在这组测试里，不管补没补背景，向量和 BM25 一起用都比只用向量好。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「检索失败率」量的是什么。</b>Anthropic 的定义是 1 减去 recall@20：所有相关的内容里，没有出现在前 20 个结果中的比例。它和<a href="retrievers.html#metrics">第四部分</a>的 Failed@k（前 k 个结果里一个相关的都没有的查询所占的比例）在每个查询只有一块相关内容时是同一个数。文章附录里的例子，每个查询都只列了一块标准内容；是否所有查询都是这样，原文没有写明。</div></div>
+  <p>读这张表有两点。第一，补背景带来的改进比加 BM25 大：只加 BM25，失败率从 5.7% 降到 5.0%。只补背景，降到 3.7%。第二，两者可以叠加：在这组测试里，不管补没补背景，向量和 BM25 一起用都比只用向量好。</p>
+  <p>同一篇文章里还有两条和这组测试有关的经验。在他们的测试里，交给模型 20 块比 10 块或 5 块效果好。在他们测过的向量模型里，Gemini 和 Voyage 的效果特别好。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>「检索失败率」衡量的是什么。</b>Anthropic 的定义是 1 减去 recall@20：所有相关的内容里，没有出现在前 20 个结果中的比例。<a href="retrievers.html#metrics">第四部分</a>有一个名字相近的指标 Failed@k，衡量的是前 k 个结果里一个相关的都没有的查询所占的比例。每个查询只有一块相关内容时，这两个指标是同一个数。</div></div>
   <h3>花费</h3>
   <p>这个办法的代价在建索引的时候：每一块都要调用一次语言模型，而且每次都要把整篇文档读一遍。Anthropic 给的估算是，在用了 prompt 缓存（同一篇文档只需要完整处理一次，之后的调用按低得多的价格计费）的前提下，每 100 万个 token 的文档，生成全部背景文字的一次性花费是 1.02 美元。这个数假设每块 800 个 token、每篇文档 8,000 个 token、每块生成 100 个 token 的背景。</p>
   <p>写背景用的语言模型需要有一定的能力，但不需要是最强的。实际做的时候，要在检索质量、模型的价格和速度之间权衡，通常会选一个小而够用的模型。Anthropic 的实验用的是 Claude 3 Haiku，是 Claude 3 这一代里最小的型号。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>资料很少的时候可以不检索。</b>同一篇文章开头有一个提醒：如果整个知识库不到 20 万个 token（大约 500 页），可以把它全部放进 prompt，不需要 RAG。知识库比这更大、放不进模型一次能读的长度时，才需要检索。文章里另外两条经验：在他们的测试里，交给模型 20 块比 10 块或 5 块效果好；Gemini 和 Voyage 的向量模型效果特别好。出处：<a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic，2024</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>资料很少的时候可以不检索。</b>同一篇文章开头有一个提醒：如果整个知识库不到 20 万个 token（大约 500 页），可以把它全部放进 prompt，不需要 RAG。知识库比这更大、放不进模型一次能读的长度时，才需要检索。出处：<a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic，2024</a>。</div></div>
 </section>
 
 <section class="sec" id="late">
@@ -150,11 +156,13 @@ of the chunk. Answer only with the succinct context and nothing else.</code></pr
       </tbody>
     </table>
   </figure>
-  <p>论文里的例子是一篇讲柏林的维基百科文章。第一句有「柏林」这个词，后面的句子只说「这座城市」「它的」。通常的切块下，后面这些句子的向量和「柏林」这个查询的相似度很低。Late chunking 下，模型在读「这座城市」时已经看到了前面的「柏林」，这些句子的向量就带上了柏林的信息。名字里的 late 指的是切块这一步被推迟到了向量模型之后、取平均之前。</p>
+  <p>名字里的 late 指的是切块这一步被推迟了：它排在向量模型之后、取平均之前。</p>
+  <p>论文里的例子是一篇讲柏林的维基百科文章。第一句有「柏林」这个词，后面的句子只说「这座城市」「它的」。通常的切块下，后面这些句子的向量和「柏林」这个查询的相似度很低。Late chunking 下，模型在读「这座城市」时已经看到了前面的「柏林」，这些句子的向量就带上了柏林的信息。</p>
   <p>这个办法有一个前提：向量模型能一次读完很长的文字。论文用的模型一次最多能读 8,192 个 token，按论文的说法大约相当于十页普通的文字。文档比这还长时，论文给了一个扩展的做法，叫 long late chunking：把文档分成几个大段，每个大段内部做 late chunking，相邻的大段之间留一些重叠。</p>
   <h3>效果</h3>
+  <p>论文用两个实验测了 late chunking 的效果，配图的上半部分和下半部分各是一个。</p>
   {{fig 31 | 上面的表：四个检索数据集、三个向量模型，按两种切法分别比较通常的切块（Naive）和 late chunking（Late），数字是 nDCG@10，越高越好。下面的图：三个长文档数据集上，块的大小从 8 个 token 到 512 个 token 时两种做法的 nDCG@10，蓝色是通常的切块，绿色是 late chunking。图片来源：<a href="https://arxiv.org/abs/2409.04701">Günther 等，2024</a>。}}
-  <p>nDCG@10 是一个衡量前 10 个结果排得好不好的指标，满分是 100%，定义见<a href="retrievers.html#metrics">第四部分</a>。上面的表里，四个数据集、三个模型的平均值是这样的：</p>
+  <p>nDCG@10 是一个衡量前 10 个结果排得好不好的指标，满分是 100%，定义见<a href="retrievers.html#metrics">第四部分</a>。配图上半部分的表里，四个数据集、三个模型的平均值是这样的：</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">切法</th><th scope="col" class="r">通常的切块</th><th scope="col" class="r">Late chunking</th><th scope="col" class="r">差</th></tr></thead>
@@ -165,12 +173,16 @@ of the chunk. Answer only with the succinct context and nothing else.</code></pr
     </table>
     <figcaption>单位是 nDCG@10 的百分数，12 组结果的平均。</figcaption>
   </figure>
-  <p>平均的提高不到 2 个百分点。下面的柱状图里有一个更值得注意的趋势：<mark>块越小，late chunking 的好处越大</mark>。在 SummScreenFD 和 QMSum 两个数据集上，每块只有 8 个 token 时，绿色的柱子比蓝色的高出一大截；块增大到 512 个 token 时，两者的差距缩小到几个百分点以内。原因很直接：块本身已经很大时，它自己就带着不少背景，全文能补充的不多；块很小时，它几乎全靠全文来说明自己在讲什么。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>下面的图和上面的表是两个实验。</b>表是在四个常用的检索数据集上做的，里面的文档大多不长。图是在三个文档很长的数据集上做的，用的是 long late chunking，配图顶部标题里的 Long Late Chunking 指的是柱状图这个实验。论文另有一个把长文档截断到 8,192 个 token 的实验，那里出现过相反的情况：在其中几个阅读理解数据集上，块很大时通常的切块更好，论文没有给出原因。在两个人工构造的数据集上，late chunking 没有帮助。论文对这两个数据集的解释是：它们是把一小段相关的内容放进一大篇无关的文字里构造出来的，全文提供的背景和要找的内容没有关系。</div></div>
+  <p>按这张表，late chunking 平均的提高不到 2 个百分点。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>配图里的表和柱状图是两个实验。</b>表是在四个常用的检索数据集上做的，里面的文档大多不长。柱状图是在三个文档很长的数据集上做的，用的是 long late chunking。配图顶部标题里的 Long Late Chunking 指的是柱状图这个实验。</div></div>
+  <p>配图下半部分的柱状图里有一个更值得注意的趋势：<mark>块越小，late chunking 的好处越大</mark>。在 SummScreenFD 和 QMSum 两个数据集上，每块只有 8 个 token 时，late chunking（绿色的柱子）的 nDCG@10 比通常的切块（蓝色的柱子）高出将近 30 个百分点，这是按柱子的高度估出来的。块增大到 512 个 token 时，两者的差距缩小到几个百分点以内。</p>
+  <p>原因很直接。块本身已经很大时，它自己就带着不少背景，全文能补充的不多。块很小时，它几乎全靠全文来说明自己在讲什么。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>也有 late chunking 没有占优的情况。</b>论文另有一个把长文档截断到 8,192 个 token 的实验，里面有两种这样的情况。第一种出现在其中几个阅读理解数据集上：块很大时通常的切块更好，论文没有给出原因。第二种出现在两个人工构造的数据集上：late chunking 没有帮助。论文对第二种的解释是，这两个数据集是把一小段相关的内容放进一大篇无关的文字里构造出来的，全文提供的背景和要找的内容没有关系。</div></div>
 </section>
 
 <section class="sec" id="compare">
   <h2>两种补背景的办法怎么选</h2>
+  <p>两种办法都能把背景补回来。下表逐项比较。按表里的差别，选哪一种主要看两件事：建索引时愿不愿意为每一块调用一次语言模型，以及系统里有没有按词匹配的索引。这两件事在表的第二行和第四行。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">Contextual Retrieval</th><th scope="col">Late chunking</th></tr></thead>
@@ -178,11 +190,34 @@ of the chunk. Answer only with the succinct context and nothing else.</code></pr
         <tr><th scope="row">背景放在哪里</th><td>写成文字，加在块的前面</td><td>留在向量里，块的文字不变</td></tr>
         <tr><th scope="row">建索引时的花费</th><td>每一块调用一次语言模型，每块多出 50 到 100 个 token</td><td>不调用语言模型，块里不增加 token</td></tr>
         <tr><th scope="row">对向量模型的要求</th><td>没有特别的要求</td><td>要能一次读很长的文字，并且用取平均的方式得到向量</td></tr>
-        <tr><th scope="row">按词匹配的索引能不能受益</th><td>能。补上的文字里有公司名、年份这些词，BM25 可以直接匹配</td><td>可以这样理解：不能。块的文字没有变，按词匹配的索引里没有多出任何词</td></tr>
+        <tr><th scope="row">按词匹配的索引能不能受益</th><td>能。补上的文字里有公司名、年份这些词，BM25 可以直接匹配</td><td>按原理推断，不能。块的文字没有变，按词匹配的索引里没有多出任何词</td></tr>
       </tbody>
     </table>
     <figcaption>前三行来自两份材料各自的说明。最后一行右边一格是根据两种做法的原理作出的推断，late chunking 的论文没有做这项比较。</figcaption>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>论文里的一个小规模对比。</b>Late chunking 的论文拿上面 ACME 公司的例子，把两种办法放在一起比过。它把一份虚构的财务文件切成五句话，查询是「ACME 公司 2023 年第二季度的收入增长是多少」，看查询和「收入比上一季度增长了 3%」这一句的余弦相似度。通常的切块是 0.6343，late chunking 是 0.8516，按 Anthropic 的办法补上背景再编码是 0.8590。两种办法都把这一句排到了五句里的第一位，通常的切块没有做到。这只是一个例子，论文也说明它是小规模的实验。出处：<a href="https://arxiv.org/abs/2409.04701">Günther 等，2024</a>，第 4.5 节。</div></div>
+  <p>按表里的差别，这一页的判断如下。系统同时用向量检索和 BM25 时，先考虑 Contextual Retrieval：它补上的是文字，两个索引都能用上，<a href="#contextual-results">「效果和花费」一节</a>的表里失败率最低的两行也都用了补过背景的 BM25。代价是建索引时每一块都要调用一次语言模型。系统只用向量检索，向量模型又能一次读很长的文字时，可以用 late chunking：它不调用语言模型，块的文字也不变长。</p>
+  <p>Late chunking 的论文拿上面 ACME 公司的例子，把两种办法放在一起比过一次。它把一份虚构的财务文件切成五句话，查询是「ACME 公司 2023 年第二季度的收入增长是多少」，看查询和「收入比上一季度增长了 3%」这一句的余弦相似度。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">做法</th><th scope="col" class="r">查询和这一句的余弦相似度</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">通常的切块</th><td class="r">0.6343</td></tr>
+        <tr><th scope="row">Late chunking</th><td class="r">0.8516</td></tr>
+        <tr><th scope="row">按 Anthropic 的办法补上背景再编码</th><td class="r">0.8590</td></tr>
+      </tbody>
+    </table>
+    <figcaption>出处：<a href="https://arxiv.org/abs/2409.04701">Günther 等，2024</a>，第 4.5 节。</figcaption>
+  </figure>
+  <p>两种补背景的办法都把这一句排到了五句里的第一位，通常的切块没有做到。这只是一个例子，论文也说明它是小规模的实验。</p>
   <p>这一部分讲的办法都把文档看成一串前后相接的块。下一部分看另一类办法：<a href="structure.html">把块组织成树或图</a>，去回答任何单独一块都答不了的问题。</p>
+</section>
+
+<section class="sec" id="notes">
+  <h2>资料说明</h2>
+  <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
+  <ul>
+    <li><b>效果表里「相对降低」一列的来历。</b>35%、49%、67% 是原文给的数。约 12% 是按配图上的 5.7% 和 5.0% 算出来的，原文没有写。出处：<a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic，2024</a>。</li>
+    <li><b>Anthropic 的测试里每个查询有几块相关的内容。</b>文章附录里的例子，每个查询都只标了一块应该被找回来的内容。是否所有查询都是这样，原文没有写明。所以检索失败率和 Failed@k 在这组测试里是否完全相等，无法确认。</li>
+    <li><b>块很小时 late chunking 高出多少。</b>「将近 30 个百分点」是按柱状图上柱子的高度估出来的。每块 8 个 token 时，SummScreenFD 上通常的切块约 64%，late chunking 约 91%。QMSum 上两者约 33% 和 61%。出处：<a href="https://arxiv.org/abs/2409.04701">Günther 等，2024</a>，图 4。</li>
+  </ul>
 </section>

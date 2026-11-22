@@ -10,41 +10,55 @@
 
 <section class="sec" id="simple">
   <h2>保持简单</h2>
+  <p>这一讲的<a href="engineer.html#spectrum">第一部分</a>按控制流把系统排成了一条线，控制流指程序里「接下来执行哪一步」由谁决定。下面的图把这条线再画了一遍。图里说的编排（orchestration）指安排多个步骤按什么顺序执行、中途出错怎么办。</p>
   {{fig 124 | 按控制流划分的那条线。左端是单个模型，它只是更大系统里的一小部分。中间是 workflow，逻辑和编排写在程序里。右端是 agent，控制流由模型决定。}}
-  <p>这条线在<a href="engineer.html#spectrum">第一部分</a>出现过。选位置的原则是：<mark>从能解决问题的最简单的那一档开始，每增加一分复杂度都要有理由</mark>。</p>
+  <p>在这条线上选位置的原则是：<mark>从能解决问题的最简单的那一档开始，每增加一分复杂度都要有理由</mark>。下表是沿着这条线的三条建议。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">建议</th><th scope="col">什么时候适用</th><th scope="col">例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row">不一定要做 agent，有时 workflow 正合适</th><td>任务很具体，步骤可以事先写定。workflow 更可靠，出了问题也更容易查</td><td>「每封邮件里的日程都加到日历上」。前面三个版本的程序做的就是这件事</td></tr>
+        <tr><th scope="row">不一定要做 agent，有时 workflow 正合适</th><td>任务很具体，步骤可以事先写定。workflow 更可靠，出了问题也更容易查</td><td>「每封邮件里的日程都加到日历上」。这一讲用 DSPy、LangGraph、Temporal 各写了一遍的日历程序做的就是这件事</td></tr>
         <tr><th scope="row">真要做 agent，仔细想清楚给它哪些工具</th><td>任务是开放的，步骤没法事先列全</td><td>「帮我打理日历」。要做什么取决于用户每次说了什么</td></tr>
-        <tr><th scope="row">数据很多时，可以考虑把一个模型从头到尾训练好</th><td>任务是一个输入对应一个输出，而且有足够的标注数据。这时可以回到线的最左端，用一个专门微调过的模型代替多步的 workflow</td><td>从文档里提取信息。与其串起好几次模型调用，可以微调一个专做提取的模型</td></tr>
+        <tr><th scope="row">数据很多时，可以考虑微调一个模型，让它一步完成整个任务</th><td>任务是一个输入对应一个输出，而且有足够的标注数据。这时可以回到线的最左端，用一个专门微调过的模型代替多步的 workflow</td><td>从文档里提取信息。可以微调一个专做提取的模型，代替串起好几次模型调用的 workflow</td></tr>
       </tbody>
     </table>
-    <figcaption>具体回到哪一档，还取决于任务有多少步。</figcaption>
+    <figcaption>微调（fine-tune）指用自己的数据接着训练一个现成的模型。第三条建议是否适用，还要看任务本身，比如任务有多少步。</figcaption>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Anthropic 的同一条建议。</b>Anthropic 2024 年 12 月的文章 Building effective agents 写道：用语言模型做应用时，建议先找尽可能简单的方案，只在需要时才增加复杂度，这可能意味着根本不做 agent 式的系统。关于框架，它建议开发者先直接调用模型的 API，很多模式几行代码就能实现；如果用了框架，要确保理解底下的代码。出处：<a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>Anthropic 的同一条建议。</b>Anthropic 2024 年 12 月的文章 Building effective agents 写道：用语言模型做应用时，建议先找尽可能简单的方案，只在需要时才增加复杂度，这可能意味着根本不做 agent 式的系统。出处：<a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。</div></div>
 </section>
 
 <section class="sec" id="failures">
   <h2>让失败看得见、能恢复</h2>
   <p>长时间运行的系统一定会遇到失败。要做的是两件事：失败发生时能被看到，以及系统能自己从失败里恢复。</p>
+  <p>下表列出四条做法。右边一列的例子都在这一讲前面出现过：DSPy 和 LangGraph 是写程序用的框架，Temporal 管可靠性，MLflow、LangSmith、Langfuse 管可观测性（observability，能从外面看到系统内部每一步发生了什么），OpenHands 和 mini-SWE-agent 是两个开源的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序）。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">做法</th><th scope="col">这一讲里出现过的例子</th></tr></thead>
       <tbody>
         <tr><th scope="row">追踪模型调用、工具调用、状态变化和错误</th><td>DSPy 的 <code>inspect_history</code>；LangGraph agent 返回的消息历史；Temporal 的执行历史；MLflow、LangSmith、Langfuse 的 trace（一次请求从头到尾的完整记录）</td></tr>
-        <tr><th scope="row">设置超时、重试上限和执行预算</th><td>Temporal 里每个步骤 1 分钟的超时和最多 5 次执行；GEPA 大约 100 次度量调用的预算；<code>dspy.RLM</code> 的 <code>max_iters=8</code>；HarnessTax 的实验里每次运行最多 100 轮</td></tr>
+        <tr><th scope="row">设置超时、重试上限和执行预算</th><td>有四个例子，各有一个上限，列在紧接着的下一张表里</td></tr>
         <tr><th scope="row">把输出记下来，诊断失败的原因</th><td>OpenHands 把每一步存成事件；mini-SWE-agent 的消息列表本身就是完整的运行轨迹</td></tr>
         <tr><th scope="row">监控系统的状态</th><td>Langfuse 面板上的延迟、花费和评分的走势；OpenHands 的卡住检测</td></tr>
       </tbody>
     </table>
-    <figcaption>各个例子的细节在<a href="optimizer.html">第三</a>、<a href="langgraph.html">第四</a>、<a href="harness.html">第五</a>、<a href="orchestration.html">第六</a>部分。</figcaption>
+    <figcaption>各个例子的细节在<a href="dspy.html">第二</a>、<a href="optimizer.html">第三</a>、<a href="langgraph.html">第四</a>、<a href="harness.html">第五</a>、<a href="orchestration.html">第六</a>部分。</figcaption>
+  </figure>
+  <p>第二条做法的四个例子限制的东西各不相同。先交代三个名字。GEPA 是 DSPy 的一个优化器，它根据数据和度量（metric，给输出打分的函数）自动改写 prompt，度量调用指用度量给一次输出打一次分。<code>dspy.RLM</code> 是 DSPy 里处理很长输入的模块，它让模型写代码去查看输入。HarnessTax 是第五部分讲的一篇比较运行框架的文章。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">例子</th><th scope="col">设的上限</th><th scope="col">这个上限限制的是什么</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Temporal 里的每个步骤</th><td>1 分钟的超时，最多执行 5 次</td><td>一次尝试最多跑多久，连同重试一共最多试几次</td></tr>
+        <tr><th scope="row">GEPA</th><td>大约 100 次度量调用的预算</td><td>一次优化里一共给输出打多少次分</td></tr>
+        <tr><th scope="row"><code>dspy.RLM</code></th><td><code>max_iters=8</code></td><td>模型最多写几轮代码</td></tr>
+        <tr><th scope="row">HarnessTax 的实验</th><td>每次运行最多 100 轮</td><td>agent 的一次运行最多走多少轮，一轮是运行框架记下的 agent 的一步</td></tr>
+      </tbody>
+    </table>
   </figure>
   <h3>把错误交还给 agent</h3>
-  <p>工具调用失败时，还有一种恢复办法：程序继续运行，运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序）把错误信息当作这次工具调用的结果返回给模型，让它自己决定怎么办。</p>
+  <p>工具调用失败时，还有一种恢复办法：程序继续运行，运行框架把错误信息当作这次工具调用的结果返回给模型，让它自己决定怎么办。</p>
   {{fig 125 | 上半部分用英文列出上面表里的四条做法，右边是 Temporal、MLflow、Langfuse 三个工具的标志。下方的截图来自 Claude Code。模型发出了一条命令：先 sleep 30 秒，再用 grep 查一个日志文件。运行框架拦下了这条命令，返回了一段错误信息。}}
-  <p>截图里返回的那段文字有三层内容：这条命令被拦下了；原因是它先睡 30 秒再检查；应该怎么做，等一个条件时用专门的监控工具，等一条自己启动的命令时让它在后台运行，并且不要用几个更短的 sleep 绕过这条限制。模型读到之后，可以换一种写法再试。</p>
+  <p>截图里返回的那段文字有三层内容。第一层说这条命令被拦下了。第二层说原因：它先 sleep 30 秒再检查。第三层说应该怎么做：等一个条件时用专门的监控工具，等一条自己启动的命令时让它在后台运行，不要用几个更短的 sleep 绕过这条限制。模型读到之后，可以换一种写法再试。</p>
   <p>这里的要点是错误信息要写给模型看。一句「命令失败」帮不上忙；说明哪里不对、该怎么改，模型才有恢复的依据。这一讲的日历应用 tinycal 也是这样设计的：输入不合法时，它抛出一个带说明文字的错误，agent 可以读到并据此改正。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>在接口层面是怎么做的。</b>Claude 的 API 里，工具的执行结果放在 <code>tool_result</code> 里交还给模型。工具执行出错时，可以把错误信息放进去，并标上 <code>is_error</code>。文档建议把错误信息写得有指导性，让模型有足够的信息去恢复或调整。Claude Code 的文档也写明，一次工具调用被拦下时，拦下的理由会展示给模型。出处：<a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls">Claude API 文档</a>；<a href="https://code.claude.com/docs/en/hooks">Claude Code 文档的 hooks 一节</a>。</div></div>
 </section>
@@ -54,33 +68,58 @@
   <p>观察运行记录、发现问题、回退重试，这些事也可以交给一个 agent 来做。Yu 等人 2026 年的论文 Shepherd 把这样的 agent 叫作 meta-agent：创建、操作和管理其他 agent 的更高一层的 agent。</p>
   {{fig 126 | Shepherd 论文的图。上半部分：一个 meta-agent 创建了一个 agent 并观察它的运行。agent 的某一步改坏了代码，meta-agent 介入，把状态回退到那一步之前，另开一个分支重做，这一次通过了。右边是对应的代码。下半部分是三组实验的结果。图片来源：<a href="https://arxiv.org/abs/2605.10913">Yu 等，2026</a>。}}
   <p>它的做法是把一个 agent 的整个执行过程变成一个可以操作的对象。模型的每个动作、每次工具调用、环境的每次变化，都记成一条结构化的事件，连成一条像 Git 提交历史一样可以回退的记录。meta-agent 可以订阅这条记录来观察，可以往里面插入事件来干预，可以回到过去的任何一个状态，也可以从某个状态分出一份副本另做尝试。</p>
+  <p>图的下半部分有三组实验。下面逐组来看，每组先说量的是什么，再列结果，最后说读这组数要知道的背景。三组数字和图一致，取自<a href="https://arxiv.org/abs/2605.10913">论文</a>的正文和表格。</p>
+  <h3>第一组：运行时干预</h3>
+  <p>这组实验用的是 CooperBench 这个基准测试。两个 agent 并行地各做一个功能，量的是两个功能都通过测试的比例。干活的是两个 Claude Haiku 4.5，meta-agent 在它们运行的时候观察和干预。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">实验</th><th scope="col">量的是什么</th><th scope="col">结果</th></tr></thead>
+      <thead><tr><th scope="col">设置</th><th scope="col" class="r">两个功能都通过测试的比例</th></tr></thead>
       <tbody>
-        <tr><th scope="row">运行时干预<br><span class="muted small">CooperBench</span></th><td>两个 agent 并行地各做一个功能，两个功能都通过测试的比例</td><td>没有 meta-agent 时 28.8%；由 Sonnet 4.6 担任 meta-agent 时 45.3%；由 Opus 4.7 担任时 54.7%</td></tr>
-        <tr><th scope="row">事后优化<br><span class="muted small">LiveCodeBench</span></th><td>用几种方法分别优化同一个 agent 之后，在留出的 100 道题上的通过率</td><td>不优化 30.7%；Meta-Harness（论文里写作 MetaHarness）40.0%；GEPA 48.7%；论文提出的 CRO 51.0%。CRO 是 Counterfactual Replay Optimization 的缩写：先找出之前运行里失败的原因，提出对 agent 流程的修改，再从这个修改会改变行为的那一步起把运行重放一遍，检验修改有没有用</td></tr>
-        <tr><th scope="row">训练<br><span class="muted small">Terminal-Bench 2.0</span></th><td>用强化学习微调两个开放权重的模型之后，在 89 个任务上的通过率。GRPO 是一种强化学习算法</td><td>模型 Qwen3.5-35B-A3B：微调前 26.1%，普通的 GRPO 34.2%，论文的 Tree-GRPO 39.4%。模型 Nemotron-3-Super-120B-A12B：依次是 30.3%，33.8%，37.2%。Tree-GRPO 的做法是由 meta-agent 在运行中途选一步，从那里分出几个分支接着跑，用分支之间结果的差别来判断每一步的好坏</td></tr>
+        <tr><th scope="row">两个 agent 并行工作，互不协调，没有 meta-agent</th><td class="r">28.8%</td></tr>
+        <tr><th scope="row">由 Sonnet 4.6 担任 meta-agent</th><td class="r">45.3%</td></tr>
+        <tr><th scope="row">由 Opus 4.7 担任 meta-agent</th><td class="r">54.7%</td></tr>
+        <tr><th scope="row">对照：一个 Haiku 4.5 独自按顺序把两个功能做完</th><td class="r">57.2%</td></tr>
       </tbody>
     </table>
-    <figcaption>数字和上面的图一致，并对照论文的正文和表格核对过。</figcaption>
   </figure>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这三组数各有一个要补充的背景。</b>
-    <ul>
-      <li><b>第一组。</b>干活的是两个 Claude Haiku 4.5。28.8% 是它们并行工作、互不协调时的成绩。同一篇论文还给了一个对照：让一个 Haiku 4.5 独自按顺序把两个功能做完，通过率是 57.2%，比加了 Opus 4.7 监督的 54.7% 还高。所以 meta-agent 在这里做到的，是把并行协作损失掉的成绩大部分补了回来。它没有超过一个 agent 单干。</li>
-      <li><b>第二组。</b>CRO 比 GEPA 高 2.3 个百分点，而表里各自的标准差在 1.5 到 1.7 个百分点。GEPA 用的时间更短，是 73 分钟，CRO 是 117 分钟。</li>
-      <li><b>第三组。</b>测试集只有 89 个任务，论文给出的波动幅度在 3 到 4 个百分点，和 Tree-GRPO 相对普通 GRPO 的提高（5.2 和 3.4 个百分点）在同一个量级。</li>
-    </ul>
-    出处：<a href="https://arxiv.org/abs/2605.10913">Yu 等，2026</a>。</div></div>
-  <p>不管由人还是由 agent 来做，道理是同一个：系统需要有一层东西在看着它运行。</p>
+  <p>最后一行是同一篇论文给的对照。一个 agent 单干的 57.2%，比加了 Opus 4.7 监督的 54.7% 还高。所以 meta-agent 在这里做到的，是把并行协作损失掉的成绩大部分补了回来。它没有超过一个 agent 单干。</p>
+  <h3>第二组：事后优化</h3>
+  <p>这组实验用的是 LiveCodeBench 这个基准测试。用几种方法分别优化同一个 agent，量的是优化之后在留出的 100 道题上的通过率，留出的题没有在优化时用过。</p>
+  <p>参加比较的方法有三种。Meta-Harness 是第五部分讲的让模型自己改运行框架的方法，论文里写作 MetaHarness。GEPA 是上一节提过的 DSPy 优化器。CRO 是这篇论文提出的方法，全名 Counterfactual Replay Optimization：先找出之前运行里失败的原因，提出对 agent 流程的修改，再从这个修改会改变行为的那一步起把运行重放一遍，检验修改有没有用。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">优化的方法</th><th scope="col" class="r">留出的 100 道题上的通过率</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">不优化</th><td class="r">30.7%</td></tr>
+        <tr><th scope="row">Meta-Harness</th><td class="r">40.0%</td></tr>
+        <tr><th scope="row">GEPA</th><td class="r">48.7%</td></tr>
+        <tr><th scope="row">CRO</th><td class="r">51.0%</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>CRO 比 GEPA 高 2.3 个百分点，而论文的表里两者各自的标准差在 1.5 到 1.7 个百分点。差距和波动差不多大，这个领先有可能只是波动。GEPA 用的时间更短，是 73 分钟，CRO 是 117 分钟。</p>
+  <h3>第三组：训练</h3>
+  <p>这组实验用强化学习微调两个开放权重的模型。强化学习是让模型反复尝试、按结果的好坏调整参数的训练办法，开放权重指模型的参数公开，可以下载下来自己训练和运行。量的是微调之后在 Terminal-Bench 2.0 的 89 个任务上的通过率，Terminal-Bench 2.0 是一个让 agent 在命令行环境里完成任务的基准测试。</p>
+  <p>比较的是两种训练办法。GRPO 是一种强化学习算法。Tree-GRPO 是论文提出的做法：由 meta-agent 在运行中途选一步，从那里分出几个分支接着跑，用分支之间结果的差别来判断每一步的好坏。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">模型</th><th scope="col" class="r">微调前的通过率</th><th scope="col" class="r">用普通的 GRPO 微调后</th><th scope="col" class="r">用 Tree-GRPO 微调后</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Qwen3.5-35B-A3B</th><td class="r">26.1%</td><td class="r">34.2%</td><td class="r">39.4%</td></tr>
+        <tr><th scope="row">Nemotron-3-Super-120B-A12B</th><td class="r">30.3%</td><td class="r">33.8%</td><td class="r">37.2%</td></tr>
+      </tbody>
+    </table>
+  </figure>
+  <p>Tree-GRPO 比普通的 GRPO 在两个模型上分别高 5.2 和 3.4 个百分点。测试集只有 89 个任务。论文的表在每个通过率后面标了一个正负多少的数，大小在 3 到 4 个百分点，表的说明没有写明它是标准差还是别的量。这个数和提高的幅度在同一个量级，所以这个提高也有可能只是波动。</p>
+  <p>不管由人还是由 agent 来做，道理是同一个：系统运行的时候，要有人或程序在观察运行记录，发现问题时介入。</p>
 </section>
 
 <section class="sec" id="evals">
   <h2>做评估，在自己的任务上做</h2>
   <p>为 agent 做设计上的选择，最好的依据是评估的结果。没有评估，每一个「这样改应该会更好」都只是猜测。</p>
   <ul>
-    <li><b>评估让优化成为可能。</b><a href="optimizer.html">第三部分</a>里优化器能把小模型的 prompt 改好，前提是先有了 50 封带标注的邮件和一个精确匹配的度量。手工改系统时也一样，评估告诉你一个改动是帮了忙还是帮了倒忙。</li>
-    <li><b>搭一个像样的评估，是做 AI 系统最重要的几步之一。</b>它常常被低估。一个项目里最先该做的事情之一，就是把评估搭好。</li>
+    <li><b>评估让优化成为可能。</b><a href="optimizer.html">第三部分</a>里优化器能把小模型的 prompt 改好，前提是先有了 50 封带标注的邮件和一个精确匹配的度量，也就是日期、开始时间、时长三项都和标准答案完全一致才算对。手工改系统时也一样，评估告诉你一个改动是帮了忙还是帮了倒忙。</li>
+    <li><b>评估要早搭。</b>搭一个像样的评估是做 AI 系统最重要的几步之一，也常常被低估。一个项目里最先该做的事情之一，就是把评估搭好，后面的设计选择才有依据。</li>
     <li><b>度量要选对。</b>准确率是最容易想到的。花费和延迟也可能很重要，面向用户的产品尤其看重延迟。</li>
     <li><b>测试的任务要有代表性，也要包括边界情况和会失败的场景。</b>只在顺利的情形下测试，会让你以为系统总是那样工作，据此做出错误的设计决定。</li>
   </ul>
@@ -101,7 +140,8 @@
 
 <section class="sec" id="limits">
   <h2>框架的局限</h2>
-  <p>这一讲用了三个框架，也看了几个现成的运行框架。用它们有三点要留意。</p>
+  <p>这一讲用了 DSPy、LangGraph 两个框架和 Temporal 这个平台，也看了几个现成的运行框架。用它们有三点要留意，列在下表里。</p>
+  <p>表里有三个词先说明一下。抽象指框架把底层的细节包起来之后，留给写程序的人用的那几个概念。PyTorch 是一个用来训练神经网络的 Python 框架。反向传播是训练神经网络时算导数的那一步，在 PyTorch 里只要写一行代码，数学由框架在底下做。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">局限</th><th scope="col">说明</th><th scope="col">怎么应对</th></tr></thead>
@@ -112,13 +152,17 @@
       </tbody>
     </table>
   </figure>
+  <p>表里第一条局限的应对办法，Anthropic 2024 年 12 月的文章 <a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a> 也提过。它建议开发者先直接调用模型的 API，很多模式几行代码就能实现。如果用了框架，要确保理解底下的代码。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>一个就发生在这一讲用的框架上的例子。</b><a href="dspy.html#prompt">第二部分</a>展示的 prompt 格式，是 DSPy 3.4 的默认行为。2026 年 11 月 10 日发布的 DSPy 3.5.0 把默认的 adapter（把 signature 转成 prompt 的部件）换成了另一种。发布说明写明，这会改变 prompt 和输出的约定，即使你的 signature（DSPy 里对模型输入和输出的声明）一个字没改。也就是说，同一份代码在升级前后，发给模型的文字不一样。在旧格式下优化出来的指令，换了格式之后效果是否还一样，需要重新评估才知道。出处：<a href="https://github.com/stanfordnlp/dspy/releases/tag/3.5.0">DSPy 3.5.0 的发布说明</a>。</div></div>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>「把 prompt 给我看」。</b>Hamel Husain 2024 年 2 月有一篇文章，标题是一句不太客气的话，意思是「把 prompt 给我看」。他的论点是：这些工具发给模型的 prompt，就是对它们在做什么的自然语言描述，是理解它们最快的途径。他用一个拦截网络请求的工具，逐个查看了 Guardrails、Guidance、LangChain、Instructor 和 DSPy 实际发出的请求。对 DSPy，他发现官方的入门示例跑了 30 多分钟，向模型发了几百次请求，原因是优化器在反复抽样例、挑选效果最好的组合。他也说明自己并不反对这些库，只是对那些让人离模型太远的框架保持警惕。DSPy 自带的 <code>inspect_history</code> 可以直接做同样的检查，前面几部分已经多次用到。出处：<a href="https://hamel.dev/blog/posts/prompt/">Husain 的文章</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>「把 prompt 给我看」。</b>Hamel Husain 2024 年 2 月有一篇文章，标题的意思是「把 prompt 给我看」。文章主张：想弄懂一个框架，先看它发给模型的 prompt。他的论点是：这些工具发给模型的 prompt，就是对它们在做什么的自然语言描述，是理解它们最快的途径。他用一个拦截网络请求的工具，逐个查看了 Guardrails、Guidance、LangChain、Instructor 和 DSPy 实际发出的请求。对 DSPy，他发现官方的入门示例跑了 30 多分钟，向模型发了几百次请求，原因是优化器在反复抽样例、挑选效果最好的组合。他也说明自己不反对这些库，只是对那些让人离模型太远的框架保持警惕。出处：<a href="https://hamel.dev/blog/posts/prompt/">Husain 的文章</a>。</div></div>
+  <p>在这一讲里，不用另装工具也能做同样的检查。DSPy 自带的 <code>inspect_history</code> 会打印最近发给模型的 prompt，前面几部分已经多次用到。</p>
 </section>
 
 <section class="sec" id="cycle">
   <h2>工程是一个循环</h2>
   <p class="lead-in">把 agent 当工程来做，是不断重复四步：<mark>搭建，运行，评估，改进</mark>。第一次搭出来的系统，通常不会是最后上线的那一个。</p>
+  <p><a href="optimizer.html">第三部分</a>的演示就走了这样一圈：搭一个提取日程的程序，交给小模型运行，在 20 封测试邮件上评估，只有 11 封全对。用优化器改写指令之后再评估，20 封全对。</p>
+  <p>在这个循环里，前面讲的四条做法都用得上：</p>
   <ul>
     <li><b>从简单的开始，每增加一分复杂度都要有理由。</b></li>
     <li><b>为失败和恢复做设计。</b>想好系统的每一部分失败时会发生什么，用上能帮你恢复的工具。</li>
@@ -129,6 +173,7 @@
 
 <section class="sec" id="summary">
   <h2>整讲的小结</h2>
+  <p>下表按部分列出这一讲的要点。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">部分</th><th scope="col">要点</th></tr></thead>
@@ -136,7 +181,7 @@
         <tr><th scope="row"><a href="engineer.html">一 工程化指什么</a></th><td>数据、系统、评估三根支柱。按控制流排成一条线：模型、workflow、agent。每一段都有对应的框架，另有管可靠性和可观测性的工具</td></tr>
         <tr><th scope="row"><a href="dspy.html">二</a>、<a href="optimizer.html">三</a> DSPy</th><td>signature 声明输入输出，module 决定怎样调用模型，optimizer 用数据和度量改进 prompt</td></tr>
         <tr><th scope="row"><a href="langgraph.html">四 LangGraph</a></th><td>共享的状态，读写状态的节点，决定走向的边</td></tr>
-        <tr><th scope="row"><a href="harness.html">五 运行框架</a></th><td>工具、记忆、上下文管理、执行，每一项都有不同的做法。运行框架是 agent 表现的一部分</td></tr>
+        <tr><th scope="row"><a href="harness.html">五 运行框架</a></th><td>工具、记忆、上下文管理（决定每次把哪些内容发给模型）、执行，每一项都有不同的做法。运行框架是 agent 表现的一部分</td></tr>
         <tr><th scope="row"><a href="orchestration.html">六 编排与可观测性</a></th><td>Temporal 把每一步的结果记在服务端，失败自动重试，进程换了能接着跑。MLflow、LangSmith、Langfuse 让运行记录看得见</td></tr>
         <tr><th scope="row">七 实践</th><td>保持简单，让失败看得见、能恢复，在自己的任务上做评估，弄懂框架在底下做了什么</td></tr>
       </tbody>

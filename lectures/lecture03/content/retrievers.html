@@ -1,17 +1,18 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>检索器（retriever）负责从索引里找出和查询相关的段落。最基本的有两类：按词匹配的 BM25，和按向量匹配的 DPR。</li>
-    <li>BM25 是 1994 年提出的打分公式，不需要训练，也不需要向量。它给罕见的词更高的权重，并且让一个词重复出现带来的加分逐渐变小。直到现在，检索方面的论文仍然拿它当基线。</li>
-    <li>DPR 用两个 BERT 编码器（BERT 是 2018 年的一个预训练语言模型）分别把问题和段落变成向量，按内积打分。段落的向量可以提前算好，查询时只需要编码问题。在五个问答数据集里的四个上，它前 20 个结果的命中率比 BM25 高 9 到 19 个百分点。</li>
-    <li>两类检索器漏掉的东西不同：BM25 对不上换了说法的内容，向量检索对不上编号、错误码这类罕见的字符串。所以实际常把两者一起用，再用 RRF 这样的办法把两份名单合成一份。</li>
-    <li>给检索器打分的指标有好几个，量的东西不一样。读结果表之前要先看清用的是哪一个。</li>
+    <li>检索器（retriever）负责从索引里找出和查询相关的段落。索引是提问之前为全部文档建好、供查询时快速查找的数据。最基本的检索器有两类：按词匹配的 BM25，和按向量匹配的 DPR。</li>
+    <li>BM25 是 1994 年提出的打分公式，不需要训练，也不需要向量。它给罕见的词更高的权重，并且让一个词重复出现带来的加分逐渐变小。直到现在，检索方面的论文仍然拿它当基线（baseline），也就是新方法用来对照的参考做法。</li>
+    <li>DPR 用两个 BERT 编码器（BERT 是 2018 年的一个预训练语言模型）分别把问题和段落变成向量，按两个向量的内积打分。内积是把两个向量对应位置的数相乘再加起来得到的一个数，这里用它表示问题和段落有多接近。段落的向量可以提前算好，查询时只需要编码问题。</li>
+    <li>在五个问答数据集里的四个上，DPR 前 20 个结果的命中率比 BM25 高 9 到 19 个百分点。命中率指前 20 个结果里含有答案的问题所占的比例，在后面的指标表里叫 Hit@20。</li>
+    <li>两类检索器漏掉的东西不同：BM25 对不上换了说法的内容，向量检索对不上编号、错误码这类罕见的字符串。所以实际常把两者一起用，再把两份名单合成一份。常用的合并办法是 RRF（Reciprocal Rank Fusion，倒数排名融合），它只看每个段落在两份名单里各排第几。</li>
+    <li>给检索器打分的指标有好几个，衡量的东西不一样。读结果表之前要先看清用的是哪一个。</li>
   </ul>
 </section>
 
 <section class="sec" id="kinds">
   <h2>三类检索器</h2>
-  <p>怎样为一个查询找出相关的段落，办法可以分成三类。</p>
+  <p>怎样为一个查询找出相关的段落，办法可以分成三类。这一页讲前两类，第三类放在第五部分。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">类别</th><th scope="col">怎么判断相关</th><th scope="col">代表</th><th scope="col" class="nw">在哪里讲</th></tr></thead>
@@ -28,6 +29,7 @@
 <section class="sec" id="bm25">
   <h2>BM25：按词匹配的打分公式</h2>
   <p>BM25 给一个查询 Q 和一篇文档 D 算一个分数。它不需要训练，也不需要向量，只统计词出现的情况。</p>
+  <p>它的算法可以先用一句话读出来：对查询里的每一个词，用「这个词有多罕见」乘以「这个词在这篇文档里出现得够不够多」，再把所有词的结果加起来。下面的图是把这句话写成的公式，图后面的表说明每个符号。</p>
   {{fig 41 | BM25 的公式。上面一行是总分：对查询里的每个词求和。下面一行是其中 IDF 的算法。彩色的文字说明每一项的含义。}}
   <figure class="plate">
     <table class="tbl">
@@ -41,32 +43,35 @@
       </tbody>
     </table>
   </figure>
-  <p>整个式子可以读成：对查询里的每一个词，用「这个词有多罕见」乘以「这个词在这篇文档里出现得够不够多」，再把所有词的结果加起来。它是 TF-IDF（词频乘以逆文档频率）这个老办法的改进版，改进在分数那一项：词频的作用有上限，文档的长度也被考虑进去了。</p>
+  <p>公式里的 IDF 对应「这个词有多罕见」，IDF 后面的分式对应「这个词在这篇文档里出现得够不够多」。BM25 是 TF-IDF（词频乘以逆文档频率）这个老办法的改进版，改进在公式里的那个分式：词频的作用有上限，文档的长度也被考虑进去了。下一节逐项解释。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>BM25 的来历。</b>它出自伦敦城市大学的 Okapi 检索系统。Robertson 等人在 1994 年的 TREC-3 评测里把此前的两个打分函数 BM11 和 BM15 合成了一个，命名为 BM25，BM 是 best matching 的缩写。它背后的概率检索理论是 Robertson、Spärck Jones 等人在 1970 和 1980 年代发展起来的。出处：<a href="https://en.wikipedia.org/wiki/Okapi_BM25">维基百科的 Okapi BM25 条目</a>及其引用的 TREC-3 论文。</div></div>
 </section>
 
 <section class="sec" id="bm25-intuition">
   <h2>公式里的三个设计</h2>
   <p>公式看起来复杂，背后是三个直观的想法。下面两张图画的是前两个。</p>
-  {{fig 42 | 左：IDF 随文档频率的变化。横轴是含有某个词的文档占全部文档的百分比，纵轴是 IDF。实线是 BM25 的 IDF，虚线是传统的 IDF，红色竖线是 50% 的位置。右：词频带来的得分。横轴是一个词在文档里出现的次数，纵轴是分数那一项的值，四条线对应四个 k1。图片来源：<a href="https://mbrenndoerfer.com/writing/bm25-search-algorithm-elasticsearch-implementation">Brenndoerfer 的 BM25 讲解</a>。}}
+  {{fig 42 | 左：IDF 随文档频率的变化。横轴是含有某个词的文档占全部文档的百分比，纵轴是 IDF。实线是 BM25 的 IDF，虚线是传统的 IDF，红色竖线是 50% 的位置。右：词频带来的得分。横轴是一个词在文档里出现的次数，纵轴是公式里分式那一项的值，四条线对应四个 k1。图片来源：<a href="https://mbrenndoerfer.com/writing/bm25-search-algorithm-elasticsearch-implementation">Brenndoerfer 的 BM25 讲解</a>。}}
   <h3>一 罕见的词更重要</h3>
-  <p>左图里，一个词出现在越少的文档里，IDF 越高。只在千分之一的文档里出现的词，IDF 接近 7。出现在一半文档里的词，IDF 是 0，等于说它对区分文档没有帮助。IDF 决定了查询里哪些词算数。查「错误码 TS-999 是什么意思」，真正起作用的是 TS-999，「是」「什么」这些到处都有的词几乎不贡献分数。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>负的 IDF，实际的系统里并不保留。</b>左图里实线在 50% 之后掉到了零以下：按上面的公式，一个词如果出现在半数以上的文档里，它的 IDF 是负数，文档含有这个词反而会被扣分。一种常见的说法是这正好符合需要，因为要找的是查询里独特的词。实际情况有两点不同。第一，Manning 等人的信息检索教材把负的权重看作一个大概不想要的结果，并指出用了停用词表时这种情况通常不会出现，每一项的值也可以把下限设为 0。第二，现在用得最广的实现已经改了公式：开源的搜索库 Lucene 和基于它的 Elasticsearch 算的是 <code>ln(1 + (N − n + 0.5) / (n + 0.5))</code>，对数里面多加了 1，结果永远是正数。到处都有的词在这些系统里的权重接近 0，不会变成负的。出处：<a href="https://nlp.stanford.edu/IR-book/html/htmledition/okapi-bm25-a-non-binary-model-1.html">Manning 等的教材</a>；<a href="https://lucene.apache.org/core/9_9_0/core/org/apache/lucene/search/similarities/BM25Similarity.html">Lucene 的文档</a>；<a href="https://www.elastic.co/blog/practical-bm25-part-2-the-bm25-algorithm-and-its-variables">Elastic 的讲解</a>。</div></div>
+  <p>左图里，一个词出现在越少的文档里，IDF 越高。只在千分之一的文档里出现的词，IDF 接近 7。出现在一半文档里的词，IDF 是 0，等于说它对区分文档没有帮助。IDF 决定了查询里哪些词起作用。查「错误码 TS-999 是什么意思」，真正起作用的是 TS-999，「是」「什么」这些到处都有的词几乎不贡献分数。</p>
+  <p>左图里实线在 50% 之后掉到了零以下。按上面的公式，一个词如果出现在半数以上的文档里，它的 IDF 是负数，文档含有这个词反而会被扣分。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>负的 IDF，实际的系统里并不保留。</b>到处都有的词对区分文档没有帮助，把它的权重降下去看上去正合需要。但权重降到 0 就已经不加分了，负的权重还会让含有这个词的文档被扣分。现在用得最广的实现改了公式：开源的搜索库 Lucene 和基于它的 Elasticsearch 算的是 <code>ln(1 + (N − n + 0.5) / (n + 0.5))</code>，对数里面多加了 1，结果永远是正数。到处都有的词在这些系统里的权重接近 0，不会变成负的。出处：<a href="https://lucene.apache.org/core/9_9_0/core/org/apache/lucene/search/similarities/BM25Similarity.html">Lucene 的文档</a>；<a href="https://www.elastic.co/blog/practical-bm25-part-2-the-bm25-algorithm-and-its-variables">Elastic 的讲解</a>。</div></div>
+  <p>Manning 等人的信息检索教材也认为，负的权重多半是不合适的。教材指出，用了停用词表时这种情况通常不会出现，每一项的值也可以把下限设为 0。停用词表是一份事先列好的常见词的清单，检索时直接忽略清单里的词。出处：<a href="https://nlp.stanford.edu/IR-book/html/htmledition/okapi-bm25-a-non-binary-model-1.html">Manning 等的教材</a>。</p>
   <h3>二 词重复出现，加分越来越少</h3>
-  <p>右图画的是分数那一项在不考虑文档长度时的值。四条线在词出现 1 次时都等于 1，之后越来越平，各自趋近 k1 + 1。这叫词频饱和（term frequency saturation）：一个词出现 10 次的文档，不应该比出现 5 次的文档相关一倍。</p>
+  <p>右图画的是公式里分式那一项在不考虑文档长度时的值。四条线在词出现 1 次时都等于 1，之后越来越平，各自趋近 k1 + 1。这叫词频饱和（term frequency saturation）：一个词出现 10 次的文档，不应该比出现 5 次的文档相关一倍。</p>
   <ul>
     <li><b>k1 小</b>（图上最下面的线，k1 = 0.5）：曲线很快就平了。这时几乎只看这个词有没有出现，出现多少次影响很小。</li>
     <li><b>k1 大</b>（图上最上面的线，k1 = 5）：重复出现能持续加分，很久之后才变平。</li>
   </ul>
   <p>饱和的作用是不让任何一个词靠重复出现来主导总分。</p>
   <h3>三 长文档要打折</h3>
-  <p>长文档里词多，一个词碰巧出现几次的机会也大。公式分母里的 <code>1 − b + b · |D| / avgdl</code> 用来校正这一点：文档比平均长度长，分母变大，分数变小。b 控制校正的力度，b = 0 时完全不考虑长度，b = 1 时按长度的比例完全校正。</p>
+  <p>长文档里词多，一个词碰巧出现几次的机会也大。公式分母里的 <code>1 − b + b · |D| / avgdl</code> 用来校正这一点：文档比平均长度长，分母变大，分式的值变小，这个词带来的得分也就变少。b 控制校正的力度，b = 0 时完全不考虑长度，b = 1 时按长度的比例完全校正。</p>
   <p>BM25 的好处是不用训练、不用向量，建索引和查询都很快，在按字面匹配这件事上是一个很强的基线。</p>
 </section>
 
 <section class="sec" id="dpr">
   <h2>DPR：把问题和段落变成向量</h2>
-  <p>DPR（Dense Passage Retrieval，稠密段落检索）是 Karpukhin 等人 2020 年提出的检索器。它用两个神经网络编码器把问题和段落各变成一个向量，用两个向量的内积作为相关程度的分数。</p>
+  <p>按词匹配有一个固定的弱点：问题和段落说的是同一件事，用的词却不同，它就对不上。DPR 论文里有一个例子。问「英格兰和爱尔兰之间的那片水域叫什么」，BM25 返回了一个反复出现「英格兰」「爱尔兰」却不相关的段落，讲爱尔兰海的那个段落和问题之间没有重合的关键词。</p>
+  <p>DPR（Dense Passage Retrieval，稠密段落检索）是 Karpukhin 等人 2020 年提出的检索器，上面这个例子里它找到了讲爱尔兰海的段落。它用两个神经网络编码器把问题和段落各变成一个向量，用两个向量的内积作为相关程度的分数。下面的图和表说明它分成离线和在线两个阶段。</p>
   {{fig 43 | DPR 的两个阶段。上面是离线阶段：所有段落经过段落编码器变成向量，存进向量索引。下面是在线阶段：查询经过查询编码器变成向量，和索引里的向量算内积，取分数最高的 k 个段落。}}
   <figure class="plate">
     <table class="tbl">
@@ -78,15 +83,18 @@
     </table>
     <figcaption>出处：<a href="https://arxiv.org/abs/2004.04906">Karpukhin 等，2020</a>，第 5.4 节。作为对照，论文里 BM25 建索引只要约 30 分钟，查询时每个 CPU 线程每秒处理 23.7 个问题。</figcaption>
   </figure>
-  <p>哪一边贵？段落这一边。但它只做一次，而且是在提问之前。问题这一边每次都要做，所以必须便宜。这种把贵的计算挪到离线的安排之所以可行，是因为问题和段落是分开编码的：算段落的向量时不需要知道问题是什么。两个编码器是两个独立的 BERT 模型，各有各的参数。</p>
+  <p>贵的计算在段落这一边。它只做一次，而且是在提问之前。问题这一边每次提问都要做，所以必须便宜。</p>
+  <p>贵的计算能挪到离线去做，是因为问题和段落是分开编码的：算段落的向量时不需要知道问题是什么。两个编码器是两个独立的 BERT 模型，各有各的参数。</p>
   <p>向量搜索返回的是段落的编号和分数。拿到编号之后，再按编号取出段落的文字，交给后面的模型。</p>
 </section>
 
 <section class="sec" id="dpr-training">
   <h2>DPR 怎么训练</h2>
   <p>两个编码器要训练成这样：问题的向量和能回答它的段落的向量内积大，和别的段落的向量内积小。</p>
+  <p>训练时用一个数来衡量模型离这个目标还差多远。这个数叫损失（loss），算出它的式子叫损失函数。训练就是反复调整两个编码器的参数，让损失变小。每个参数该往哪个方向调、调多少，由损失的梯度（gradient）给出。</p>
   {{fig 44 | DPR 的训练。下面是问题编码器和段落编码器，各自输出一个向量。中间是两个向量的内积，作为相似度。最上面是损失函数。两侧的红色虚线表示损失的梯度传回去更新两个编码器。}}
-  <p>每个训练样本是一个问题、一个能回答它的段落（正例）和若干个不能回答它的段落（负例）。损失函数是对比损失（contrastive loss）：先算问题和每个段落的相似度，再用 softmax 函数把这组相似度换算成加起来等于 1 的概率，然后让正例的概率尽量大。写出来是正例概率的负对数。它的效果是把正例往问题这边推近，把负例推远。</p>
+  <p>每个训练样本是一个问题、一个能回答它的段落（正例）和若干个不能回答它的段落（负例）。</p>
+  <p>DPR 用的损失函数是对比损失（contrastive loss）。先算问题和每个段落的相似度，再用 softmax 函数把这组相似度换算成加起来等于 1 的概率，然后让正例的概率尽量大。写出来是正例概率的负对数。它的效果是把正例的向量往问题的向量这边拉近，把负例的向量推远。</p>
   <p>这种训练里最要紧的设计是：<mark>负例从哪里来</mark>。</p>
   <figure class="plate">
     <table class="tbl">
@@ -98,7 +106,8 @@
     </table>
     <figcaption>论文里效果最好的配置是两种一起用：同一批里的负例，再给每个问题加 1 个 BM25 难负例。加 2 个没有进一步的帮助。出处：<a href="https://arxiv.org/abs/2004.04906">Karpukhin 等，2020</a>。</figcaption>
   </figure>
-  <p>难负例的作用很大。在 Natural Questions 的开发集上，每个问题用 127 个同批的负例训练，前 20 个结果的命中率是 73.0%；再加 1 个 BM25 难负例，升到 78.0%。</p>
+  <p>难负例的作用很大。在问答数据集 Natural Questions 的开发集上，每个问题用 127 个同批的负例训练，前 20 个结果的命中率是 73.0%。再加 1 个 BM25 难负例，命中率升到 78.0%。</p>
+  <p>这两个数不能和后面结果表里的数直接对照。Natural Questions 的问题取自 Google 搜索的真实提问，答案是标注的人在维基百科文章里标出的片段。开发集是训练时用来比较不同配置的那部分问题。后面结果表里的成绩是在另一批问题上测的，那一批叫测试集。所以这里的 78.0% 和后面表里的 78.4% 是两个数。</p>
 </section>
 
 <section class="sec" id="metrics">
@@ -107,7 +116,7 @@
   {{figs 45 46 | 五个指标的公式。左：Hit@k、Failed@k、nDCG@k。右：MRR@k、Recall@k。Q 是全部查询的集合，R 带下标 q 是查询 q 的全部相关段落，Top 带下标 k 是检索器返回的前 k 个段落。}}
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">指标</th><th scope="col">对一个查询怎么算</th><th scope="col">量的是什么</th><th scope="col">哪里用到</th></tr></thead>
+      <thead><tr><th scope="col">指标</th><th scope="col">对一个查询怎么算</th><th scope="col">衡量的是什么</th><th scope="col">哪里用到</th></tr></thead>
       <tbody>
         <tr><th scope="row">Hit@k</th><td>前 k 个结果里只要有一个相关的段落，记 1，否则记 0</td><td>有多大比例的查询至少找到了一个相关段落。相关段落排在第几位不影响结果</td><td>DPR 论文的「前 k 个结果的检索准确率」就是它</td></tr>
         <tr><th scope="row">Failed@k</th><td>前 k 个结果里一个相关的都没有，记 1，否则记 0</td><td>有多大比例的查询彻底落空。它等于 1 减去 Hit@k</td><td>和 Anthropic 的检索失败率接近，区别见<a href="chunking.html#contextual-results">第二部分</a>的说明</td></tr>
@@ -134,11 +143,13 @@
     </table>
   </figure>
   <p>同一个结果，Hit@5 和 Recall@5 都是满分，MRR 只有 0.5，nDCG 只有 0.62。前两个不管位置，后两个会因为相关的段落排得靠后而扣分。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>nDCG 里的打折。</b>位置 i 上的段落，相关程度要除以 log2(i + 1)。第 1 位除以 1，第 3 位除以 2，第 7 位除以 3。位置越靠后折扣越大，但越往后折扣增加得越慢。相关程度只分「相关」和「不相关」时，它取 1 或 0。有的数据集把相关程度分成几档，这时还有另一种常见的写法，把分子换成 2 的相关程度次方减 1，让高度相关的段落占更大的分量。两种写法在只分两档时结果相同。nDCG 出自 Järvelin 和 Kekäläinen 2002 年的论文。出处：<a href="https://en.wikipedia.org/wiki/Discounted_cumulative_gain">维基百科的 Discounted cumulative gain 条目</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>nDCG 里的打折。</b>位置 i 上的段落，相关程度要除以 log2(i + 1)。第 1 位除以 1，第 3 位除以 2，第 7 位除以 3。位置越靠后折扣越大，但越往后折扣增加得越慢。nDCG 出自 Järvelin 和 Kekäläinen 2002 年的论文。出处：<a href="https://en.wikipedia.org/wiki/Discounted_cumulative_gain">维基百科的 Discounted cumulative gain 条目</a>。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>相关程度分成几档时的另一种写法。</b>相关程度只分「相关」和「不相关」时，它取 1 或 0，上面的算例就是这种情况。有的数据集把相关程度分成几档，这时还有另一种常见的写法，把分子换成 2 的相关程度次方减 1，让高度相关的段落占更大的分量。两种写法在只分两档时结果相同。出处同上。</div></div>
 </section>
 
 <section class="sec" id="dpr-results">
   <h2>DPR 和 BM25 的对比</h2>
+  <p>按向量匹配的 DPR 比按词匹配的 BM25 好多少，DPR 论文在五个问答数据集上测过，指标是上一节的 Hit@k，也就是命中率。结论有三条：四个数据集上 DPR 明显更高，一个数据集上 BM25 更高，把两者的分数加起来用也不一定比单用 DPR 好。下面的图是论文里的结果表，图后面的表摘出了前 20 个段落的那一半。</p>
   {{fig 47 | 五个问答数据集上，检索回来的前 20 个和前 100 个段落里含有答案的问题所占的百分比。Single 表示 DPR 只用这一个数据集训练，Multi 表示把几个数据集合起来训练。图片来源：<a href="https://arxiv.org/abs/2004.04906">Karpukhin 等，2020</a>。}}
   <figure class="plate">
     <table class="tbl">
@@ -150,18 +161,21 @@
         <tr><th scope="row">BM25 加 DPR（多个数据集）</th><td class="r">78.0</td><td class="r">79.9</td><td class="r">74.7</td><td class="r">88.5</td><td class="r">66.2</td></tr>
       </tbody>
     </table>
-    <figcaption>数字是前 20 个段落里含有答案的问题所占的百分比，也就是 Hit@20，测试集上的成绩。出处：<a href="https://arxiv.org/abs/2004.04906">Karpukhin 等，2020</a>，表 2。</figcaption>
+    <figcaption>数字是前 20 个段落的命中率（Hit@20），也就是前 20 个段落里含有答案的问题所占的百分比，是测试集上的成绩。出处：<a href="https://arxiv.org/abs/2004.04906">Karpukhin 等，2020</a>，表 2。</figcaption>
   </figure>
   <p>读这张表有三点。</p>
   <ul>
-    <li><b>五个数据集里的四个，DPR 高于 BM25。</b>单个数据集训练的 DPR 比 BM25 高 9 到 19 个百分点，Natural Questions 上从 59.1% 到 78.4%。看前 100 个段落时，Natural Questions 上是 73.7% 对 85.4%。</li>
+    <li><b>五个数据集里的四个，DPR 高于 BM25。</b>单个数据集训练的 DPR 比 BM25 高 9 到 19 个百分点。在 Natural Questions 上，BM25 是 59.1%，DPR 是 78.4%。看前 100 个段落时，Natural Questions 上 BM25 是 73.7%，DPR 是 85.4%。</li>
     <li><b>SQuAD 是例外，BM25 更高。</b>论文推测有两个原因。SQuAD 的问题是标注的人看着段落写出来的，问题和段落用的词高度重合，这正是 BM25 擅长的情况。另外它的数据只来自 500 多篇维基百科文章，训练样本的分布很偏。</li>
-    <li><b>BM25 加 DPR 不一定比单用 DPR 好。</b>最后一行在 Natural Questions、WebQuestions 和 TREC 上略低于它上面的一行。论文的合并办法是把两种分数按一个固定的权重直接相加。</li>
+    <li><b>BM25 加 DPR 不一定比单用 DPR 好。</b>最后一行在 Natural Questions、WebQuestions 和 TREC 上略低于它上面的一行。论文的合并办法是把两种分数按一个固定的权重直接相加。<a href="#hybrid">后面讲混合检索的一节</a>说明两种分数为什么不宜直接相加，并介绍只按名次合并的办法 RRF。</li>
   </ul>
   <h3>需要多少训练数据</h3>
+  <p>下图左边的曲线回答一个问题：训练一个向量检索器要多少标注数据。</p>
   {{fig 48 | 左：Natural Questions 开发集上，检索回来的段落个数从 5 增加到 100 时，含有答案的问题所占的百分比。最下面的蓝线是 BM25，其余几条线是用 1 千、1 万、2 万、4 万和全部 5.9 万个样本训练的 DPR。右：整套问答系统最后答对的比例。图片来源：<a href="https://arxiv.org/abs/2004.04906">Karpukhin 等，2020</a>。}}
-  <p>左图回答的问题是：训练一个向量检索器要多少标注数据。只用 1,000 个「问题，段落」样本训练的 DPR（橙色的线），已经整条线都在 BM25 上面。这里的段落是含有答案的那一段，由数据集里的问题和答案配出来。样本增加到 1 万，命中率又明显提高，之后继续增加，提高的幅度逐渐变小。论文的结论是，有了预训练好的语言模型做基础，用很少的样本就能训练出质量不错的向量检索器。</p>
-  <p>右边的表看的是整套问答系统的最终成绩，指标是完全匹配：模型的答案和标准答案一字不差才算对。DPR 之前的两个系统 ORQA 和 REALM，都为检索器专门设计了额外的预训练任务。DPR 不做额外的预训练，训练检索器只用上面说的「问题，段落」样本，它们来自问答数据集里现成的问题和答案。</p>
+  <p>只用 1,000 个「问题，段落」样本训练的 DPR（橙色的线），已经整条线都在 BM25 上面。这里的段落是含有答案的那一段，由数据集里的问题和答案配出来。样本增加到 1 万，命中率又明显提高，之后继续增加，提高的幅度逐渐变小。论文的结论是，有了预训练好的语言模型做基础，用很少的样本就能训练出质量不错的向量检索器。</p>
+  <h3>和做了额外预训练的系统比</h3>
+  <p>DPR 之前的两个问答系统 ORQA 和 REALM，都为检索器专门设计了额外的预训练任务。DPR 不做额外的预训练，训练检索器只用上面说的「问题，段落」样本，它们来自问答数据集里现成的问题和答案。</p>
+  <p>上面那张图右边的表把 DPR 和此前的几个问答系统放在一起比。比的是检索器接上回答问题的模型之后，整套问答系统的最终成绩。指标是完全匹配，模型的答案和标准答案一字不差才算对。下表摘出其中的四行。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">系统</th><th scope="col" class="r">Natural Questions</th><th scope="col" class="r">TriviaQA</th><th scope="col" class="r">WebQuestions</th><th scope="col" class="r">TREC</th></tr></thead>
@@ -191,7 +205,8 @@
     <figcaption>出处：<a href="https://arxiv.org/abs/2004.04906">Karpukhin 等，2020</a>，附录 C。</figcaption>
   </figure>
   <p>既然漏掉的东西不同，就可以两个都用。混合检索（hybrid search）的做法是：同一个查询分别交给两个检索器，各得到一份排好序的名单，再把两份名单合成一份。</p>
-  <p>怎么合是关键。两个检索器的分数不能直接相加：BM25 的分数是若干项的和，没有固定的范围，查询里的词越多分数越高；向量的内积或余弦相似度又是另一种尺度。分数的大小在不同的文档库之间也不可比。</p>
+  <p>怎么合是关键。两个检索器的分数不宜直接相加，因为它们的尺度不同。BM25 的分数是若干项的和，没有固定的范围，查询里的词越多分数越高。向量检索的分数是内积或余弦相似度，是另一种尺度。余弦相似度是两个向量夹角的余弦，只看两个向量的方向是否一致，取值在 −1 到 1 之间。分数的大小在不同的文档库之间也不可比。</p>
+  <p>上面 DPR 结果表里的「BM25 加 DPR」就是把两种分数按固定的权重相加，它在有的数据集上不如单用 DPR。</p>
   <p>RRF（Reciprocal Rank Fusion，倒数排名融合）绕开了这个问题。它完全不看分数，只看每个段落在每份名单里排第几。</p>
   <pre class="code"><code>RRF(d) = 对每一份名单 r 求和： 1 / (k + d 在名单 r 里的名次)      k = 60</code></pre>
   <p>一个段落在某份名单里排得越靠前，从这份名单得到的分数越高。没有出现在某份名单里，就从这份名单得 0 分。把各份名单的得分加起来，按总分重新排序。</p>
@@ -210,7 +225,7 @@
   <p>乙在两份名单里都不是第一，但两边都靠前，合并后排在最前。丙只被一个检索器找到，排在最后。RRF 偏向两个检索器都认可的段落。</p>
   <p>RRF 有两个实际的好处。它没有需要针对每个文档库去调的参数。它对名单的份数没有限制，三个、四个检索器也是同一个公式。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>k = 60 是怎么来的。</b>RRF 出自 Cormack、Clarke 和 Büttcher 2009 年在 SIGIR 上的一篇两页的短文。文中说 k = 60 是在一次预备实验里定下来的，之后没有再改；预备实验的结果显示 60 接近最优，但这个值取多少并不关键。常数 k 的作用是减弱个别检索器把某个段落排得特别靠前所带来的影响。出处：<a href="https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf">Cormack 等，2009</a>。</div></div>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>两个要分清的地方。</b>第一，上面 DPR 结果表里的「BM25 加 DPR」用的是分数加权相加，没有用 RRF，它在有的数据集上不如单用 DPR。第二，<a href="chunking.html#contextual">第二部分</a>里 Anthropic 的做法是用「排名融合的技术」合并向量检索和 BM25 的结果，文章没有写明具体是哪一种。在那组测试里，加上 BM25 之后失败率从 5.7% 降到 5.0%。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>排名融合的一组实测数字。</b><a href="chunking.html#contextual">第二部分</a>里 Anthropic 的做法是用「排名融合的技术」合并向量检索和 BM25 的结果，文章没有写明具体是哪一种。在那组测试里，加上 BM25 之后，相关的内容没有出现在前 20 个结果里的比例从 5.7% 降到 5.0%。</div></div>
 </section>
 
 <section class="sec" id="summary">
@@ -221,5 +236,5 @@
     <li>指标要分清：Hit@k 和 Recall@k 看找没找到，MRR 和 nDCG 还看排得靠不靠前。</li>
     <li>两类检索器互相补充，用 RRF 按名次合并是一种不需要调参数的办法。</li>
   </ul>
-  <p>DPR 把问题和段落各变成一个向量，这样快，但也丢了细节。下一部分讲另一头的做法：<a href="rerank.html">让问题和段落在模型里逐词比较</a>，以及怎样在速度和准确之间取一个中间位置。</p>
+  <p>DPR 把问题和段落各变成一个向量，这样快，但也丢了细节。下一部分讲保留细节的做法：<a href="rerank.html">让问题和段落在模型里逐词比较</a>，以及怎样在速度和准确之间取一个中间位置。</p>
 </section>

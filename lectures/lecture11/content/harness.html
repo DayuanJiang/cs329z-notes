@@ -3,26 +3,27 @@
   <ul class="takeaways">
     <li>运行框架（harness，也叫 scaffold）是包在模型外面、给它工具并管理多轮对话的程序。同一个动作，在不同的运行框架里写法不同。只用一个框架产生的运行轨迹来训练，模型会把这个框架的写法和解题的能力一起学进去，分不出哪部分是哪部分。</li>
     <li>后果是换一个框架就不好用。有公开的例子：用 SWE-agent 的轨迹训练的模型，论文自己写明换一个框架或者格式稍有不同，成绩就明显下降。</li>
-    <li>监督微调会把模型带向训练数据的那个任务分布，别的能力可能下降。在 SWE-RL 的对照里，监督微调的版本在 8 项域外测试里有 5 项低于原模型，强化学习的版本没有一项低于原模型。</li>
+    <li>监督微调让模型模仿示范，它会让模型偏向训练数据里的那类任务，别的能力可能下降。强化学习让模型自己去做任务，再按得到的奖励更新模型。在 SWE-RL 的对照里，监督微调的版本在 8 项和修 bug 无关的测试里有 5 项低于原模型，强化学习的版本没有一项低于原模型。</li>
     <li>强化学习也会出问题。OpenThoughts-Agent 最好的一次强化学习训练里，奖励先升到 0.51 左右，然后掉到 0.13 左右：模型越想越久，工具调用越来越少，大约 80% 的运行超时。</li>
-    <li>最强的模型不一定是最好的老师。同一个实验里，用 GPT-5.3-Codex 的运行轨迹训练出的学生，在三个基准测试上都排在五个老师的最后。</li>
+    <li>最强的模型不一定是最好的老师。同一个实验里，用 GPT-5.3-Codex 的运行轨迹训练出的学生，在三个基准测试（benchmark，一套固定的题目，用来给模型打分）上都排在五个老师的最后。</li>
   </ul>
 </section>
 
 <section class="sec" id="formats">
   <h2>同一个动作，三种写法</h2>
   <p>一个语言模型要完成同一个任务，可以借助不同的运行框架。运行框架决定了模型该用什么格式写出动作、有哪些工具、工具的结果以什么样子返回、怎样表示任务做完了。下面是同一个动作在三个常用框架里的样子：在 astropy 这个代码仓库里搜索 <code>_cstack</code>。</p>
-  {{fig 69 | 同一条搜索命令在三个运行框架里的写法。左：mini-swe-agent 的文本模式。中：SWE-agent。右：Terminus 2。这三种格式出自三个项目各自的代码仓库。图上印的出处是 OpenAI 讲 SWE-bench Verified 的文章，那篇文章没有讲运行框架。}}
+  {{fig 69 | 同一条搜索命令在三个运行框架里的写法。左：mini-swe-agent 的文本模式。中：SWE-agent。右：Terminus-2。这三种格式出自三个项目各自的代码仓库。}}
+  <p>下表逐项列出三种写法的差别。</p>
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col"></th><th scope="col">mini-swe-agent<br><span class="muted small">文本模式</span></th><th scope="col">SWE-agent</th><th scope="col">Terminus 2</th></tr></thead>
+      <thead><tr><th scope="col"></th><th scope="col">mini-swe-agent<br><span class="muted small">文本模式</span></th><th scope="col">SWE-agent</th><th scope="col">Terminus-2</th></tr></thead>
       <tbody>
         <tr><th scope="row">动作怎么写</th><td>先写一段以 THOUGHT 开头的想法，再写一个标着 <code>mswea_bash_command</code> 的代码块，里面是一条 bash 命令。框架用正则表达式把命令取出来</td><td>一次工具调用（模型按固定结构写出工具名和参数）：工具名是 <code>bash</code>，参数 <code>command</code> 是要执行的命令</td><td>一个 JSON 对象，有 <code>analysis</code>（对现状的分析）、<code>plan</code>（下一步的计划）和 <code>commands</code> 三个必填的字段。每条命令写成要敲的按键 <code>keystrokes</code> 和等待的秒数 <code>duration</code></td></tr>
         <tr><th scope="row">有哪些工具</th><td>只有 bash</td><td>bash，加上专门的编辑工具 <code>str_replace_editor</code> 和提交工具 <code>submit</code></td><td>没有工具的概念，按键直接发到一个终端会话里，所以每条命令末尾要带换行符</td></tr>
         <tr><th scope="row">怎样表示做完了</th><td>执行一条输出特定字符串的命令：<code>echo COMPLETE_TASK_AND_<wbr>SUBMIT_FINAL_OUTPUT</code></td><td>调用 <code>submit</code> 工具。默认设置下第一次调用会先让模型看一遍改动，要再调用一次才确认</td><td>在 JSON 里写 <code>"task_complete": true</code>。同样要写两次才确认</td></tr>
       </tbody>
     </table>
-    <figcaption>出处：<a href="https://github.com/SWE-agent/mini-swe-agent">mini-swe-agent</a>、<a href="https://github.com/SWE-agent/SWE-agent">SWE-agent</a>、<a href="https://github.com/harbor-framework/harbor">Harbor</a>（Terminus 2 所在的项目）各自的配置文件和源代码。</figcaption>
+    <figcaption>出处：<a href="https://github.com/SWE-agent/mini-swe-agent">mini-swe-agent</a>、<a href="https://github.com/SWE-agent/SWE-agent">SWE-agent</a>、<a href="https://github.com/harbor-framework/harbor">Harbor</a>（Terminus-2 所在的项目）各自的配置文件和源代码。</figcaption>
   </figure>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>mini-swe-agent 现在默认用的是工具调用。</b>图里那种「想法加代码块」的写法是它的文本模式。从 2.0 版开始，mini-swe-agent 默认改用原生的工具调用，工具名也叫 <code>bash</code>，形式上和图里 SWE-agent 的那一栏相同，文本模式被标成了旧的选项。代码块的标记也是在 2.0 版从 <code>bash</code> 改成 <code>mswea_bash_command</code> 的，原因是避免和 prompt 里的 bash 示例混淆。</div></div>
 </section>
@@ -30,7 +31,8 @@
 <section class="sec" id="imitate">
   <h2>监督微调把能力和格式一起学了进去</h2>
   <p>监督微调（supervised fine-tuning，SFT）是让模型模仿运行轨迹里 agent 写的每一段。轨迹里既有解题的能力，也有运行框架规定的写法，模型没有办法知道哪些是它该学的本事，哪些只是这个框架的习惯。</p>
-  {{fig 70 | 上一行是能迁移的技能：找到 bug，修掉它，测试它。下面四格是不能迁移的、属于运行框架的东西：动作的格式，工具的名字，观察结果的样子，怎样结束。四格里举的例子来自上一节的三个运行框架。图上印的出处是 OpenAI 讲 SWE-bench Verified 的文章，那篇文章没有讲运行框架。}}
+  {{fig 70 | 上一行是能迁移的技能：找到 bug，修掉它，测试它。下面四格是不能迁移的、属于运行框架的东西：动作的格式，工具的名字，观察结果的样子，怎样结束。四格里举的例子来自上一节的三个运行框架。}}
+  <p>下表给这四样属于运行框架的东西各举了几个例子。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">属于运行框架的东西</th><th scope="col">不同框架里的例子</th></tr></thead>
@@ -47,21 +49,23 @@
 
 <section class="sec" id="mismatch">
   <h2>换一个框架会怎样</h2>
+  <p>用一个框架的轨迹训练出来的模型，换到另一个框架里，典型的失败是这样的：模型做的事情本身是对的，命令也是对的，只是没有按新框架要求的格式写，框架就当它什么都没做。下图左边用一段示意的对话画出了这种失败，右边列出三个应对办法。</p>
   {{fig 71 | 左：一个示意的例子。模型用 mini-swe-agent 文本模式的轨迹训练，部署在一个要求工具调用的框架里。模型照旧写出代码块，框架回复「没有找到工具调用，请调用一个工具」，模型再写一遍同样的代码块，如此重复，直到步数用完。右：三个应对办法。}}
-  <p>图左边的对话是示意，它说明的是这类失败的样子：模型做的事情本身是对的，命令也是对的，只是没有按新框架要求的格式写，框架就当它什么都没做。</p>
   <h3>公开的证据</h3>
+  <p>公开的材料里有两处直接讲到这件事。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">来源</th><th scope="col">说了什么</th></tr></thead>
       <tbody>
-        <tr><th scope="row">SERA 的论文<br><span class="muted small">Shen 等，2026，Allen Institute for AI</span></th><td>SERA 是用 SWE-agent 的工具格式训练的，推理时格式完全一致时表现最好。论文写道：把模型部署在另一个 agent 框架里，甚至只是格式上有细微的差别，成绩都会明显下降。工具结果的格式也要和训练时完全一致，包括空白字符的习惯和目录列表的样子；一旦对不上，模型会进入无效的循环，比如反复去核实一处已经改对的修改。为了在 Claude Code 里用这个模型，他们专门写了一个代理程序，在两套工具之间做翻译</td></tr>
-        <tr><th scope="row">OpenThoughts-Agent 的论文<br><span class="muted small">Raoof 等，2026</span></th><td>把 SERA 的数据训练出的 Qwen3-32B 分别放在两个框架里测。在 SWE-Bench Verified 抽出的 100 道题上，从图上读，数据量最大时，在 SWE-agent 里大约是 52%，在 Terminus-2 里大约是 23%。论文没有给出这两个数的表格，也没有用文字解释这个差距</td></tr>
+        <tr><th scope="row">SERA 的论文<br><span class="muted small">Shen 等，2026，Allen Institute for AI</span></th><td>SERA 是用 SWE-agent 的工具格式训练的，部署使用时的格式和训练时完全一致，表现最好。论文写道：把模型部署在另一个 agent 框架里，甚至只是格式上有细微的差别，成绩都会明显下降。工具结果的格式也要和训练时完全一致，包括空白字符的习惯和目录列表的样子；一旦对不上，模型会进入无效的循环，比如反复去核实一处已经改对的修改。为了在 Claude Code 里用这个模型，他们专门写了一个代理程序，在两套工具之间做翻译</td></tr>
+        <tr><th scope="row">OpenThoughts-Agent 的论文<br><span class="muted small">Raoof 等，2026</span></th><td>把 SERA 的数据训练出的 Qwen3-32B 分别放在两个框架里测。在 SWE-Bench Verified 抽出的 100 道题上，数据量最大时，在 SWE-agent 里大约是 52%，在 Terminus-2 里大约是 23%。论文没有用文字解释这个差距</td></tr>
       </tbody>
     </table>
     <figcaption>第二行的两个数是从论文的图 1 上估读的近似值。这个差距里混着两个因素：格式对不上，以及两个框架本身的差别。论文没有把没训练过的基础模型在两个框架里的成绩并排列出，所以分不开。出处：<a href="https://arxiv.org/abs/2601.20789">Shen 等，2026</a>；<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</figcaption>
   </figure>
   <p>OpenThoughts-Agent 的论文在比较别人的模型时，每个模型都测两遍：一遍在 Terminus-2 里，一遍在那个模型原本的框架里，取较高的一个。可以这样理解：只在一个框架里比，对用别的框架训练的模型不公平。</p>
   <h3>三个应对办法</h3>
+  <p>下表是三个应对办法，各有各的代价。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">办法</th><th scope="col">做什么</th><th scope="col">代价</th></tr></thead>
@@ -73,15 +77,19 @@
     </table>
     <figcaption>「代价」一列是对三个办法的补充说明，图上没有。</figcaption>
   </figure>
+  <p>按「代价」一列，一个合理的选法是看模型要在几个框架里用。模型只在一个框架里发布时，训练和部署用同一个框架最省事。模型要放到别人的框架里用时，就要跨框架训练，或者把轨迹转成统一的格式、部署时再加一层翻译。</p>
   <p>这件事对评估也有影响。第 13 讲会讲到，一个分数属于「模型加运行框架」这个整体。对一个微调过的模型来说更是这样：它在自己训练时用的框架里的分数，和在别的框架里的分数，可以差出很多。</p>
 </section>
 
 <section class="sec" id="trends">
   <h2>监督微调：别的能力可能下降</h2>
-  <p>第三类意外来自训练方式本身。先看监督微调。</p>
-  <p>SWE-RL（Wei 等，NeurIPS 2025）用 GitHub 上的 PR（pull request，合并请求）数据训练 Llama-3.3-70B 来修 bug。它用的是强化学习：模型读 issue 和相关文件，写出代码改动，奖励是这份改动和开发者当年实际合并的改动之间的文字相似度，一个 0 到 1 之间的数；格式不对得负 1 分。奖励的计算不运行任何代码。作为对照，作者从同一个基础模型出发，用监督微调训练了另一个版本，训练数据是从同一批 PR 出发合成的带推理的修改示例，再混入 Llama 3 的编程和通用微调数据。</p>
-  <p>两个版本都是为修 bug 训练的。作者拿五类和修 bug 无关的任务来测它们，看别的能力有没有变。</p>
-  {{fig 72 | 左：三个模型在五类域外任务上的成绩，三列依次是原模型、监督微调的版本、强化学习的版本。右：论文里的一段话，高亮的部分说强化学习让模型获得了通用的推理技能，而监督微调把模型带向特定的任务分布。图片来源：<a href="https://arxiv.org/abs/2502.18449">Wei 等，2025</a>。}}
+  <p><a href="hacking.html#three">上一部分</a>把训练时会出的意外分成三类：奖励的漏洞，对运行框架过拟合，训练方式的副作用。第一类在上一部分讲过，前面三节讲的是第二类，这一节和下一节讲第三类。</p>
+  <p>第三类意外来自训练方式本身。先看监督微调：它会让模型偏向训练数据里的那类任务，别的能力可能下降。</p>
+  <p>证据来自 SWE-RL（Wei 等，NeurIPS 2025）里的一组对照。SWE-RL 和上一部分的 Self-play SWE-RL 是两项不同的工作，论文也是两篇。同一个基础模型 Llama-3.3-70B，用 GitHub 上的 PR（pull request，合并请求）数据训练来修 bug，一个版本用强化学习，另一个版本用监督微调。强化学习是让模型自己去做任务，再按得到的奖励更新模型。两个版本都是为修 bug 训练的，作者拿五类和修 bug 无关的任务来测它们，看别的能力有没有变。这类和训练内容无关的任务，论文叫域外（out-of-domain）任务。</p>
+  <p>强化学习的版本是这样训练的：模型读 issue 和相关文件，写出代码改动。奖励是这份改动和开发者当年实际合并的改动之间的文字相似度，一个 0 到 1 之间的数，格式不对得负 1 分。奖励的计算不运行任何代码。</p>
+  <p>监督微调的版本是作者做的对照。它的训练数据是从同一批 PR 出发合成的带推理的修改示例，再混入 Llama 3 的编程和通用微调数据。</p>
+  <p>下面的图和表是这两个版本和原模型在五类域外任务上的成绩。</p>
+  {{fig 72 | 左：三个模型在五类域外任务上的成绩，三列依次是原模型、监督微调的版本、强化学习的版本。右：论文里的一段话，高亮的部分说强化学习让模型获得了通用的推理技能，而监督微调把模型带向特定的任务分布，也就是让模型偏向训练数据里的那类任务。图片来源：<a href="https://arxiv.org/abs/2502.18449">Wei 等，2025</a>。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">任务类别</th><th scope="col">基准测试</th><th scope="col" class="r">原模型<br><span class="muted small">Llama-3.3-70B</span></th><th scope="col" class="r">监督微调的版本</th><th scope="col" class="r">强化学习的版本</th></tr></thead>
@@ -98,14 +106,18 @@
     </table>
     <figcaption>单位是百分比。MMLU 是各类别准确率的平均，其余是一次作答的通过率。出处：<a href="https://arxiv.org/abs/2502.18449">Wei 等，2025</a> 的表 3。</figcaption>
   </figure>
-  <p>论文的解释是：监督微调把语言模型带向一个特定的任务分布，在训练数据里分量小的任务上，成绩就会下降，即使数据的配比是精心调过的。强化学习让模型自己去试，学到的推理能力更通用。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>论文摘要把这个结果概括成「强化学习让五类域外任务全部提高，监督微调让它们平均下降」。</b>按表里的数字，这个说法有两处要修正。第一，强化学习的版本在「使用库」这一类上和原模型完全相同（28.4 和 29.1），所以是四类提高、一类持平。MMLU 上只高了 0.33 个百分点，论文自己说 MMLU 上要超过 0.8 个百分点才算显著。第二，监督微调的版本在 8 行里有 5 行下降、3 行上升，其中 CRUXEval 的两行上升了 8 到 13 个百分点。论文没有给出平均数；把 8 行直接平均，监督微调的版本是 59.71，比原模型的 59.59 还略高（粗略估算）。MATH 严格判分那一行下降了 9.2 个百分点，很可能主要是答案格式不合要求造成的：论文说只有强化学习的版本能稳定地按要求的格式作答，放宽格式之后，监督微调的版本比原模型高 0.8 个百分点。比较稳妥的说法是：强化学习的版本没有一项低于原模型，监督微调的版本有升有降。</div></div>
+  <p>论文的解释是：监督微调把语言模型带向一个特定的任务分布，也就是让模型偏向训练数据里占比大的那几类任务。在训练数据里分量小的任务上，成绩就会下降，即使数据的配比是精心调过的。强化学习让模型自己去试，学到的推理能力更通用。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>论文摘要对这个结果的概括，和表里的数字有两处对不上。</b>摘要的说法是「强化学习让五类域外任务全部提高，监督微调让它们平均下降」。按表里的数字，比较稳妥的说法是：强化学习的版本没有一项低于原模型，监督微调的版本有升有降。两处出入在下面分开说。</div></div>
+  <p>第一处，强化学习的版本是四类提高、一类持平。在「使用库」这一类的两行上，它和原模型的分数相同：指令形式都是 28.4，补全形式都是 29.1。另外，它在 MMLU 上只比原模型高 0.33 个百分点，论文自己说 MMLU 上要超过 0.8 个百分点才算显著。</p>
+  <p>第二处，监督微调的版本在 8 行里有 5 行下降、3 行上升，其中 CRUXEval 的两行上升了 8 到 13 个百分点。摘要说的「平均下降」，论文没有给出平均数。把表里的 8 行直接平均，监督微调的版本还略高于原模型，这是粗略估算，算法见<a href="#notes">资料说明</a>。</p>
+  <p>监督微调的版本降得最多的是 MATH 严格判分那一行，下降了 9.2 个百分点。这很可能主要是答案格式不合要求造成的：论文说只有强化学习的版本能稳定地按要求的格式作答。放宽格式之后，监督微调的版本比原模型高 0.8 个百分点。</p>
 </section>
 
 <section class="sec" id="collapse">
-  <h2>强化学习：训练过头会垮掉</h2>
-  <p>强化学习也有自己的问题。OpenThoughts-Agent 的论文（Raoof 等，2026）除了监督微调的数据，也试了强化学习，并且如实报告了最好的那次训练中途垮掉的经过。</p>
+  <h2>强化学习：训练过头，奖励会大幅下降</h2>
+  <p>强化学习也有自己的问题。OpenThoughts-Agent 的论文（Raoof 等，2026）除了监督微调的数据，也试了强化学习，并且如实报告了最好的那次训练中途奖励大幅下降的经过。</p>
   {{fig 73 | 横轴是时间，每 4 小时一个点。蓝线是训练任务上每次运行的平均奖励。右边的两个标记是另一个量：在没有用于训练的 SWE-Bench Verified 题目上的评估成绩，方块是强化学习之前的模型，菱形是强化学习之后发布的版本。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。}}
+  <p>下表列出这次训练的设置和经过。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">项目</th><th scope="col">内容</th></tr></thead>
@@ -113,20 +125,22 @@
         <tr><th scope="row">模型</th><td>Qwen3-8B，先用监督微调训练过，再做强化学习。论文只在 8B 这个规模上做了强化学习</td></tr>
         <tr><th scope="row">任务和奖励</th><td>一批改写成「写一个 Python 函数」形式的编程题，带生成的单元测试。测试通过奖励是 1，否则是 0</td></tr>
         <tr><th scope="row">训练中的奖励</th><td>整次训练大约 46 小时。奖励从 0.47 升到 0.51 左右的最高点，然后掉到 0.13 左右</td></tr>
-        <tr><th scope="row">垮掉时发生了什么</th><td>对话的轮数、每条回复的长度、思考用的 token 数都猛增，工具调用的次数下降，大约 80% 的运行因为超时而结束。论文的描述是：模型用很长的内部推理代替了有效的工具使用，然后超时</td></tr>
-        <tr><th scope="row">发布的是哪个版本</th><td>论文说发布的是垮掉之前导出的版本，导出的位置是第 45 步。论文没有给出按步数画的奖励曲线；按论文别处的数，奖励的最高点在第 35 步左右，第 48 步的平均奖励是 0.107。在 100 道 SWE-Bench Verified 题上各跑 3 次、超时算作失败，这个版本的成绩是 33%，强化学习之前是 19%（图上标成 0.33 和 0.19）</td></tr>
+        <tr><th scope="row">奖励下降时发生了什么</th><td>对话的轮数、每条回复的长度、思考用的 token 数都猛增，工具调用的次数下降，大约 80% 的运行因为超时而结束。论文的描述是：模型用很长的内部推理代替了有效的工具使用，然后超时</td></tr>
+        <tr><th scope="row">发布的是哪个版本</th><td>论文说发布的是奖励大幅下降之前导出的版本，导出的位置是训练的第 45 步。步是训练的计数单位，模型每更新一次算一步，整次训练大约 48 步。在 100 道 SWE-Bench Verified 题上各跑 3 次、超时算作失败，这个版本的成绩是 33%，强化学习之前是 19%（图上标成 0.33 和 0.19）</td></tr>
       </tbody>
     </table>
-    <figcaption>出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</figcaption>
+    <figcaption>第 45 步在奖励的最高点之后，核对的经过见<a href="#notes">资料说明</a>。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</figcaption>
   </figure>
-  <p>作者对这次垮掉的看法是，它和前面的进步来自同一个原因：强化学习鼓励模型去探索，探索带来了进步，探索过了头就变成了没完没了地想。论文里另一批数据上的强化学习训练没有出现这种情况，奖励从 0.54 左右升到了 0.73 左右。</p>
+  <p>作者对这次下降的看法是，它和前面的进步来自同一个原因：强化学习鼓励模型去探索，探索带来了进步，探索过了头，模型的思考就越来越长，直到超时。论文里另一批数据上的强化学习训练没有出现这种情况，奖励从 0.54 左右升到了 0.73 左右。</p>
   <p>从这个例子可以得出一条操作上的建议：强化学习的训练要一路保存中间版本，并且在训练任务之外的题目上评估它们。最后一步的模型不一定是最好的。</p>
 </section>
 
 <section class="sec" id="teacher">
   <h2>最强的模型不一定是最好的老师</h2>
-  <p><a href="types.html#train">第二部分</a>说过，运行轨迹可以由一个模型产生，拿去训练另一个模型。产生轨迹的叫老师，被训练的叫学生。很自然的想法是找最强的模型当老师。OpenThoughts-Agent 的论文做了这个对照：任务相同，学生相同（Qwen3-8B），每个老师各产生 1 万条运行轨迹，只换老师。</p>
-  {{fig 74 | 五个老师模型训练出的学生在三个基准测试上的成绩，以及平均。每个成绩后面的小字是标准误差。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。}}
+  <p><a href="types.html#train">第二部分</a>说过，运行轨迹可以由一个模型产生，拿去训练另一个模型。产生轨迹的叫老师，被训练的叫学生。很自然的想法是找最强的模型当老师。</p>
+  <p>OpenThoughts-Agent 的论文做了这个对照：任务相同，学生相同（Qwen3-8B），每个老师各产生 1 万条运行轨迹，只换老师。</p>
+  {{fig 74 | 五个老师模型训练出的学生在三个基准测试上的成绩，以及平均。每个成绩后面的小字是标准误差，也就是重复测量时成绩会有的上下浮动。图片来源：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。}}
+  <p>下表是图里五个老师各自的学生的成绩。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">老师模型</th><th scope="col" class="r">学生的成绩：<br>SWE-bench Verified<br>100 题</th><th scope="col" class="r">学生的成绩：<br>OT-TBLite</th><th scope="col" class="r">学生的成绩：<br>Terminal-Bench 2.0</th><th scope="col" class="r">三项的<br>平均</th></tr></thead>
@@ -138,28 +152,42 @@
         <tr><th scope="row">GPT-5.3-Codex</th><td class="r">21.67</td><td class="r">10.42</td><td class="r">3.75</td><td class="r">11.94</td></tr>
       </tbody>
     </table>
-    <figcaption>表里的数都是学生模型的成绩（百分比）。OT-TBLite 是这篇论文整理的 100 道终端任务，用来快速估计 Terminal-Bench 2.0 上的表现。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a> 的表 6。</figcaption>
+    <figcaption>表里的数都是学生模型的成绩（百分比）。量化版指把模型的权重用更低的精度存储的版本，占的内存更小，输出可能和原版略有差别。论文用的是量化版，没有说明量化对这张表的结果有没有影响。OT-TBLite 是这篇论文整理的 100 道终端任务，用来快速估计 Terminal-Bench 2.0 上的表现。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a> 的表 6。</figcaption>
   </figure>
-  <p>论文说 GPT-5.3-Codex 是这几个模型里在这些基准测试上最强的。用它的轨迹训练出的学生，三项全部排在最后；在 Terminal-Bench 2.0 上比 GLM 4.7 的学生低大约 5 个百分点。</p>
-  <p>有两点要说明。第一，论文没有解释为什么强的模型当不好老师，只报告了这个结果。第二，「谁是最好的老师」要看哪一列。论文把 GLM 4.7 排在第一，用的是把三项成绩各自标准化之后再平均的分数。按原始的平均，Kimi K2.5 和 GLM 5 都略高于 GLM 4.7；在 SWE-bench Verified 那一列，Kimi K2.5 和 GLM 5 的学生都比 GLM 4.7 的学生高 5 个百分点。前三名之间的差距，和每个成绩 1 到 2 个百分点的标准误差相比并不大。可以确定的是 GPT-5.3-Codex 排在最后。</p>
-  <p>这个结果和<a href="why.html#evidence">第一部分</a>的那张图说的是同一件事的两面：用哪一份数据训练，差别很大；而哪一份数据好，不能靠「产生它的模型强不强」来判断，只能靠实验。怎样挑数据是第 12 讲的内容。</p>
+  <p>论文说 GPT-5.3-Codex 是这几个模型里在这些基准测试上最强的。用它的轨迹训练出的学生，三项全部排在最后。在 Terminal-Bench 2.0 上，它的学生比 GLM 4.7 的学生低大约 5 个百分点。</p>
+  <p>论文没有解释为什么强的模型当不好老师，只报告了这个结果。</p>
+  <p>按三项的平均，前三名分不出高下：它们之间的差距，和每个成绩 1 到 2 个百分点的标准误差相比并不大。可以确定的是 GPT-5.3-Codex 排在最后。</p>
+  <p>前三名里谁排第一，要看用哪一列。论文把 GLM 4.7 排在第一，用的是把三项成绩各自标准化之后再平均的分数。标准化是把每一项成绩换算成它比五个老师的平均高多少或低多少，再按这一项成绩的分散程度折算，这样三项在排名里的分量相同。按原始的平均，Kimi K2.5 和 GLM 5 都略高于 GLM 4.7。在 SWE-bench Verified 那一列，Kimi K2.5 和 GLM 5 的学生都比 GLM 4.7 的学生高 5 个百分点。</p>
+  <p>这个结果和<a href="why.html#evidence">第一部分</a>的一张图是呼应的。那张图画的是：同一个基础模型，用三份来源不同的数据集各取同样多的轨迹来训练，成绩差别很大。两处的共同点是，用哪一份数据训练，成绩差别很大。这一节又多了一条：哪一份数据好，不能靠「产生它的模型强不强」来判断，只能靠实验。怎样挑数据是第 12 讲的内容。</p>
 </section>
 
 <section class="sec" id="takeaways">
   <h2>整讲的小结</h2>
+  <p>下表把整讲的要点和它们所在的部分列在一起。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">要点</th><th scope="col">展开</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
       <tbody>
         <tr><th scope="row">agent 需要的不只是文字</th><td>需要任务、环境和运行轨迹。运行轨迹用来模仿，环境用来练习</td><td><a href="why.html">一</a>、<a href="types.html">二</a></td></tr>
         <tr><th scope="row">人工的数据真实，但是贵</th><td>请人演示很难做大</td><td><a href="real.html#human">三</a></td></tr>
-        <tr><th scope="row">从现成的材料里提取很便宜</th><td>代码历史、教程、视频都可以转成任务和轨迹</td><td><a href="real.html#mined">三</a></td></tr>
+        <tr><th scope="row">从现成的材料里提取省人工</th><td>代码历史、教程、视频都可以转成任务和轨迹，不需要人把每个任务做一遍</td><td><a href="real.html#mined">三</a></td></tr>
         <tr><th scope="row">合成可以便宜地做大</th><td>模型可以写出步骤，也可以造出任务和环境</td><td><a href="synth.html">四</a></td></tr>
         <tr><th scope="row">模拟器提供无限的练习</th><td>模拟器的错误也会被学进去</td><td><a href="sim.html">五</a></td></tr>
         <tr><th scope="row">数据会顺带教一些东西</th><td>奖励的漏洞，运行框架的格式，训练方式的副作用</td><td><a href="hacking.html">六</a>、这一部分</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>这一讲回答了 agent 数据是什么、从哪里来、会带来什么意外。还剩一个问题：手里有了这么多运行轨迹和环境，应该拿哪些来训练。这是第 12 讲的内容。</p>
+  <p>这一讲回答了 agent 数据是什么、从哪里来、会带来什么意外。还剩一个问题：有了这么多运行轨迹和环境，应该拿哪些来训练。这是第 12 讲的内容。</p>
   <p>回到<a href="index.html">总览</a>。</p>
+</section>
+
+<section class="sec" id="notes">
+  <h2>资料说明</h2>
+  <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
+  <ul>
+    <li><b>两张图上印的出处。</b>讲三种写法的那张图和讲能力与格式的那张图，图上印的出处都是 OpenAI 讲 SWE-bench Verified 的文章，那篇文章没有讲运行框架。三种格式实际出自三个项目各自的代码仓库。</li>
+    <li><b>SERA 的模型在两个框架里的成绩。</b>OpenThoughts-Agent 的论文没有给出这两个数的表格，52% 和 23% 是从论文的图 1 上估读的近似值。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</li>
+    <li><b>SWE-RL 摘要里的「平均下降」。</b>论文没有给出平均数。把表里的 8 行直接平均，监督微调的版本是 59.71，比原模型的 59.59 还略高（粗略估算）。出处：<a href="https://arxiv.org/abs/2502.18449">Wei 等，2025</a> 的表 3。</li>
+    <li><b>强化学习那次训练，发布的版本是在哪里导出的。</b>论文说发布的是奖励大幅下降之前导出的版本，但没有给出按步数画的奖励曲线，图上的曲线是按时间画的，每 4 小时取一次平均。步和小时的对应，论文没有直接写明：附录在第 48 步报告的运行时间大约是 46 小时，所以整次训练大约 48 步。按论文别处的数，奖励的最高点在第 35 步左右，发布的版本在第 45 步导出，第 48 步这一步的平均奖励是 0.107。正文表里的 0.13 是图上那条每 4 小时取一次平均的曲线最后降到的值，和第 48 步这一步的 0.107 量的范围不同。出处：<a href="https://arxiv.org/abs/2606.24855">Raoof 等，2026</a>。</li>
+  </ul>
 </section>

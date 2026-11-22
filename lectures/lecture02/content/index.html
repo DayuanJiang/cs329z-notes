@@ -1,14 +1,14 @@
 <section class="sec" id="thesis">
   <h2>一句话的结论</h2>
   <p class="lead-in">大语言模型（LLM）是一个根据前面的 token 预测下一个 token 的概率模型。<mark>它的结构、训练方式和推理方式各自带来一些限制，搭 agent 时怎样规定输出格式、怎样安排上下文，都是在这些限制里做选择。</mark></p>
-  <p>token 是模型处理文字的最小单位，大致是一个词或半个词。agent 指能自己调用工具、分很多步去完成一个任务的语言模型系统。其余各讲都只是调用模型，这一讲专门讲模型内部和搭 agent 直接有关的部分。下面的表把「模型的一个事实」和「它对搭 agent 的影响」一一对上。</p>
+  <p>下面的表把「模型的一个事实」和「它对搭 agent 的影响」一一对上。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">模型的一个事实</th><th scope="col">对搭 agent 的影响</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
         <tr><td>每一步，模型输出的是整个词表上的一个概率分布</td><td>输出有随机性，可以用 temperature（调节输出多样性的参数）这类设置去调；也可以在每一步只允许合法的 token，从机制上保证输出的格式</td><td><a href="lm.html">一</a>、<a href="structured.html">七</a></td></tr>
         <tr><td>标准的注意力让每个 token 直接去看前面所有的 token，计算量随长度的平方增长</td><td>长上下文很贵。省计算的线性注意力又更难从长上下文里找回信息，所以选模型时要看它用的是哪一种</td><td><a href="transformer.html">二</a>、<a href="linear.html">三</a></td></tr>
-        <tr><td>模型的能力来自它练过的数据和环境</td><td>模型会调用工具、会长时间工作，是因为后训练里专门练过。训练的方式也会带来问题，比如模型爱说好话</td><td><a href="training.html">四</a></td></tr>
+        <tr><td>模型的能力来自它练过的数据和环境</td><td>模型会调用工具、会长时间工作，是因为训练时专门用带运行环境的任务练过。训练的方式也会带来问题，比如模型爱说好话</td><td><a href="training.html">四</a></td></tr>
         <tr><td>读输入时所有 token 并行算，写输出时一次只出一个 token</td><td>输入 token 便宜，输出 token 贵而且慢。agent 读得多、写得少，这种用法在价格上划算</td><td><a href="inference.html">五</a></td></tr>
         <tr><td>每个 token 算过的中间结果可以存下来接着用，但它依赖前面的全部内容</td><td>上下文的开头保持不变、新内容只往后加，缓存才能一直用</td><td><a href="inference.html#kvcache">五</a>、<a href="context.html#cache">八</a></td></tr>
         <tr><td>让模型多生成一些 token 再回答，成绩通常更好</td><td>难的任务可以多花，简单的任务少花，由使用的人决定</td><td><a href="scaling.html">六</a></td></tr>
@@ -20,43 +20,39 @@
 
 <section class="sec" id="story">
   <h2>八个问题</h2>
+  <p>这一讲分八个部分，每个部分回答一个问题。下表先给出每个问题的答案和一条依据，推导和出处在各部分的页面里。表里有些词到对应的部分才展开，表后面先各给一句解释。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
         <tr><th scope="row"><a href="lm.html">一 语言模型是什么，<br>怎么从它生成文字？</a></th><td>一个给 token 序列算概率的公式：把每个 token 在前文之后出现的概率连乘。每一步从概率分布里挑一个 token 接上去，就是生成。怎么挑有 greedy、top-k、top-p、束搜索几种，temperature 用来调多样性</td><td>「The class was about」之后，to 的概率是 0.3171。p 取 0.3 的 top-p 在这一步只有 1 个候选，下一步有 4 个</td></tr>
-        <tr><th scope="row"><a href="transformer.html">二 Transformer 怎么算出<br>下一个 token 的概率？</a></th><td>token 变成向量，加上位置向量，经过很多层注意力和前馈网络，最后变成词表上的概率。注意力里每个 token 产生 query、key、value，按相关程度汇总前面 token 的信息</td><td>2017 年的论文里，大号的 Transformer 英译德的 BLEU（翻译质量的分数）是 28.4，训练计算量不到此前最好的集成模型的三分之一</td></tr>
-        <tr><th scope="row"><a href="linear.html">三 平方级的计算量<br>能降下来吗？</a></th><td>能。线性注意力只保存一个固定大小的状态，计算量随长度线性增长。代价是从长上下文里找回信息的能力变弱。现在的模型把两种注意力混着用</td><td>小模型实验里，纯线性注意力在三个抽取信息任务上的平均准确率是 22.7%，加两层全局注意力后是 32.7%。Kimi K3 每 3 层线性注意力配 1 层全局注意力</td></tr>
+        <tr><th scope="row"><a href="transformer.html">二 Transformer 怎么算出<br>下一个 token 的概率？</a></th><td>token 变成向量，加上位置向量，经过很多层注意力和前馈网络，最后变成词表上的概率。注意力里每个 token 产生 query、key、value，按相关程度汇总前面 token 的信息</td><td>2017 年的论文里，大号的 Transformer 英译德的 BLEU（翻译质量的分数）是 28.4，训练计算量不到 ConvS2S 集成模型的三分之一。ConvS2S 集成模型是论文的对比表里此前 BLEU 最高的一项</td></tr>
+        <tr><th scope="row"><a href="linear.html">三 平方级的计算量<br>能降下来吗？</a></th><td>能。线性注意力只保存一个固定大小的状态，计算量随长度线性增长。代价是从长上下文里找回信息的能力变弱。现在的模型把两种注意力混着用</td><td>小模型实验里，纯线性注意力在三个抽取信息任务上的平均准确率是 22.7%，加两层标准注意力后是 32.7%。Kimi K3 每 3 层线性注意力配 1 层标准注意力</td></tr>
         <tr><th scope="row"><a href="training.html">四 一个模型是<br>怎么训练出来的？</a></th><td>预训练、中期训练和指令微调用的都是预测下一个 token 的交叉熵损失，变的是数据：预训练用筛选过的海量网页，中期训练把配比调向目标领域，指令微调用指令和示范回答。后训练里还有强化学习，按奖励来更新模型，奖励来自人的偏好或者能自动判对错的任务。最后是为 agent 造的训练环境</td><td>DCLM 的筛选流程只留下 1.4% 的文档。SWE-smith 从 128 个代码仓库造出 5 万个任务，微调后的模型在 SWE-bench Verified 上到 40.2%</td></tr>
-        <tr><th scope="row"><a href="inference.html">五 推理时<br>时间花在哪里？</a></th><td>读 prompt 的 prefill 阶段并行算，受算力限制。写回答的 decode 阶段逐个生成，受内存带宽限制。每个 token 的 key 和 value 存进 KV cache 接着用</td><td>推测解码用小模型起草、大模型一次检查，在 700 亿参数的模型上，三项测试分别快了 1.92、2.01 和 2.46 倍，输出的分布不变</td></tr>
+        <tr><th scope="row"><a href="inference.html">五 推理时<br>时间花在哪里？</a></th><td>读 prompt 的 prefill 阶段并行算，受算力限制。写回答的 decode 阶段逐个生成，受内存带宽限制。每个 token 的 key 和 value 存进 KV cache 接着用</td><td>推测解码用小模型起草、大模型一次检查，在 700 亿参数的模型上，三项测试的解码速度分别是普通解码的 1.92、2.01 和 2.46 倍，输出的分布不变</td></tr>
         <tr><th scope="row"><a href="scaling.html">六 推理时多花算力<br>能换来什么？</a></th><td>更好的答案。做法有三种：先写推理过程，把推理强度做成可调的档位，同一道题做很多遍再挑</td><td>SWE-bench Lite 上，一个模型做 1 遍的成功率是 15.9%，做 250 遍、至少一遍成功的比例是 56%</td></tr>
-        <tr><th scope="row"><a href="structured.html">七 怎样让模型的输出<br>能被程序接住？</a></th><td>四种办法：约束解码、用 prompt 规定格式再解析、分类头、把状态和候选动作变成向量来比较</td><td>SGLang 把格式里固定的几个 token 直接填上，不再逐个调用模型，这一项在 JSON 解码上把吞吐量提高到 1.6 倍</td></tr>
-        <tr><th scope="row"><a href="context.html">八 往上下文里<br>放什么，怎么放？</a></th><td>尽可能小的一组信息量高的 token。少放工具，用检索挑内容，新内容只往后加，用实验验证，满了之后小心地做摘要。另一种思路是把长输入放在代码环境里，让模型写代码去处理</td><td>OOLONG 上，GPT-5 的得分从上下文 8K 时的 85.56 降到 128K 时的 46.36。一起事故里，agent 没等确认就成批删掉了用户的邮件，当事人判断是做摘要时丢掉了「先确认再行动」这条指示</td></tr>
+        <tr><th scope="row"><a href="structured.html">七 怎样让模型的输出<br>能被程序解析？</a></th><td>四种办法：约束解码、用 prompt 规定格式再解析、分类头、把状态和候选动作变成向量来比较</td><td>SGLang 把格式里固定的几个 token 直接填上，不再逐个调用模型，这一项在 JSON 解码上把吞吐量提高到 1.6 倍</td></tr>
+        <tr><th scope="row"><a href="context.html">八 往上下文里<br>放什么，怎么放？</a></th><td>尽可能小的一组信息量高的 token。少放工具，用检索挑内容，新内容只往后加，用实验验证，满了之后小心地做摘要。另一种思路是把长输入放在代码环境里，让模型写代码去处理</td><td>OOLONG 上，GPT-5 的得分（满分 100）从上下文 8K 个 token 时的 85.56 降到 128K 个 token 时的 46.36。一起事故里，agent 没等确认就成批删掉了用户的邮件，当事人判断是做摘要时丢掉了「先确认再行动」这条指示</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。prompt 是交给模型的那段输入文字。</figcaption>
   </figure>
-</section>
-
-<section class="sec" id="gaps">
-  <h2>容易想当然的八件事</h2>
-  <p>下面八件事，照配图上的字面或者第一眼的印象去理解，会比实际情况简单，或者和原始出处对不上。每一件在对应的页面里有出处和细节。</p>
-  <figure class="plate">
-    <table class="tbl">
-      <thead><tr><th scope="col">容易这样理解</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
-      <tbody>
-        <tr><td>temperature 就是把概率除以 T，再重新归一化</td><td>除的是 logits，也就是 softmax 之前的分数。把概率同除以一个数再归一化，分布不会变</td><td><a href="lm.html#temperature">语言模型</a></td></tr>
-        <tr><td>线性注意力就是把 softmax 去掉</td><td>提出它的论文是把 softmax 里的指数运算换成一个特征变换，并且保留了归一化。交换相乘顺序这个核心想法是一样的</td><td><a href="linear.html#idea">线性注意力</a></td></tr>
-        <tr><td>RWKV 和 Mamba 用的都是线性注意力，RULER 的图说明线性注意力不如标准注意力</td><td>Mamba 是状态空间模型，结构里没有注意力。图里三个模型的大小和训练数据都不同，纵轴是 13 个任务的平均。它能说明的是：这两个用固定大小状态的模型在这个基准测试上落后</td><td><a href="linear.html#cost">线性注意力</a></td></tr>
-        <tr><td>Marin 的热力图是预训练和冷却两个阶段各自的数据配比</td><td>按原文，它画的是每个数据桶的权重和模型成绩之间的相关系数。深蓝色的格子表示这个桶的权重越高成绩越好，不表示这个桶的权重高</td><td><a href="training.html#mid">训练</a></td></tr>
-        <tr><td>Inkling 用「任务奖励减去 token 惩罚」这个公式训练推理强度；Kimi K3 分高、中、低三档，答错并超预算扣 1 分</td><td>那个公式是一篇解读文章的推测，官方没有公开。Kimi K3 的三档是低、高、最高；规则是只要超预算，任务奖励就改成负 1</td><td><a href="scaling.html#effort-training">多花算力</a></td></tr>
-        <tr><td>往上下文开头插入内容会让 KV cache 作废，是因为位置向量变了</td><td>位置改变是原因之一。按注意力的计算方式推论，更一般的原因是每个 token 的结果都依赖它前面的全部内容，前面一改，后面全变。所以缓存只在开头完全相同时能接着用</td><td><a href="context.html#cache">上下文工程</a></td></tr>
-        <tr><td>OOLONG 上 Gemini 2.5 Pro 从接近 90% 掉到 13% 左右，说明 context rot（上下文越长，模型越用不好其中信息）有多严重</td><td>论文说这条线下降的主要原因是推理过程超出了最大输出长度，API 不返回内容，记 0 分。更干净的例子是 GPT-5：从 85.56 降到 46.36</td><td><a href="context.html#rot">上下文工程</a></td></tr>
-        <tr><td>HarnessTax 的结果说明，除了一个模型之外，用精简的 Pi 成功率都最高</td><td>文章自己的结论是：换运行框架对成功率影响很小，对花费影响很大。每个数只来自 30 个任务，从图上看，同一个模型的三根柱子的误差线都互相重叠</td><td><a href="context.html#bloat">上下文工程</a></td></tr>
-      </tbody>
-    </table>
-    <figcaption>运行框架（harness）是包在模型外面、给它工具并管理多轮对话的程序。</figcaption>
-  </figure>
+  <p>表里到各部分才展开的词，大致按出现的顺序各给一句解释。</p>
+  <ul>
+    <li><b>greedy、top-k、top-p 和束搜索</b>是从概率分布里挑下一个 token 的四种办法。greedy 每一步都选概率最高的 token。top-k 只在概率最高的 k 个 token 里随机抽。top-p 把 token 按概率从高到低排好，从头往后加，累计概率达到 p 就停，只在这些 token 里随机抽，所以候选的个数每一步都可能不同。束搜索同时保留几条候选的序列，最后选整条序列得分最高的。</li>
+    <li><b>位置向量</b>是加到每个 token 的向量上、表示它排在第几个的一组数。<b>前馈网络</b>是对每个 token 的向量单独做一次变换的那一层。</li>
+    <li><b>query、key、value</b> 是注意力层为每个 token 算出的三个向量：query 表示它在找什么，key 表示它有什么，value 是别的 token 看它时它交出去的内容。</li>
+    <li><b>ConvS2S</b> 是一个用卷积网络做翻译的模型。<b>集成模型</b>指把几个分别训练的模型的预测合起来用。</li>
+    <li><b>交叉熵损失</b>是训练时衡量模型离目标有多远的一个数：模型给真实的下一个 token 的概率越高，它越低。</li>
+    <li><b>指令微调</b>是用很多条「指令加上理想的回答」接着训练模型。</li>
+    <li><b>DCLM</b> 是一个公开的预训练数据集和基准测试。<b>SWE-smith</b> 是一种自动造训练任务的办法。<b>SWE-bench Verified</b> 和 <b>SWE-bench Lite</b> 是修真实代码仓库里 bug 的基准测试。</li>
+    <li><b>内存带宽</b>是数据从内存送到计算单元的速度。</li>
+    <li><b>KV cache</b> 是推理时保存下来重复使用的中间结果。</li>
+    <li><b>约束解码</b>是在生成的每一步只允许合法的 token。<b>SGLang</b> 是实现这种做法的一个库。<b>吞吐量</b>是单位时间里处理的请求量。</li>
+    <li><b>分类头</b>是接在模型上的一个很小的分类器，把模型算出的向量变成每个类别的分数。</li>
+    <li><b>状态</b>指模型当前面对的情况，比如一幅游戏画面或一段文字。<b>候选动作</b>是这一步可以选的几个选项，比如一份工具清单里的各个工具。</li>
+    <li><b>OOLONG</b> 是一个专门测长上下文的基准测试。</li>
+  </ul>
 </section>
 
 <section class="sec" id="colors">
@@ -75,9 +71,41 @@
     <a href="training.html"><span class="m">第四部分</span><span><b>一个模型是怎么训练出来的</b><p>交叉熵损失；从网页到训练集；数据配比；中期训练；指令微调、人的偏好、可验证的奖励；为 agent 造任务。</p></span></a>
     <a href="inference.html"><span class="m">第五部分</span><span><b>推理时时间花在哪里</b><p>GPU 和屋顶线模型；prefill 和 decode；KV cache；两个指标和价格；推测解码。</p></span></a>
     <a href="scaling.html"><span class="m">第六部分</span><span><b>推理时多花算力，换更好的答案</b><p>chain of thought；推理模型；推理强度的档位和它的训练办法；重复抽样；自洽性。</p></span></a>
-    <a href="structured.html"><span class="m">第七部分</span><span><b>让模型的输出能被程序接住</b><p>复合 AI 系统；约束解码；DSPy 的 signature；分类头；System One 模型；调用工具。</p></span></a>
+    <a href="structured.html"><span class="m">第七部分</span><span><b>让模型的输出能被程序解析</b><p>复合 AI 系统；约束解码；DSPy 的 signature；分类头；System One 模型；调用工具。</p></span></a>
     <a href="context.html"><span class="m">第八部分</span><span><b>上下文工程</b><p>上下文里有什么；context rot；四条做法；compaction 和一起事故；递归语言模型；整讲的小结。</p></span></a>
   </div>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的八件事</h2>
+  <p>这张表留到读完各部分之后再看，用来核对自己的理解。左边一列是八个说法，照配图上的字面或者第一眼的印象，很容易这样理解。右边一列是对照原始出处之后的实际情况：有的比字面复杂，有的在原始出处里是另一种说法。</p>
+  <p>表里提到的模型、基准测试、文章和几个术语在各部分里都有交代，表后面先各给一句解释。每一件的出处和细节在最后一列指向的页面里。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">容易这样理解</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>temperature 就是把概率除以 T，再重新归一化</td><td>除的是 logits，也就是 softmax 之前的分数。把概率同除以一个数再归一化，分布不会变</td><td><a href="lm.html#temperature">语言模型</a></td></tr>
+        <tr><td>线性注意力就是把 softmax 去掉</td><td>提出它的论文是把 softmax 里的指数运算换成一个特征变换，并且保留了归一化。交换相乘顺序这个核心想法是一样的</td><td><a href="linear.html#idea">线性注意力</a></td></tr>
+        <tr><td>RWKV 和 Mamba 用的都是线性注意力，RULER 的图说明线性注意力不如标准注意力</td><td>Mamba 是状态空间模型，结构里没有注意力。图里三个模型的大小和训练数据都不同，纵轴是 13 个任务的平均。它能说明的是：这两个用固定大小状态的模型在这个基准测试上落后</td><td><a href="linear.html#cost">线性注意力</a></td></tr>
+        <tr><td>Marin 的热力图是预训练和冷却两个阶段各自的数据配比</td><td>按原文，它画的是每个数据桶的占比和模型成绩之间的相关系数。深蓝色的格子表示这个桶的占比越高成绩越好，不表示这个桶的占比高</td><td><a href="training.html#mid">训练</a></td></tr>
+        <tr><td>Inkling 用「任务奖励减去 token 惩罚」这个公式训练推理强度；Kimi K3 分高、中、低三档，答错并超预算扣 1 分</td><td>那个公式是一篇解读文章的推测，官方没有公开。Kimi K3 的三档是低、高、最高；规则是只要超预算，任务奖励就改成负 1</td><td><a href="scaling.html#effort-training">多花算力</a></td></tr>
+        <tr><td>往上下文开头插入内容会让 KV cache 作废，是因为位置向量变了</td><td>位置改变是原因之一。按注意力的计算方式推论，更一般的原因是每个 token 的结果都依赖它前面的全部内容，前面一改，后面全变。所以缓存只在开头完全相同时能接着用</td><td><a href="context.html#cache">上下文工程</a></td></tr>
+        <tr><td>OOLONG 上 Gemini 2.5 Pro 的得分从接近 90 分掉到 13 分左右，说明 context rot（上下文越长，模型越用不好其中信息）有多严重</td><td>论文说这条线下降的主要原因是推理过程超出了最大输出长度，API 不返回内容，记 0 分。不受这种记 0 分影响的例子是 GPT-5：满分 100，它的得分从上下文 8K 个 token 时的 85.56 降到 128K 个 token 时的 46.36</td><td><a href="context.html#rot">上下文工程</a></td></tr>
+        <tr><td>HarnessTax 的结果说明，除了一个模型之外，用精简的 Pi 成功率都最高</td><td>文章自己的结论是：换运行框架对成功率影响很小，对花费影响很大。每个数只来自 30 个任务，从图上看，同一个模型的三根柱子的误差线都互相重叠</td><td><a href="context.html#bloat">上下文工程</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>每一行的出处和细节在最后一列指向的页面里。</figcaption>
+  </figure>
+  <p>表里出现的名字和术语，按出现的顺序各给一句解释。</p>
+  <ul>
+    <li><b>softmax</b> 是把一组分数变成加起来等于 1 的概率的函数。</li>
+    <li><b>RWKV 和 Mamba</b> 是两个不用标准注意力的模型。Mamba 用的<b>状态空间模型</b>是另一类结构：它用一个固定大小的状态记住读过的内容，结构里没有注意力。<b>RULER</b> 是一个测长上下文能力的基准测试。</li>
+    <li><b>Marin</b> 是一个把训练全过程公开出来的语言模型项目。数据桶是它按主题和质量给文档分的组，一个桶的占比是它在训练数据里占的比例。<b>冷却阶段</b>（cooldown）是预训练之后、后训练之前的一段训练，也叫中期训练。</li>
+    <li><b>Inkling 和 Kimi K3</b> 是两个推理强度可以调的模型。</li>
+    <li><b>KV cache</b> 是推理时保存下来重复使用的中间结果。<b>位置向量</b>是加到每个 token 的向量上、表示它排在第几个的一组数。</li>
+    <li><b>OOLONG</b> 是一个专门测长上下文的基准测试。</li>
+    <li><b>HarnessTax</b> 是 Arena 团队比较三种运行框架的一篇文章。运行框架（harness）是包在模型外面、给它工具并管理多轮对话的程序。<b>Pi</b> 是其中很精简的一种，只给模型四个工具。误差线是图上每根柱子带的一段线，表示结果可能波动的范围。</li>
+  </ul>
 </section>
 
 <section class="sec" id="sources">
@@ -120,7 +148,7 @@
         <tr><td>NERSC 的<a href="https://docs.nersc.gov/tools/performance/roofline/">屋顶线模型文档</a>；TNG 的 <a href="https://huggingface.co/blog/tngtech/llm-performance-prefill-decode-concurrent-requests">Prefill and Decode for Concurrent Requests</a></td><td>第五部分：两种硬件限制的定义，prefill 和 decode，两个指标</td></tr>
         <tr><td>Sebastian Raschka，<a href="https://magazine.sebastianraschka.com/p/controlling-reasoning-effort-in-llms">Controlling reasoning effort in LLMs</a>；OpenAI 的 <a href="https://openai.com/index/introducing-gpt-6-sol-and-luna/">GPT-6 Sol 和 Luna 发布页</a>；<a href="https://huggingface.co/openai/gpt-oss-120b">gpt-oss 的模型说明</a>；<a href="https://thinkingmachines.ai/news/introducing-inkling/">Inkling 的发布文章</a></td><td>第六部分：推理模型，推理强度的档位和训练办法</td></tr>
         <tr><td>伯克利 BAIR 的<a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">复合 AI 系统文章</a>；<a href="https://dspy.ai/current/getting-started/first-program/">DSPy 文档</a>；Jay Alammar 的 <a href="https://jalammar.github.io/a-visual-guide-to-using-bert-for-the-first-time/">BERT 图解</a>；<a href="https://contrastive-lm.notion.site/">Contrastive Language Models 项目页面</a></td><td>第七部分</td></tr>
-        <tr><td>Chroma 的 <a href="https://research.trychroma.com/context-rot">Context Rot 报告</a>；Arena 的 <a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax 文章</a>；Anthropic 的 <a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching">prompt caching 文档</a>；Alex Zhang 的 <a href="https://alexzhang13.github.io/blog/2025/rlm/">RLM 文章</a>；上海纽约大学对 <a href="https://rits.shanghai.nyu.edu/ai/metas-alignment-director-lost-control-of-openclaw-it-deleted-her-inbox/">OpenClaw 删邮件事故的报道</a></td><td>第八部分</td></tr>
+        <tr><td>Chroma 的 <a href="https://research.trychroma.com/context-rot">Context Rot 报告</a>；Arena 的 <a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax 文章</a>；Anthropic 的 <a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching">prompt caching 文档</a>；Alex Zhang 的 <a href="https://alexzhang13.github.io/blog/2025/rlm/">RLM 文章</a>；上海纽约大学对 <a href="https://rits.shanghai.nyu.edu/ai/metas-alignment-director-lost-control-of-openclaw-it-deleted-her-inbox/">OpenClaw 删邮件事故的报道</a>；TechCrunch 对<a href="https://techcrunch.com/2026/02/23/a-meta-ai-security-researcher-said-an-openclaw-agent-ran-amok-on-her-inbox/">同一起事故的报道</a></td><td>第八部分</td></tr>
       </tbody>
     </table>
   </figure>

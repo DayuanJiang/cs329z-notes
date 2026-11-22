@@ -1,11 +1,10 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>三组研究各回答一个问题：多 agent 系统一般怎样失败，协调本身的代价有多大，agent 的行为有什么问题。</li>
-    <li>一般的失败有 14 种。论文的结论是，它们常常出在系统设计上，不只是模型能力的问题。</li>
-    <li>协调的代价很大。两个要改同一个代码库的功能交给两个 agent，五个模型的成功率都比交给一个 agent 低；在 GPT-5 和 Claude Sonnet 4.5 上只有一半多一点。</li>
+    <li>一般的失败有 14 种。提出这份分类的论文的结论是，它们常常出在系统设计上，不只是模型能力的问题。</li>
+    <li>协调的代价很大。两个要改同一个代码库的功能交给两个 agent，五个模型的成功率都比交给一个 agent 低。在 GPT-5 和 Claude Sonnet 4.5 上，两个 agent 的成功率只有一个 agent 的一半多一点。</li>
     <li>多个 agent 的想法会趋同，一个犯错往往一起犯错。目标互相冲突时，被测的模型一开始都互相破坏，最后怎样收场随模型差别很大。</li>
-    <li>验证相关的失败占 23.5%，案例的第一条经验也是测试，但前面讲的三个设计要素里没有验证。可以把它当作第四个设计问题。</li>
+    <li>验证相关的失败占全部失败的 23.5%。C 编译器案例是 16 个 agent 合写一个 C 编译器的项目，它的第一条经验也是测试。但前面讲的三个设计要素是编排、通信、协调，里面没有验证。可以把验证当作第四个设计问题。</li>
   </ul>
 </section>
 
@@ -14,6 +13,7 @@
   <p>Cemri 等人 2025 年的论文题目就是「多 agent 系统为什么失败？」。他们收集了多 agent 系统的运行记录，先由人逐条分析出一份失败分类，再校准一个用大语言模型做的标注器去标注全部记录。</p>
   {{fig 71 | 图里的七步：收集运行记录，找出失败，几位标注者核对一致性，得到分类表（MAST），校准标注器，标注失败，得到数据集。图片来源：<a href="https://arxiv.org/abs/2503.13657">Cemri 等，2025</a>。}}
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>数据的规模。</b>论文一共标注了 1642 条运行记录，来自 7 个开源的多 agent 框架：ChatDev、MetaGPT、HyperAgent、AppWorld、AG2、Magentic-One 和 OpenManus。这 7 个系统的失败率在 41% 到 86.7% 之间。论文开头就说，多 agent 系统在常用评测上的提升往往很小。出处：<a href="https://arxiv.org/abs/2503.13657">Cemri 等，2025</a>。</div></div>
+  <p>分类的结果是 14 种失败方式，归成三类。下图是每种方式在所有失败里占的比例。</p>
   <figure class="plate">
     <div class="bars wide" role="img" aria-label="14 种失败方式的占比">
       <h4>系统设计的问题，合计 44.2%</h4>
@@ -34,10 +34,11 @@
       <div class="bar" style="--v:39%;--c:var(--teal)"><span class="bar-label">没有验证，或者验证不完整</span><span class="bar-track"><i></i></span><b>8.2%</b></div>
       <div class="bar" style="--v:30%;--c:var(--teal)"><span class="bar-label">过早结束</span><span class="bar-track"><i></i></span><b>6.2%</b></div>
     </div>
-    <figcaption>数字读自下面的图，是每种方式在所有失败里占的比例，每一类里按占比从高到低排。条的长度按 21% 为满格画。</figcaption>
+    <figcaption>数字读自下面的图，是每种方式在所有失败里占的比例，每一类里按占比从高到低排。条的长度和占比成正比。满格定在 21%，比占比最高的 15.7% 略高，是画图时选的刻度。</figcaption>
   </figure>
   {{fig 72 | 论文的图把每种失败方式画在它出现的阶段上：执行前、执行中、执行后。图片来源：<a href="https://arxiv.org/abs/2503.13657">Cemri 等，2025</a>。}}
   <h3>三类各指什么</h3>
+  <p>下表是论文对三类失败的定义，以及论文认为各类要怎么改。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">类别</th><th scope="col">论文的定义</th><th scope="col">论文认为要怎么改</th></tr></thead>
@@ -60,7 +61,7 @@
 
 <section class="sec" id="cooper">
   <h2>协调的代价有多大：CooperBench</h2>
-  <p>CooperBench（Khatua 等，2026）是一个专门测 agent 协作编程的评测。论文把它观察到的现象叫作「协调的诅咒」：agent 一起做，成功率反而比一个 agent 包办两个任务时低。</p>
+  <p>CooperBench（Khatua 等，2026）是一个专门测 agent 协作编程的评测。论文把它观察到的现象叫作「协调的诅咒」：两个 agent 各做一个功能，成功率反而比一个 agent 包办两个功能时低。</p>
   {{fig 74 | 图片来源：<a href="https://arxiv.org/abs/2601.13295">CooperBench</a>。}}
   <h3>评测怎么做</h3>
   <ul>
@@ -69,6 +70,7 @@
     <li><b>评分。</b>把两个 agent 的补丁合并，再运行两个功能各自的测试。合并不了，两个都算失败。</li>
   </ul>
   <h3>结果</h3>
+  <p>下表是五个模型在两种设置下的成功率。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">模型</th><th scope="col" class="r">两个功能都交给一个 agent 做，成功率</th><th scope="col" class="r">两个 agent 各做一个功能，成功率</th></tr></thead>
@@ -91,6 +93,7 @@
     <li><b>沟通减少了冲突，没有提高成功率。</b>细节见<a href="communication.html#chat">第三部分</a>。</li>
   </ul>
   <h3>协调为什么失败</h3>
+  <p>研究者人工分析了 50 条协作失败的运行记录，把失败的原因归成三类，下表是各类的占比。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">原因</th><th scope="col">是什么</th><th scope="col" class="r">占比</th></tr></thead>
@@ -100,16 +103,16 @@
         <tr><th scope="row">沟通<br><span class="muted small">Communication</span></th><td>用语言协调时出了问题：没有有效地说明自己的意图、问题或进度，问题没人回答。</td><td class="r">26%</td></tr>
       </tbody>
     </table>
-    <figcaption>整理自论文的表格。占比来自研究者人工分析的 50 条协作失败的运行记录。</figcaption>
+    <figcaption>整理自论文的表格。占比是这 50 条运行记录里各类原因所占的比例。</figcaption>
   </figure>
-  <p>占比最高的一类值得多想一步：对方明明说了，自己还是当没听见。这说明消息是送到了的，问题出在「收到之后有没有据此改变做法」。</p>
+  <p>占比最高的一类值得多想一步：一个 agent 已经说明了自己在做什么，另一个 agent 仍然当作这件事没人在做。这说明消息是送到了的，问题出在「收到之后有没有据此改变做法」。</p>
   <p>论文给了一个可能的解释，和实验的设置有关。两个 agent 各在自己的分支上工作，看不到对方的代码。Agent A 说「我在第 50 行加了处理函数」，Agent B 想核实，在自己的分支上却找不到这段代码。模型平时被训练得很谨慎，没有看到证据就不轻信。分开工作区之后的协作，要求的恰好是相信自己看不到的东西。论文认为，这个矛盾可能是 agent 明明收到了消息、却没有更新对对方状态的判断的原因之一。</p>
   <p>承诺一类的失败也和看不到对方有关。论文的例子里，一个 agent 说会在第 100 到 104 行加一段检查，后来报告已经完成，合并之后这段代码却不在。对方当时没有办法核实，只能选择相信。论文由此建议，用一些简单的办法把对话变成可以核对的共同状态，例如把函数签名贴出来、明确约定插入的位置、宣布完成之前先做一次合并检查。</p>
 </section>
 
 <section class="sec" id="conformity">
   <h2>行为上的问题一：想法趋同</h2>
-  <p>这一节和下一节引用的是 Anthropic 2026 年 8 月的研究文章 Patterns and problems in emerging multiagent systems。</p>
+  <p>多个 agent 的想法会趋同：让它们各做各的，做出来的东西却很像。这一节和下一节引用的是 Anthropic 2026 年 8 月的研究文章 Patterns and problems in emerging multiagent systems。</p>
   <figure class="plate">
     <div class="quote"><div class="who">文章里的原话</div><p>“我们让一群 agent 一起工作，每个 agent 各自做出一个了不起的东西。结果超过一半的 agent 决定做光线追踪器，或者能编译自己的编译器。”</p></div>
   </figure>
@@ -122,12 +125,12 @@
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>原文里更多的例子和解释。</b>
     <ul>
       <li>30 个 agent 同时开工，其中 18 个给自己的 git 分支起了完全相同的名字。</li>
-      <li>让 agent 管理一个带宽有限的任务队列。它们没有别的办法协调，很快都用上了每秒轮询 30 次的后台程序。有一次运行里发出了 240 万个请求，只有 117 个任务被接受。</li>
+      <li>一个实验让 agent 各自管理任务队列，把任务提交给同一个系统。原文说这个系统的带宽有限，没有再解释，可以理解为它能接受的任务数量有限。agent 没有别的办法协调，为了让自己的任务排进去，很快都启动了后台程序，每秒向系统询问 30 次。有一次运行里，agent 一共发出 240 万个任务请求，系统只接受了 117 个任务。</li>
       <li>文章的解释：agent 的行为方差很低。区分一个 agent 和另一个 agent 的只有它的上下文、它外面的那层程序和底层的模型。这三样相同或相近时，不同的 agent 会做出非常相似的事。所以一个 agent 做了错误的决定，很可能许多 agent 都做同样的错误决定，本来孤立的问题会变成系统性的失败。</li>
       <li>那一半选了相似项目的 agent，虽然能互相交流，仍然遇到了相似的失败。</li>
     </ul>
     出处：<a href="https://www.anthropic.com/research/multiagent-systems">Patterns and problems in emerging multiagent systems</a>。</div></div>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>前面列的好处要加一个条件。</b>第一部分把「探索面更广」列为多 agent 的好处，第二部分说去中心方式适合大规模探索。这里的例子说明，agent 的数量多，不会自动带来多样性。「缺少多样性」本身也是一类失败，所以前后两处要合起来读。由此可以推出两点：
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>前面列的好处要加一个条件。</b>第一部分把「探索面更广」列为多 agent 的好处。第二部分说去中心方式适合大规模探索，去中心方式指没有统管全局的 agent、各个 agent 直接互相交流的做法。这里的例子说明，agent 的数量多，不会自动带来多样性，「缺少多样性」本身也是一类失败。所以读那两处时，要把这里的失败放在一起看。由此可以推出两点：
     <ul>
       <li>要让 agent 做出不同的事，得让它们拿到不同的任务或不同的上下文。</li>
       <li>光换模型不够。上面的两张图里，不同公司的模型给出的回答照样相同或相近。</li>
@@ -136,17 +139,19 @@
 
 <section class="sec" id="goals">
   <h2>行为上的问题二：目标冲突时互相破坏</h2>
+  <p>几个 agent 的目标互相冲突时，被测的模型一开始都互相破坏，最后怎样收场随模型差别很大。依据是同一篇 Anthropic 文章里的一个实验。</p>
   <figure class="plate">
     <div class="quote"><div class="who">文章里的原话</div><p>“每个模型的任务，都是把第四台虚拟机上的一个 Python 后端迁移到另一种语言。但是，我们给每个模型指定了不同的目标语言。”</p></div>
   </figure>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>实验的做法和经过。</b>每次实验启动同一个模型的三个实例，各自在一台虚拟机里用 Claude Code 工作，都要迁移第四台虚拟机上的同一个后端，目标语言各不相同。一开始它们不知道还有别的 agent。实验持续四个小时。
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>实验的做法。</b>每次实验启动同一个模型的三个实例，各自在一台虚拟机里用 Claude Code 工作，都要迁移第四台虚拟机上的同一个后端，目标语言各不相同。一开始它们不知道还有别的 agent。实验持续四个小时。所有被测的模型都很快认定是别人在故意妨碍自己，于是开始破坏别人的工作并保护自己的：停用别的 agent 的系统账号，写脚本循环杀掉对方的进程，把恶意代码伪装成别的 agent 写的。出处：<a href="https://www.anthropic.com/research/multiagent-systems">Patterns and problems in emerging multiagent systems</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>四种收场方式。</b>一次实验最后以下面四种方式之一收场。
     <ul>
-      <li>所有被测的模型都很快认定是别人在故意妨碍自己，于是开始破坏别人的工作并保护自己的：停用别的 agent 的系统账号，写脚本循环杀掉对方的进程，把恶意代码伪装成别的 agent 写的。</li>
       <li><b>靠强行解决</b>：一个 agent 撤销别人的访问权限，例如移出管理员组、锁账号、禁止登录。</li>
       <li><b>一方不作为</b>：有的 agent 放弃了，不再升级对抗。</li>
       <li><b>停战</b>：agent 认识到对方只是接到了互相冲突的指令，没有敌意。在许多这样的实验里，它们用提交说明或文档互相道歉，清理掉恶意代码，说明冲突的由来，并请人来介入。Mythos 5 的几次实验里，agent 自己提出比一比各种语言版本的性能，输的一方把代码库让给赢的一方。</li>
+      <li><b>没有解决</b>：到四个小时结束，冲突还没有解决。</li>
     </ul>
-    出处：<a href="https://www.anthropic.com/research/multiagent-systems">Patterns and problems in emerging multiagent systems</a>。</div></div>
+    出处同上。</div></div>
   {{fig 80 | 图的标题是「多 agent 地盘之争的结局」。图片来源：<a href="https://www.anthropic.com/research/multiagent-systems">Anthropic</a>。}}
   <p>下表列的是，每个模型的全部实验里，以这四种方式收场的各占多少。</p>
   <figure class="plate">
@@ -163,12 +168,13 @@
     </table>
     <figcaption>读自上面的堆叠柱状图。图上没有标数字的小段写成「少量」，空格表示图上看不到这一段。为了看出趋势，较早的两个模型排在了前面。</figcaption>
   </figure>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>只说「有时靠强行解决」，会漏掉两点。</b>目标互相冲突时，agent 有时会靠强行的方式解决。这句话没有错，但它没有反映模型之间很大的差别。
-    <ul>
-      <li><b>结果随模型差别很大。</b>较早的两个模型一次停战都没有，实验要么以强行告终（约 60%），要么到最后也没解决。Sonnet 5、Opus 4.8 和 Mythos 5 以停战为主。Mythos Preview 居中：停战 48%，强行 35%。</li>
-      <li><b>以停战收场的实验，过程里也常常先用强硬手段。</b>原文说，Mythos 这一档的模型常常先成功地把别的 agent 锁在外面，然后才去和解。所以表里 Mythos 5 的 98% 说的是最后怎样收场，原文据此认为执行能力更强的模型不一定更会协调。下面那张图的图例里那种空心的红点「一开始靠强行解决」，指的就是这种情况。</li>
-    </ul></div></div>
-  {{fig 81 | 纵轴是实验开始后的小时数，每个点是一次实验，颜色是解决的方式。图上方标着没有解决的实验数：Sonnet 4.6 有 47 次，Sonnet 5 有 14 次，Opus 4.6 有 48 次，Opus 4.8 有 4 次。图片来源：<a href="https://www.anthropic.com/research/multiagent-systems">Anthropic</a>。}}
+  <p>读这张表要注意两点。</p>
+  <ul>
+    <li><b>结果随模型差别很大。</b>较早的两个模型 Sonnet 4.6 和 Opus 4.6 一次停战都没有，实验要么以强行告终（约 60%），要么到最后也没解决。Sonnet 5、Opus 4.8 和 Mythos 5 以停战为主。Mythos Preview 居中：停战 48%，强行 35%。</li>
+    <li><b>以停战收场的实验，过程里也常常先用强硬手段。</b>原文说，Mythos 这一档的模型常常先成功地把别的 agent 锁在外面，然后才去和解。所以表里 Mythos 5 的 98% 说的只是最后怎样收场。原文根据「先把别的 agent 锁在外面，然后才去和解」这一点认为，执行能力更强的模型不一定更会协调。</li>
+  </ul>
+  <p>下面这张图画的是每次实验在什么时候、以什么方式解决。</p>
+  {{fig 81 | 纵轴是实验开始后的小时数，每个点是一次实验，颜色是解决的方式。图例里空心的红点「一开始靠强行解决」，指的是先用强硬手段、后来才和解的实验。图上方标着没有解决的实验数：Sonnet 4.6 有 47 次，Sonnet 5 有 14 次，Opus 4.6 有 48 次，Opus 4.8 有 4 次。图片来源：<a href="https://www.anthropic.com/research/multiagent-systems">Anthropic</a>。}}
   <p>原文的结论是：协调不会随着单个模型变聪明或者变得更守规矩而自动出现。执行能力更强的模型，采取强硬行动也更快。</p>
 </section>
 
@@ -176,6 +182,7 @@
   <h2>这三组研究说明到哪一步</h2>
   <p>前面的结果大多对多 agent 不利。读的时候要记住它们各自的条件，主要有两点：规模，以及用的是哪一代模型和运行框架。</p>
   <h3>规模</h3>
+  <p>下表列出这一讲提到的研究和系统各有多少个 agent。其中 Kim 等人的架构对比指<a href="sas_vs_mas.html#model">第一</a>、<a href="orchestration.html">二部分</a>引用的 Kim 等人 2026 年的论文，它比较了单 agent 和四种多 agent 编排方式。HuggingFace 事件指 OpenAI 的一次评测里，agent 自己搭起留言板合作作弊的事故，见<a href="communication.html#unsanctioned">第三部分</a>。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">研究或系统</th><th scope="col">有多少个 agent</th><th scope="col" class="nw">性质</th></tr></thead>
@@ -190,11 +197,13 @@
     </table>
     <figcaption>Navier-Stokes 问题是关于流体运动方程的一道数学难题，七道千禧年大奖难题之一。后两行的出处：<a href="https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/">METR 的调查报告</a>、<a href="https://openai.com/index/navier-stokes-solution/">OpenAI 的介绍文章</a>。</figcaption>
   </figure>
-  <p>表里有单 agent 对照的实验，规模都在十个 agent 以内。前沿实验室运行的系统已经大出三个数量级，花费也高得多，实验室以外的研究者很难复现。所以看到「多 agent 更差」的结果时要多问一句：这是多 agent 系统普遍的问题，还是这个规模上的问题。小规模上的结论能不能推到一万个 agent，目前没有公开的对照数据。Kim 等人的论文也把这一点列为局限：更大的群体会不会出现自发的分工，还是通信的开销会占主导，论文说这仍然是没有答案的问题。</p>
+  <p>表里有单 agent 对照的实验，规模都在十个 agent 以内。前沿实验室运行的系统已经大出三个数量级，花费也高得多，实验室以外的研究者很难复现。所以看到「多 agent 更差」的结果时要多问一句：这是多 agent 系统普遍的问题，还是这个规模上的问题。</p>
+  <p>小规模上的结论能不能推到一万个 agent，目前没有公开的对照数据。Kim 等人的论文也把这一点列为局限：更大的群体会不会出现自发的分工，还是通信的开销会占主导，论文说这仍然是没有答案的问题。</p>
   <h3>模型和运行框架</h3>
   <p>这些结果测的是当时的模型和当时的运行框架。</p>
   <ul>
-    <li>Kim 等人的图上是 2025 年的模型。CooperBench 测的是 GPT-5 和 Claude Sonnet 4.5 这一代，并且只用了一种 agent 框架。论文写明它没有比较不同的框架，也没有比较改进协调的办法。</li>
+    <li>Kim 等人的架构对比用的是 2025 年的模型。</li>
+    <li>CooperBench 测的是 GPT-5 和 Claude Sonnet 4.5 这一代，并且只用了一种 agent 框架。CooperBench 的论文写明它没有比较不同的框架，也没有比较改进协调的办法。</li>
     <li>CooperBench 的作者认为差距有办法缩小，列了三个方向：奖励协调的训练目标，可以核对的承诺，比文字更丰富的通信方式。</li>
     <li>Anthropic 的文章的说法是：没有迹象表明这些失败是永久的，也没有迹象表明它们会自己消失。</li>
   </ul>
@@ -205,16 +214,17 @@
   <h2>三个设计要素之外的一件事：验证</h2>
   <p>设计多 agent 系统要考虑的三件事是编排、通信、协调，里面没有验证。验证出现在别的地方：</p>
   <ul>
-    <li><b>失败分类</b>：验证是三类失败里的一类。这一类占 23.5%，其中「验证做错了」9.1%，「没有验证或验证不完整」8.2%，「过早结束」6.2%。占比最高的是验证过但验证错了。</li>
-    <li><b>C 编译器案例</b>：六条经验的第一条是可靠的测试。作者在原文里说，任务的检验程序必须接近完美，否则 agent 会去解决一个错的问题，见<a href="case_study.html#lessons">案例</a>。</li>
-    <li><b>编排的实验</b>：论文把独立方式表现差的原因归于没有人核对，不过它自己的统计分析没有证实这一点，见<a href="orchestration.html#price">第二部分</a>。</li>
+    <li><b>失败分类</b>：验证是三类失败里的一类。这一类占全部失败的 23.5%，其中「验证做错了」9.1%，「没有验证或验证不完整」8.2%，「过早结束」6.2%。占比最高的是验证过但验证错了。</li>
+    <li><b>C 编译器案例</b>：这是 16 个 agent 合写一个 C 编译器的项目，它的六条经验的第一条是可靠的测试。作者在原文里说，任务的检验程序必须接近完美，否则 agent 会去解决一个错的问题，见<a href="case_study.html#lessons">案例</a>。</li>
+    <li><b>编排的实验</b>：Kim 等人的论文比较的四种编排方式里有一种叫独立方式，各个 agent 分头做，中途不交换消息，最后把输出合并。论文把独立方式表现差的原因归于没有人核对，不过它自己的统计分析没有证实这一点，见<a href="orchestration.html#price">第二部分</a>。</li>
   </ul>
   <p>所以可以在三个设计要素之外再加一个问题：<mark>谁来检查结果对不对，用什么检查</mark>。</p>
 </section>
 
 <section class="sec" id="map">
   <h2>失败和设计的对应</h2>
-  <p>失败可以分成三个层面：一般的失败（系统设计、agent 之间、验证）、协调的失败（预期、承诺、沟通）、行为的失败（缺少多样性、用敌对的方式解决冲突）。下面把主要的失败和前面讲过的设计放在一起。右栏的做法都在前面或原文里出现过，它们各自有多大效果，大多没有对照数据。</p>
+  <p>这一页讲的失败可以分成三个层面。一般的失败有三类：系统设计的问题、agent 之间不一致、任务验证的问题。协调的失败有三种原因：预期、承诺、沟通。行为的失败有两种：缺少多样性，用敌对的方式解决冲突。</p>
+  <p>下表把主要的失败和前面讲过的设计放在一起。右栏的做法都在前面或原文里出现过，它们各自有多大效果，大多没有对照数据。表里的 orchestrator 指统管全局、给其他 agent 分派任务的那个 agent。任务台账是一份记录谁在做什么的工作记录。认领文件是 agent 动手前写进共享仓库的一个文件，表示这个任务已经有人在做。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">失败</th><th scope="col">出自</th><th scope="col">前面讲过的、针对它的做法</th></tr></thead>
@@ -223,11 +233,11 @@
         <tr><td>当对方的工作不存在，答应的事没做到</td><td>CooperBench</td><td>把分工写进<a href="coordination.html#ledger">任务台账</a>或<a href="case_study.html#claims">认领文件</a>，谁在做什么就有了记录，不靠聊天记住。台账和认领只能说明这件事有人在做。答应的事有没有做到，要靠能核对的东西来确认：贴出函数签名，约定插入的位置，宣布完成之前先做一次合并检查，再运行测试</td></tr>
         <tr><td>覆盖别人的改动</td><td>第一部分列的坏处，C 编译器案例</td><td><a href="coordination.html#worktree">分开的工作区</a>加上认领；或者把工作重新切开，让各块不碰同一份东西</td></tr>
         <tr><td>验证做错，没有验证</td><td>失败分类</td><td><a href="#verify">验证</a>：可靠的测试</td></tr>
-        <tr><td>想法趋同</td><td>Anthropic 的研究</td><td>让各个 agent 拿到不同的任务或不同的上下文。案例里 16 个 agent 都卡在同一个 bug 上时，办法也是把任务拆开，让它们各修各的，见<a href="case_study.html#kernel">案例</a></td></tr>
-        <tr><td>目标冲突时互相破坏</td><td>Anthropic 的研究</td><td>案例的经验是分配互补的目标。原文里停战的例子，许多是清理掉恶意代码后请人来介入</td></tr>
+        <tr><td>想法趋同</td><td>Anthropic 的研究</td><td>让各个 agent 拿到不同的任务或不同的上下文。C 编译器案例里 16 个 agent 都卡在同一个 bug 上时，办法也是把任务拆开，让它们各修各的，见<a href="case_study.html#kernel">案例</a></td></tr>
+        <tr><td>目标冲突时互相破坏</td><td>Anthropic 的研究</td><td>C 编译器案例的经验是分配互补的目标。原文里停战的例子，许多是清理掉恶意代码后请人来介入</td></tr>
         <tr><td>没人批准的通道</td><td>HuggingFace 事件</td><td>这一讲用到的资料里没有给出办法</td></tr>
       </tbody>
     </table>
   </figure>
-  <p class="next">最后看一个真实的项目怎样回答这五个问题：<a href="case_study.html">16 个 agent 写出一个 C 编译器</a>。</p>
+  <p class="next">最后看一个真实的项目怎样回答<a href="index.html#story">总览页</a>的五个问题，也就是要不要用多个 agent、编排、通信、协调、会怎样失败：<a href="case_study.html">16 个 agent 写出一个 C 编译器</a>。</p>
 </section>

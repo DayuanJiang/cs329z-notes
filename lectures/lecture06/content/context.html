@@ -4,8 +4,8 @@
     <li>agent（由语言模型自己决定下一步、在循环里调用工具的系统）每次调用模型之前，都要决定这一次的输入里放什么。这件事叫上下文工程（context engineering）。</li>
     <li>要做这件事，是因为输入越长，模型用好其中信息的能力越差，花费和延迟也越高。</li>
     <li>两条原则：让上下文只装当前任务需要的东西；改动上下文时保持连续，不要丢掉目标、要求、约束和进度。</li>
-    <li>五种模式：事件日志、把信息存到记忆里、compaction（把旧的历史压缩成摘要）、屏蔽旧的观察结果、上下文隔离。它们互相兼容，真实的系统会同时用好几种。</li>
-    <li>每种模式都有代价。压缩要多调用一次模型并且会丢信息；改动旧内容会让缓存失效；子 agent 要多花 token（模型处理文字的最小单位）。</li>
+    <li>五种模式：事件日志、把信息存到记忆里、compaction（让模型把旧的历史写成一段摘要）、屏蔽旧的观察结果（观察结果指工具返回的内容）、上下文隔离。它们互相兼容，真实的系统会同时用好几种。</li>
+    <li>每种模式都有代价。compaction 要多调用一次模型，并且会丢信息。改动旧内容会让缓存失效，缓存指服务商把上一次请求里开头相同的那部分计算结果留下来复用。把任务交给子 agent（主 agent 派出去单独做一部分工作的另一个 agent）要多花 token（模型处理文字的最小单位）。</li>
   </ul>
 </section>
 
@@ -13,26 +13,27 @@
   <h2>从写 prompt 到管理上下文</h2>
   <p>agent 的循环里，模型每一轮看到的输入都要有人拼出来：哪些历史消息、哪些工具的说明、哪些文档。可以把负责这件事的部分叫作上下文管理器。上下文窗口（context window）是模型一次调用能接受的输入加输出的总长度，上下文管理要解决的就是往这个有限的窗口里放什么。</p>
   {{fig 57 | 左：prompt 工程。上下文窗口里只有 system prompt（放在最前面的固定指令）和一条用户消息，模型回答一次。右：agent 的上下文工程。左边一栏是可以给模型的东西：文档、工具、记忆文件、详细的指令、领域知识、消息历史。经过筛选，一部分进入上下文窗口。模型发出工具调用，工具的结果又回到消息历史里。图片来源：<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025</a>。}}
-  <p>prompt（发给模型的输入文字）工程是 2022、2023 年前后大家最关心的事：怎样把一段指令写好，让模型按想要的方式回答。按 Anthropic 2025 年 9 月那篇文章的定义，上下文工程的范围更大：它是在模型推理时挑选和维护最合适的那一组 token 的一整套办法，prompt 之外进入上下文的所有信息都算在内。原文给这张图配的说明点出了两者的差别：写 prompt 是做一次的事，而筛选上下文在每一次决定给模型什么的时候都要做。</p>
+  <p>prompt（发给模型的输入文字）工程是 2022、2023 年前后大家最关心的事：怎样把一段指令写好，让模型按想要的方式回答。</p>
+  <p>按 Anthropic 2025 年 9 月那篇文章的定义，上下文工程的范围更大：它是在每次调用模型时挑选和维护最合适的那一组 token 的一整套办法，prompt 之外进入上下文的所有信息都算在内。原文给这张图配的说明点出了两者的差别：写 prompt 是做一次的事，筛选上下文则在每一次决定给模型什么的时候都要做。</p>
 </section>
 
 <section class="sec" id="rot">
   <h2>为什么不能把所有东西都放进去</h2>
-  <p>上下文窗口越来越大，为什么不把全部历史和资料都放进去？一个常被引用的实验是 Greg Kamradt 在 2023 年 11 月做的「大海捞针」测试（Needle in a Haystack）。</p>
+  <p>上下文窗口越来越大，为什么不把全部历史和资料都放进去？有两个原因：输入越长，模型越难用好其中的信息；输入越长，花费和延迟也越高。先看第一个原因。一个常被引用的实验是 Greg Kamradt 在 2023 年 11 月做的「大海捞针」测试（Needle in a Haystack）。</p>
+  <p>做法是：用 Paul Graham 的文章拼成一篇很长的文档，在某个位置插入一句不相干的话（「在旧金山最值得做的事，是在晴天坐在 Dolores 公园里吃一个三明治」），再问模型在旧金山最有意思的事是什么，由 GPT-4 判断答得对不对。文档的长度和这句话的位置各换 35 档，每种组合测一次，结果画成下面这张图。</p>
   {{fig 58 | 每个格子是一次测试。横轴是输入的总长度，从 1 千到 20 万 token，共 35 档。纵轴是那句被插入的话在文档里的位置，最上面是开头，最下面是结尾，共 35 档。绿色是模型答对了，红色是没答对。被测的是 Claude 2.1。图片来源：<a href="https://github.com/gkamradt/needle-in-a-haystack">Kamradt 的代码仓库</a>。}}
-  <p>做法是：用 Paul Graham 的文章拼成一篇很长的文档，在某个位置插入一句不相干的话（「在旧金山最值得做的事，是在晴天坐在 Dolores 公园里吃一个三明治」），再问模型在旧金山最有意思的事是什么，由 GPT-4 判断答得对不对。他报告的结果是：这句话在文档最开头或最末尾时，几乎总能被找到；输入越长，找到的比例越低。两周前他用 GPT-4 Turbo 做过同样的测试，结果类似：输入超过 7.3 万 token 之后开始变差，这句话落在文档 7% 到 50% 的位置时最容易被漏掉。</p>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>常见的说法是「这张图说明模型找不到长文档中间的信息」。这张图本身没有那么可靠，但结论的方向是对的。</b>
-    <ul>
-      <li><b>图里有一部分红格子，原因是模型不愿意回答。</b>Anthropic 在 2023 年 12 月重做了这个测试。他们只是在 Claude 回答的开头预先填上一句「这是上下文里最相关的一句话：」，得分就从 27% 升到了 98%。他们的解释是，那句话明显是被硬塞进文档的，模型不太愿意只凭这样一句话来回答。</li>
-      <li><b>这个测试对现在的模型已经太容易。</b>Chroma 在 2025 年 7 月测了 18 个模型，报告说现在的模型在这种原始的测试上接近满分。</li>
-      <li><b>但输入越长表现越差，这一点仍然成立。</b>同一份报告把任务换难一些（要按意思去匹配，文档里有干扰项，或者是很长的对话），所有实验里模型的表现都随输入变长而下降。Anthropic 的文章把这个现象叫作 context rot，并说它在所有模型上都会出现，只是下降得快慢不同，是一个渐变的坡度，没有一个突然的断点。</li>
-    </ul>
-    出处：<a href="https://www.anthropic.com/news/claude-2-1-prompting">Anthropic，2023</a>；<a href="https://research.trychroma.com/context-rot">Chroma，2025</a>；<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025</a>。</div></div>
-  <p>模型在这方面一直在进步。但即使是最好的模型，上下文工程做得好的时候表现也会更好。所以要关心的是：让对的内容出现在上下文里。</p>
+  <p>他报告的结果是：这句话在文档最开头或最末尾时，几乎总能被找到；输入越长，找到的比例越低。</p>
+  <p>在这次测试的两周前，他用 GPT-4 Turbo 做过同样的测试，结果类似：输入超过 7.3 万 token 之后开始变差，这句话落在文档 7% 到 50% 的位置时最容易被漏掉。</p>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>这张图容易被读成「模型找不到长文档中间的信息」。图里的红格子有一部分另有原因：模型不愿意回答。</b>Anthropic 在 2023 年 12 月重做了这个测试。他们只是在 Claude 回答的开头预先填上一句「这是上下文里最相关的一句话：」，Claude 2.1 在整套测试上的总成绩就从 27% 升到了 98%。他们的解释是，那句话明显是被硬塞进文档的，模型不太愿意只凭这样一句话来回答。出处：<a href="https://www.anthropic.com/news/claude-2-1-prompting">Anthropic，2023</a>。</div></div>
+  <p>这个测试对现在的模型已经太容易。Chroma 在 2025 年 7 月测了 18 个模型，报告说现在的模型在这种原始的测试上接近满分。</p>
+  <p>输入越长表现越差，这一点在更难的任务上仍然成立。Chroma 的同一份报告把任务换难一些（要按意思去匹配，文档里有干扰项，或者是很长的对话），所有实验里模型的表现都随输入变长而下降。Anthropic 的文章把这个现象叫作 context rot，并说它在所有模型上都会出现，只是下降得快慢不同。按这篇文章的说法，表现是随着输入变长逐渐下降的，没有到某个长度突然变差。出处：<a href="https://research.trychroma.com/context-rot">Chroma，2025</a>；<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic，2025</a>。</p>
+  <p>第二个原因是花费和延迟。模型的花费按输入和输出的 token 数计算，输入越长，每一次调用越贵，等的时间也越长。</p>
+  <p>模型在这方面一直在进步。但按上面 Chroma 的报告和 Anthropic 的文章，现在的模型在输入变长时表现仍然会下降，所以对最好的模型，把上下文管理好也仍然有帮助。两个原因合起来，要关心的是：让对的内容出现在上下文里，用不上的不放进去。</p>
 </section>
 
 <section class="sec" id="principles">
   <h2>两条原则</h2>
+  <p>决定上下文里放什么、删什么的时候，有两条原则要同时照顾。下表列出它们的意思和违反之后的结果。表里的观察结果指工具返回的内容。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">原则</th><th scope="col">意思</th><th scope="col">违反了会怎样</th></tr></thead>
@@ -42,24 +43,26 @@
       </tbody>
     </table>
   </figure>
-  <p>两条原则是互相牵制的。最简单的上下文是把全部历史原样留着，连续性最好，但不聚焦。一旦开始删减，就要小心别把不能丢的东西删掉。Anthropic 的文章对第一条的说法是：找到<mark>尽可能小的一组高信息量的 token</mark>，让想要的结果最有可能出现。</p>
-  <h3>保持连续还有一层实际的含义：别让缓存失效</h3>
-  <p>模型处理一段输入时，会为每个 token 算出一些中间结果，叫 KV 缓存（key-value cache）。如果下一次请求的开头部分和上一次完全相同，服务商可以直接复用这部分中间结果，更快也更便宜。这个功能在接口上叫 prompt 缓存。</p>
+  <p>Anthropic 的文章对第一条的说法是：<mark>用尽可能少、但每个都有用的 token</mark>，让模型最有可能给出想要的结果。</p>
+  <p>两条原则是互相牵制的。最简单的上下文是把全部历史原样留着，连续性最好，但不聚焦。一旦开始删减，就要小心别把不能丢的东西删掉。</p>
+  <h3>还有一个实际的限制：别让缓存失效</h3>
+  <p>除了两条原则，改动上下文时还要顾及一个实际的限制：缓存。模型处理一段输入时，会为每个 token 算出一些中间结果，叫 KV 缓存（key-value cache）。如果下一次请求的开头部分和上一次完全相同，服务商可以直接复用这部分中间结果，更快也更便宜。这个功能在接口上叫 prompt 缓存。</p>
   <ul>
-    <li><b>只认前缀。</b>复用的条件是从头开始的那一段完全一致。前面任何一处有改动，从改动的地方往后都要重算。OpenAI 和 Anthropic 的文档都是这样写的。</li>
+    <li><b>只有开头完全相同的那一段能复用。</b>复用的条件是从头开始的那一段完全一致。前面任何一处有改动，从改动的地方往后都要重算。OpenAI 和 Anthropic 的文档都是这样写的。</li>
     <li><b>差价很大。</b>按 Anthropic 的价目，读缓存的 token 一般按正常输入价的十分之一收费。</li>
-    <li><b>agent 的输入远多于输出。</b>Manus（一个通用 agent 产品）的团队说，他们的 agent 输入和输出的 token 数之比平均约为 100 比 1，所以他们把缓存命中率看作生产环境里最重要的一个指标，并建议让上下文只在末尾追加，不改动前面的内容。</li>
+    <li><b>agent 的输入远多于输出。</b>Manus（一个通用 agent 产品）的团队说，他们的 agent 输入和输出的 token 数之比平均约为 100 比 1。所以他们把缓存命中率（可以理解成输入的 token 里有多大比例是从缓存里读到的）看作生产环境里最重要的一个指标，并建议让上下文只在末尾追加，不改动前面的内容。</li>
   </ul>
-  <p>这就和第一条原则有了冲突：聚焦要求删掉旧内容，缓存要求不动旧内容。下面的每一种模式，都是在这两者之间找一个位置。出处：<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Anthropic 的 prompt 缓存文档</a>；<a href="https://platform.openai.com/docs/guides/prompt-caching">OpenAI 的 prompt 缓存文档</a>；<a href="https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">Manus 的文章，2025</a>。</p>
+  <p>这个限制和第一条原则有冲突：聚焦要求删掉旧内容，缓存要求不动旧内容。删掉旧内容省下了 token，却要重新建立缓存，两边要取舍。后面讲<a href="#masking">屏蔽旧的观察结果</a>时会看到一个具体的例子。出处：<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Anthropic 的 prompt 缓存文档</a>；<a href="https://platform.openai.com/docs/guides/prompt-caching">OpenAI 的 prompt 缓存文档</a>；<a href="https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">Manus 的文章，2025</a>。</p>
 </section>
 
 <section class="sec" id="patterns">
   <h2>五种模式一览</h2>
+  <p>下表先把五种模式放在一起，列出每种模式做什么、代价是什么，后面各有一节展开。表里的子 agent，指主 agent 派出去单独做一部分工作的另一个 agent。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">模式</th><th scope="col">做什么</th><th scope="col">代价或要注意的地方</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="#eventlog">事件日志</a><br><span class="muted small">Persistent event log</span></th><td>把发生过的每件事原样记进一份只追加的日志。每次调用模型时，从日志重新生成输入</td><td>它本身不减少 token。它提供的是一个可以做各种裁剪的地方</td></tr>
+        <tr><th scope="row"><a href="#eventlog">事件日志</a><br><span class="muted small">Persistent event log</span></th><td>把发生过的每件事原样记进一份只追加的日志。每次调用模型时，从日志重新生成输入</td><td>它本身不减少 token。它的用处是让各种裁剪都可以在「从日志生成输入」这一步里做</td></tr>
         <tr><th scope="row"><a href="#memory">把信息存到记忆里</a><br><span class="muted small">Memory offloading</span></th><td>把以后可能用到的信息写进记忆或文件，这样上下文里对应的部分就可以删掉，用到时再取回</td><td>要靠模型自己判断该存什么、什么时候去取</td></tr>
         <tr><th scope="row"><a href="#compaction">compaction</a></th><td>让语言模型把之前的历史总结成一段更短的描述</td><td>多一次模型调用，要等；摘要会丢细节</td></tr>
         <tr><th scope="row"><a href="#masking">屏蔽旧的观察结果</a><br><span class="muted small">Observation masking</span></th><td>把较早的工具输出隐藏或截短，想法和动作保留</td><td>用程序就能做，不用调用模型；每次改动旧内容，缓存都要重建</td></tr>
@@ -71,25 +74,29 @@
 
 <section class="sec" id="eventlog">
   <h2>事件日志：每次从日志重建输入</h2>
-  <p>很多 agent 都用这个模式，这里以 OpenHands 为例。OpenHands 是一个开源的编程 agent 平台，原名 OpenDevin，论文发表在 ICLR 2025，作者之一是卡内基梅隆大学的 Graham Neubig；它同时也是一家公司的产品。它管理上下文的核心是事件流（event stream）：按时间顺序记下的所有动作和观察结果，包括 agent 自己的动作和用户的输入。</p>
-  {{fig 62 | 中间是事件流，黄色是用户的消息，蓝色是 agent 的动作，橙色是环境返回的观察结果，按编号排列。左边的 agent 读事件历史，产生新的动作。右边的运行环境在一个 Docker 容器里执行动作（运行 Python、运行 shell 命令、操作浏览器），得到观察结果，写回事件流。图片来源：<a href="https://arxiv.org/abs/2407.16741">Wang 等，2024</a>。}}
+  <p>事件日志的做法是：把发生过的每件事原样记进一份只追加、不修改的日志，每次调用模型之前，从日志重新生成这一次的输入。这样做，之后无论怎样做摘要或删减，变的只是「怎样把日志呈现给模型」，原始的记录都还在。</p>
+  <p>很多 agent 都用这个模式，这里以 OpenHands 为例。OpenHands 是一个开源的编程 agent 平台，它把这份事件日志叫作事件流（event stream）：按时间顺序记下的所有动作和观察结果，包括 agent 自己的动作和用户的输入。</p>
+  {{fig 62 | 中间是事件流，黄色是用户的消息，蓝色是 agent 的动作，橙色是环境返回的观察结果，按编号排列。左边的 agent 读事件流，产生新的动作。右边的运行环境在一个 Docker 容器里执行动作（运行 Python、运行 shell 命令、操作浏览器），得到观察结果，写回事件流。图片来源：<a href="https://arxiv.org/abs/2407.16741">Wang 等，2024</a>。}}
   <p>图里的例子是：用户说「创建一个 1 到 10 的数字列表，并做一个网页在 5000 端口显示它们」。agent 写文件、启动服务、打开浏览器查看，每一个动作和它的结果都作为一条带标签的记录写进事件流，记录里有来源（用户还是 agent）和内容。</p>
-  <p>到了要调用模型的时候，输入是从事件流重新生成的：</p>
-  {{fig 63 | 从事件列表到模型输入的四步：取出全部事件；筛出可以转成模型消息的那几类；把同一次模型回复里发出的多个动作合在一起；转换成消息，作为模型的输入。图片来源：<a href="https://docs.openhands.dev/sdk/arch/events">OpenHands 的文档</a>。}}
-  <p>第二步会筛掉一些事件，因为有些事件只是内部的状态记录，不该给模型看。第三步是为了处理并行的工具调用：模型在一次回复里发出的几个动作，要合成一条带多个工具调用的消息。这样做有三个好处。</p>
+  <p>到了要调用模型的时候，输入是从事件流重新生成的，分四步：</p>
+  {{fig 63 | 从事件流到模型输入的四步：取出全部事件；筛出可以转成模型消息的那几类；把同一次模型回复里发出的多个动作合在一起；转换成消息，作为模型的输入。图片来源：<a href="https://docs.openhands.dev/sdk/arch/events">OpenHands 的文档</a>。}}
+  <p>第二步会筛掉一些事件，因为有些事件只是内部的状态记录，不该给模型看。第三步是为了处理并行的工具调用：模型在一次回复里发出的几个动作，要合成一条带多个工具调用的消息。</p>
+  <p>每次都从事件日志重新生成输入，有三个好处。</p>
   <ul>
-    <li><b>发生过的一切都原样保留。</b>日志只追加、不修改。之后无论怎样压缩或删减，变的只是「怎样把日志呈现给模型」，日志本身不受影响。agent 做过的每个动作都有完整的记录。</li>
-    <li><b>多了一层可以动手的地方。</b>每次调用的输入都是重新生成的，所以后面几种模式（compaction、屏蔽观察结果）都可以实现成这个转换步骤里的规则。在 OpenHands 里，压缩是往日志里追加一条特殊的事件，里面列出哪些事件以后不再给模型看，并带上一段摘要。</li>
-    <li><b>外部的程序可以挂上来。</b>每有一条事件写入，就可以触发别的程序：监控系统状态，更新界面，或者在某类事件之后自动发起别的操作。</li>
+    <li><b>发生过的一切都原样保留。</b>日志只追加、不修改，裁剪上下文时日志本身不受影响。agent 做过的每个动作都有完整的记录。</li>
+    <li><b>裁剪上下文的规则可以都写在转换这一步里。</b>每次调用的输入都是重新生成的，所以后面几种模式（compaction、屏蔽观察结果）都可以实现成这个转换步骤里的规则。在 OpenHands 里，compaction 是往日志里追加一条特殊的事件，里面列出哪些事件以后不再给模型看，并带上一段摘要。</li>
+    <li><b>每写入一条事件，都可以触发别的程序。</b>这些程序可以监控系统状态，更新界面，或者在某类事件之后自动发起别的操作。</li>
   </ul>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>OpenHands 的来历。</b>OpenHands 原名 OpenDevin，论文 2024 年 7 月首次发布，后来发表在 ICLR 2025，作者之一是卡内基梅隆大学的 Graham Neubig。它同时也是一家公司的产品。出处：<a href="https://arxiv.org/abs/2407.16741">Wang 等，2024</a>。</div></div>
 </section>
 
 <section class="sec" id="memory">
   <h2>把信息存到记忆里</h2>
   <p>把信息写进记忆或文件，上下文里对应的部分就可以放心删掉，因为它在别处有保存。这里只简单介绍，记忆的各种做法第 7 讲会讲到。</p>
-  {{fig 64 | MemGPT 论文里的两段对话。左：用户提到男朋友 James 给她烤了生日蛋糕，这时系统提示上下文快满了，agent 往工作记忆里写入两条：生日是 2 月 7 日，男朋友叫 James。右：后来的一次对话里，用户说去了六旗游乐园，agent 搜索以前的消息，找到「James 和我是在六旗认识的」，于是问：是和 James 一起去的吗？图片来源：<a href="https://arxiv.org/abs/2310.08560">Packer 等，2023</a>。}}
-  <p>MemGPT 的思路借自操作系统的虚拟内存。prompt 里的 token 相当于内存，外部的数据库相当于硬盘，模型通过工具调用在两者之间搬数据：往里写，或者搜索后取回。论文里的例子是，token 数超过窗口的 70% 时，系统插入一条提醒，让模型抓紧把重要的东西存起来；到 100% 时，把一部分旧消息移出去并更新摘要，移出去的消息以后仍然搜得到。</p>
-  <p>实现的办法有好几种：检索增强生成（RAG），工具调用，或者干脆读写文件。共同点是：关于用户、关于过往经验的事实放在记忆里，不必每时每刻都占着上下文窗口。</p>
+  {{fig 64 | MemGPT 论文里的两段对话。左：用户提到男朋友 James 给她烤了生日蛋糕，这时系统提示上下文快满了，agent 往工作记忆（prompt 里一块留给 agent 自己改写的文字）里写入两条：生日是 2 月 7 日，男朋友叫 James。右：后来的一次对话里，用户说去了六旗游乐园，agent 搜索以前的消息，找到「James 和我是在六旗认识的」，于是问：是和 James 一起去的吗？图片来源：<a href="https://arxiv.org/abs/2310.08560">Packer 等，2023</a>。}}
+  <p>MemGPT 的思路借自操作系统的虚拟内存。prompt 里的 token 相当于内存，外部的数据库相当于硬盘，模型通过工具调用在两者之间搬数据：往里写，或者搜索后取回。图里左边的工作记忆在内存这一边，是 prompt 的一部分；右边搜索的以前的消息在硬盘这一边。</p>
+  <p>什么时候往外搬，由系统按 token 数提醒。论文里的例子是，token 数超过窗口的 70% 时，系统插入一条提醒，让模型抓紧把重要的东西存起来；到 100% 时，把一部分旧消息移出去并更新摘要，移出去的消息以后仍然搜得到。</p>
+  <p>实现的办法有好几种：检索增强生成（RAG，先按问题从外部资料里搜出相关的片段，再放进模型的输入），工具调用，或者直接读写文件。共同点是：关于用户、关于过往经验的事实放在记忆里，不必每时每刻都占着上下文窗口。</p>
 </section>
 
 <section class="sec" id="compaction">
@@ -99,60 +106,69 @@
   <ul>
     <li><b>最简单的做法。</b>把允许的上下文长度设得比模型真正能处理的长度短一些。一旦超过，就把历史交给模型，让它写摘要。</li>
     <li><b>更复杂的做法。</b>让 compaction 本身也成为一个 agent：它可以调用工具、搜索，把真正需要的上下文找齐再写摘要。</li>
-    <li><b>取舍。</b>简单的做法比较快；复杂的做法摘要质量可能更好，但人要坐在那里等它压缩完。</li>
+    <li><b>取舍。</b>简单的做法比较快；复杂的做法摘要质量可能更好，但人要等它做完才能继续。</li>
   </ul>
-  <p>Anthropic 的文章以 Claude Code 为例描述了摘要里留什么：保留架构上的决定、没解决的 bug 和实现细节，丢掉重复的工具输出；压缩之后，agent 带着摘要和最近访问过的 5 个文件继续工作。一个具体的实现见<a href="pi.html#context">第七部分</a>里 Pi 的做法。</p>
+  <p>Anthropic 的文章以 Claude Code（Anthropic 的编程 agent）为例描述了摘要里留什么：保留架构上的决定、没解决的 bug 和实现细节，丢掉重复的工具输出。compaction 之后，agent 带着摘要和最近访问过的 5 个文件继续工作。一个具体的实现见<a href="pi.html#context">第七部分</a>里 Pi 的做法。</p>
 </section>
 
 <section class="sec" id="masking">
   <h2>屏蔽旧的观察结果：比 compaction 更简单的办法</h2>
   <p>JetBrains Research 的 Lindenbauer 等人在 2025 年的论文《The Complexity Trap》里提出：compaction 比实际需要的复杂，有一个更简单的办法效果差不多。出发点是下面这张图。</p>
-  {{fig 66 | 一个不做任何上下文管理的编程 agent，平均每一轮里三类 token 的占比：观察结果 83.9%，想法 9.6%，动作 6.5%。图片来源：<a href="https://arxiv.org/abs/2508.21433">Lindenbauer 等，2025</a>。}}
-  <p>编程 agent 的上下文主要是被观察结果撑大的：读一个文件，整个文件进了上下文；跑一条命令，全部输出进了上下文。想法和动作只占一小部分。这张图来自论文的预备实验，用的是 SWE-agent 配 GPT-4.1-mini，在 50 个任务上测的。</p>
-  {{fig 67 | 三列对比。(a) 不做处理。(b) 屏蔽观察结果：第一、二轮的观察结果换成很短的占位符（Mask），想法和动作都留着，最近一轮原样保留。(c) 用语言模型做摘要。图片来源：<a href="https://arxiv.org/abs/2508.21433">Lindenbauer 等，2025</a>。}}
-  <p>屏蔽观察结果的做法是：agent 已经用过旧的观察结果里的信息了，所以可以把它们压成几行，或者干脆删掉。论文的实现是保留全部的想法和动作，把 10 轮以前的观察结果换成一句占位的话，比如「之前的 8 行省略」。整个过程用程序就能完成，不需要调用模型。它和事件日志配合得很好：观察结果都在日志里，只要在转换步骤里加一条规则就行。</p>
-  {{fig 68 | 横轴是每个任务的花费（美元），纵轴是解决率。黑色圆点是不做处理，紫色三角是屏蔽观察结果，粉色方块是用语言模型做摘要。越靠左上越好。图片来源：<a href="https://arxiv.org/abs/2508.21433">Lindenbauer 等，2025</a>。}}
+  {{fig 66 | 一个不做任何上下文管理的编程 agent，平均每一轮里三类 token 的占比：观察结果 83.9%，想法 9.6%，动作 6.5%。数据来自论文的预备实验，用的是 SWE-agent（一个开源的编程 agent）配 GPT-4.1-mini，在 50 个任务上测的。图片来源：<a href="https://arxiv.org/abs/2508.21433">Lindenbauer 等，2025</a>。}}
+  <p>编程 agent 的上下文主要是被观察结果撑大的：读一个文件，整个文件进了上下文；跑一条命令，全部输出进了上下文。想法和动作只占一小部分。</p>
+  <p>屏蔽观察结果的做法是：agent 已经用过旧的观察结果里的信息了，所以可以把它们换成很短的几行，或者直接删掉。论文的实现是保留全部的想法和动作，把 10 轮以前的观察结果换成一句占位的话，比如「之前的 8 行省略」。下面的图把它和不做处理、compaction 放在一起比较。</p>
+  {{fig 67 | 三列对比。(a) 不做处理。(b) 屏蔽观察结果：第一、二轮的观察结果换成很短的占位符（Mask），想法和动作都留着，最近一轮原样保留。(c) compaction：前面几轮换成语言模型写的一段摘要。图片来源：<a href="https://arxiv.org/abs/2508.21433">Lindenbauer 等，2025</a>。}}
+  <p>屏蔽观察结果的整个过程用程序就能完成，不需要调用模型。它和事件日志配合得很好：观察结果都在日志里，只要在转换步骤里加一条规则就行。</p>
+  <h3>效果：花费和解决率都和 compaction 差不多</h3>
+  <p>论文让 SWE-agent 在 SWE-bench Verified 上比较了三种做法：不做处理、屏蔽观察结果、compaction。SWE-bench Verified 是一套编程题，共 500 道，从 SWE-bench 这个基准测试（benchmark，一组题目加一个打分的办法）里经人工筛选出来，每道题要 agent 修好真实代码仓库里的一个问题。解决率是做对的题占的比例。论文测了五种模型配置，下面的图画了其中三种，表里是五种的全部数字。配置名里的「开启思考」，指让模型在给出回复之前先生成一段推理。</p>
+  {{fig 68 | 横轴是每个任务的花费（美元），纵轴是解决率。黑色圆点是不做处理，紫色三角是屏蔽观察结果，粉色方块是 compaction。越靠左上越好。图片来源：<a href="https://arxiv.org/abs/2508.21433">Lindenbauer 等，2025</a>。}}
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col">模型</th><th scope="col">做法</th><th scope="col" class="r">解决率</th><th scope="col" class="r">每个任务的花费</th></tr></thead>
+      <thead><tr><th scope="col">模型配置</th><th scope="col">做法</th><th scope="col" class="r">解决率</th><th scope="col" class="r">每个任务的花费</th></tr></thead>
       <tbody>
         <tr><th scope="row" rowspan="3">Gemini 2.5 Flash</th><td>不做处理</td><td class="r">32.8%</td><td class="r">0.41 美元</td></tr>
         <tr><td>屏蔽观察结果</td><td class="r">35.6%</td><td class="r">0.18 美元</td></tr>
-        <tr><td>模型摘要</td><td class="r">36.0%</td><td class="r">0.24 美元</td></tr>
+        <tr><td>compaction</td><td class="r">36.0%</td><td class="r">0.24 美元</td></tr>
         <tr><th scope="row" rowspan="3">Gemini 2.5 Flash，开启思考</th><td>不做处理</td><td class="r">40.4%</td><td class="r">0.56 美元</td></tr>
         <tr><td>屏蔽观察结果</td><td class="r">36.4%</td><td class="r">0.24 美元</td></tr>
-        <tr><td>模型摘要</td><td class="r">31.4%</td><td class="r">0.25 美元</td></tr>
+        <tr><td>compaction</td><td class="r">31.4%</td><td class="r">0.25 美元</td></tr>
         <tr><th scope="row" rowspan="3">Qwen3-Coder 480B</th><td>不做处理</td><td class="r">53.4%</td><td class="r">1.29 美元</td></tr>
         <tr><td>屏蔽观察结果</td><td class="r">54.8%</td><td class="r">0.61 美元</td></tr>
-        <tr><td>模型摘要</td><td class="r">53.8%</td><td class="r">0.64 美元</td></tr>
+        <tr><td>compaction</td><td class="r">53.8%</td><td class="r">0.64 美元</td></tr>
+        <tr><th scope="row" rowspan="3">Qwen3-32B</th><td>不做处理</td><td class="r">17.0%</td><td class="r">1.12 美元</td></tr>
+        <tr><td>屏蔽观察结果</td><td class="r">15.0%</td><td class="r">0.55 美元</td></tr>
+        <tr><td>compaction</td><td class="r">16.0%</td><td class="r">0.50 美元</td></tr>
+        <tr><th scope="row" rowspan="3">Qwen3-32B，开启思考</th><td>不做处理</td><td class="r">23.0%</td><td class="r">0.51 美元</td></tr>
+        <tr><td>屏蔽观察结果</td><td class="r">24.6%</td><td class="r">0.46 美元</td></tr>
+        <tr><td>compaction</td><td class="r">24.8%</td><td class="r">0.51 美元</td></tr>
       </tbody>
     </table>
-    <figcaption>来自论文的表 1：SWE-agent 在 SWE-bench Verified 的 500 个任务上的结果。解决率的 95% 置信区间大约是正负 4 个百分点。论文一共测了五种模型配置，这里是图上的三种，另外两种的结果见下面的蓝色框。</figcaption>
+    <figcaption>来自论文的表 1：SWE-agent 在 SWE-bench Verified 的 500 个任务上的结果。解决率的 95% 置信区间大约是正负 4 个百分点。前三种配置是图上画的，后两种图上没有。</figcaption>
   </figure>
   <ul>
-    <li><b>两种办法都把花费减了大约一半。</b>这三种配置下，花费比不做处理低 41% 到 57%。</li>
+    <li><b>五种配置里有四种，两种办法都把花费减了大约一半。</b>这四种配置下，花费比不做处理低 41% 到 57%。例如 Qwen3-32B 不开思考时，屏蔽观察结果让花费降了 51%，compaction 降了 55%。</li>
+    <li><b>有一种配置花费几乎没降。</b>Qwen3-32B 开启思考时，屏蔽观察结果只让花费降了约 10%，compaction 降了 0%，这两个变化在统计上都不显著。</li>
     <li><b>两种办法之间，解决率分不出高下。</b>差距大多在误差范围以内。屏蔽观察结果更简单，也没有等模型写摘要的那段延迟。</li>
-    <li><b>不总是没有损失。</b>Gemini 2.5 Flash 开启思考的那一组，两种办法的解决率都明显低于不做处理：屏蔽是 36.4%，摘要是 31.4%，不做处理是 40.4%。</li>
-    <li><b>摘要有两处额外的开销。</b>写摘要的调用最多占到一个任务总花费的 7.2%。另外，用摘要时 agent 会跑更多轮：Gemini 2.5 Flash 平均 52 轮，屏蔽观察结果时是 44 轮。论文的推测是摘要掩盖了本该让 agent 早点停下的失败信号。</li>
+    <li><b>有一种配置的解决率明显下降。</b>Gemini 2.5 Flash 开启思考的那一组，两种办法的解决率都明显低于不做处理：屏蔽观察结果是 36.4%，compaction 是 31.4%，不做处理是 40.4%。Qwen3-32B 的两种配置下，解决率和不做处理的差别都在误差范围以内。</li>
+    <li><b>compaction 有两处额外的开销。</b>写摘要的调用最多占到一个任务总花费的 7.2%。另外，用 compaction 时 agent 会跑更多轮：用 Gemini 2.5 Flash 时，compaction 平均跑 52 轮，屏蔽观察结果是 44 轮。论文的推测是摘要掩盖了本该让 agent 早点停下的失败信号。</li>
   </ul>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>用这个结论时要注意它的范围。</b>
-    <ul>
-      <li><b>五种配置里有一种花费几乎没降。</b>表里没有列出的两种配置用的都是 Qwen3-32B。不开思考时，花费降了 51%（屏蔽）和 55%（摘要）。开启思考时，花费只降了约 10%（屏蔽）和 0%（摘要），这两个变化在统计上都不显著。这两种配置下，解决率和不做处理的差别都在误差范围以内。</li>
-      <li><b>只测了编程任务。</b>这是一篇 NeurIPS 2025 研讨会论文，作者自己说，编程任务的工具输出又长又多，天然有利于屏蔽观察结果。</li>
-      <li><b>它和缓存是冲突的。</b>每屏蔽一次旧的观察结果，前面的内容就变了，从那里往后的缓存都要重建。实际做的时候可以攒一攒，比如每 5 轮或每 10 轮才清理一次。</li>
-      <li><b>它挡不住上下文一直变长。</b>想法和动作仍然在累积，任务足够长时还是会碰到窗口的上限，那时仍然要压缩。所以两种办法常常叠起来用。论文试过一种混合的做法，在一个模型、50 个任务上，花费比单用屏蔽低 7%，比单用摘要低 11%。</li>
-    </ul></div></div>
+  <h3>用屏蔽观察结果时要注意的两件事</h3>
+  <p>屏蔽观察结果和缓存是冲突的。每屏蔽一次旧的观察结果，前面的内容就变了，从那里往后的缓存都要重建。实际做的时候可以隔几轮集中清理一次，比如每 5 轮或每 10 轮。</p>
+  <p>屏蔽观察结果也挡不住上下文一直变长。想法和动作仍然在累积，任务足够长时还是会碰到窗口的上限，那时仍然要做 compaction。所以两种办法常常叠起来用。论文试过一种混合的做法，在一个模型、50 个任务上，花费比单用屏蔽观察结果低 7%，比单用 compaction 低 11%。</p>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>这个结论只在编程任务上测过。</b>这是一篇 NeurIPS 2025 研讨会论文，作者自己说，编程任务的工具输出又长又多，天然有利于屏蔽观察结果。</div></div>
 </section>
 
 <section class="sec" id="isolation">
   <h2>上下文隔离：子 agent 和渐进式披露</h2>
-  <p>上下文隔离的意思是：别让所有东西都挤进同一个上下文窗口。有两种做法。</p>
+  <p>上下文隔离的意思是：别让所有东西都挤进同一个上下文窗口。有两种做法：把一部分工作交给子 agent，和渐进式披露。</p>
   <h3>子 agent</h3>
+  <p>有些任务要大量地搜索、读很多文档，会把上下文撑得很满。可以让主 agent 派一个子 agent 去做。子 agent 是另一个 agent，它在自己的上下文窗口里装满完成这件事所需的信息，做完之后只向主 agent 交回一段简短的总结。</p>
   {{fig 69 | 上面的 Plan 是负责计划的主 agent，它把工作分给 Agent 1 和 Agent 2。每个虚线框是一个独立的上下文窗口。图片来源：<a href="https://www.langchain.com/blog/context-engineering-for-agents">LangChain 的文章</a>。}}
-  <p>有些任务要大量地搜索、读很多文档，会把上下文撑得很满。可以让主 agent 派一个子 agent 去做：子 agent 在自己的上下文窗口里装满完成这件事所需的信息，做完之后只向主 agent 交回一段简短的总结。Anthropic 的文章给过一个量级：一个子 agent 可能用掉几万个 token 去探索，交回来的浓缩总结通常是 1,000 到 2,000 个 token。</p>
+  <p>Anthropic 的文章给过一个量级：一个子 agent 可能用掉几万个 token 去探索，交回来的浓缩总结通常是 1,000 到 2,000 个 token。</p>
   <p>代价是总的 token 花费更高。Anthropic 在介绍自己的多 agent 研究系统时说，多 agent 系统用掉的 token 大约是普通聊天的 15 倍。多 agent 的设计，第 8 讲会讲到。</p>
   <h3>渐进式披露</h3>
-  <p>另一种做法是渐进式披露（progressive disclosure）：不必一开始就把所有工具和说明都放进 prompt，需要的时候再给模型看。现在常见的实现是 skill 文件。</p>
+  <p>另一种做法是渐进式披露（progressive disclosure）：不必一开始就把所有工具和说明都放进 prompt，需要的时候再给模型看。</p>
+  <p>现在常见的实现是 skill。一个 skill 是一段写给模型的说明，讲的是「遇到这种情况该怎么做」。它存成一个目录，里面有一个 SKILL.md 文件，旁边可以带脚本和参考资料。下面的图是一个 skill 的例子，图后面的表说明它的内容分三层进入上下文。</p>
   {{fig 70 | 一个处理 PDF 的 skill 的 SKILL.md 文件。上半部分是开头的元数据：名字和一句描述。下半部分是正文：概述、快速上手的代码，并提到更详细的内容在 reference.md 和 forms.md 两个文件里。图片来源：<a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Anthropic，2025</a>。}}
   <figure class="plate">
     <table class="tbl">
@@ -166,12 +182,13 @@
     <figcaption>来自 <a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Anthropic 2025 年 10 月介绍 Agent Skills 的文章</a>。</figcaption>
   </figure>
   <p>skill 里还可以带脚本。图里的 PDF skill 带了一个提取表单字段的 Python 脚本，模型可以直接运行它，脚本本身和 PDF 的内容都不必进入上下文。</p>
-  <p>skill 和工具的区别：工具是对环境做动作的东西，可以被调用。调用一个 skill，效果是把一段「遇到这种情况该怎么做」的说明加进上下文，之后 agent 仍然要自己去调用工具把事情做完。skill 的清单（名字和描述，或者去哪里找它们）是 system prompt 的一部分，所以在 compaction 之后仍然在。</p>
+  <p>skill 和工具的区别在于被调用时发生什么。工具被调用时会对环境做动作。skill 被调用时不做动作，效果是把那段「遇到这种情况该怎么做」的说明加进上下文，之后 agent 仍然要自己去调用工具把事情做完。</p>
+  <p>skill 的清单（名字和描述，或者去哪里找它们）是 system prompt 的一部分，所以在 compaction 之后仍然在。</p>
 </section>
 
 <section class="sec" id="taxonomy">
   <h2>另一种分类：写、选、压缩、隔离</h2>
-  <p>LangChain 的文章《Context Engineering for Agents》把上下文管理的办法分成四类。这套分类最早见于 Lance Martin 2025 年 6 月的个人博客，7 月发表在 LangChain 的博客上。</p>
+  <p>读别的资料时会遇到另一套分法：LangChain 的文章《Context Engineering for Agents》把上下文管理的办法分成写、选、压缩、隔离四类。前面五种模式里有四种能对到这四类里，对应关系在下面的表的最后一列。先看文章自己的图。</p>
   {{fig 73 | 四栏分别是四类做法，每一栏里列了几种具体的操作。左下角的灰色方块代表模型的上下文。图片来源：<a href="https://www.langchain.com/blog/context-engineering-for-agents">LangChain 的文章</a>。}}
   <figure class="plate">
     <table class="tbl">
@@ -183,26 +200,39 @@
         <tr><th scope="row">隔离<br><span class="muted small">Isolate</span></th><td>把上下文拆开</td><td>在状态里分区；放在环境或沙箱里；分给多个 agent</td><td>子 agent；渐进式披露</td></tr>
       </tbody>
     </table>
-    <figcaption>定义和操作来自文章原文，最后一列是这一部分的对应关系。</figcaption>
+    <figcaption>定义和操作来自文章原文，最后一列是这一部分的对应关系。「在状态里分区」指把一部分内容（比如工具返回的结果）存在程序保存的状态的某些字段里，要用的时候才给模型看。沙箱（sandbox）指把代码隔离起来运行的环境。「放在环境或沙箱里」指让模型写的代码在沙箱里运行，工具返回的内容留在沙箱里，只把挑出来的一部分（比如返回值）交回给模型。图片、音频这类很占 token 的内容尤其适合这样处理。这套分类最早见于 Lance Martin 2025 年 6 月的个人博客，7 月发表在 LangChain 的博客上。</figcaption>
   </figure>
   <p>事件日志不属于四类里的任何一类，它是做这四类操作的基础。</p>
-  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>渐进式披露放在哪一类，有两种看法。</b>上面的表把它放在「隔离」下面：没用到的 skill 被隔在上下文之外。也可以这样理解：按 LangChain 文章自己的定义，按需把相关的工具和知识取进上下文，是「选」这一类里列出的操作。两种归法说的是同一件事的两面，不影响怎么用它。</div></div>
+  <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>渐进式披露放在哪一类，有两种看法。</b>上面的表把它放在「隔离」下面：没用到的 skill 被隔在上下文之外。也可以这样理解：按 LangChain 文章自己的定义，按需把相关的工具和知识取进上下文，是「选」这一类里列出的操作。两种归法描述的是同一种做法，不影响怎么用它。</div></div>
 </section>
 
 <section class="sec" id="combine">
   <h2>这些模式是一起用的</h2>
-  <p>五种模式互相兼容。可以先把知识存进记忆，再压缩上下文。可以用事件日志来生成上下文，同时截短观察结果。真实的系统是其中多种甚至全部的组合。</p>
+  <p>五种模式互相兼容。可以先把知识存进记忆，再做 compaction。可以用事件日志来生成上下文，同时截短观察结果。真实的系统是其中多种甚至全部的组合。下表列出四种组合，以及它们为什么搭得上。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">组合</th><th scope="col">为什么搭得上</th></tr></thead>
       <tbody>
-        <tr><th scope="row">事件日志，加任何一种压缩</th><td>日志保留原样，压缩只发生在「日志转成输入」这一步，所以压缩掉的东西随时可以找回来</td></tr>
+        <tr><th scope="row">事件日志，加 compaction 或屏蔽观察结果</th><td>日志保留原样，裁剪只发生在「日志转成输入」这一步，所以裁掉的东西随时可以找回来</td></tr>
         <tr><th scope="row">先存进记忆，再做 compaction</th><td>重要的事实已经存在别处，摘要丢了细节也不怕</td></tr>
-        <tr><th scope="row">屏蔽观察结果，加 compaction</th><td>平时用便宜的屏蔽控制长度，真的快到上限时再做一次摘要</td></tr>
-        <tr><th scope="row">渐进式披露，加 compaction</th><td>skill 的清单在 system prompt 里，压缩之后仍然在</td></tr>
+        <tr><th scope="row">屏蔽观察结果，加 compaction</th><td>平时用便宜的屏蔽控制长度，真的快到上限时再做一次 compaction</td></tr>
+        <tr><th scope="row">渐进式披露，加 compaction</th><td>skill 的清单在 system prompt 里，compaction 之后仍然在</td></tr>
       </tbody>
     </table>
   </figure>
-  <p>这一部分可以归纳成三条：事件日志、记忆、compaction、屏蔽观察结果、上下文隔离，是上下文管理的几种主要模式；真实的系统把它们组合起来用；设计时始终想着两条原则，让上下文保持聚焦，并且保持连续。</p>
+  <p>这一部分可以归纳成三条。</p>
+  <ul>
+    <li>事件日志、记忆、compaction、屏蔽观察结果、上下文隔离，是上下文管理的几种主要模式。</li>
+    <li>真实的系统把它们组合起来用。</li>
+    <li>设计时始终想着两条原则：让上下文保持聚焦，并且保持连续。</li>
+  </ul>
   <p>最后一部分看一个真实的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序）是怎样做这些选择的：<a href="pi.html">案例 Pi</a>。</p>
+</section>
+
+<section class="sec" id="notes">
+  <h2>资料说明</h2>
+  <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
+  <ul>
+    <li><b>「大海捞针」测试里 27% 和 98% 这两个总成绩。</b>Anthropic 的文章写的是 Claude 2.1 在原来那套测试上的成绩从 27% 升到 98%。这个成绩怎样从各次测试的结果算出来，文章没有写明。出处：<a href="https://www.anthropic.com/news/claude-2-1-prompting">Anthropic，2023</a>。</li>
+  </ul>
 </section>

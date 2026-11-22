@@ -10,17 +10,20 @@
 
 <section class="sec" id="patterns">
   <h2>设计模式是什么</h2>
-  <p>设计模式在软件工程里早就很常见，做法是把写代码时反复出现的问题和成熟的解法起一个名字，写下来，让别人可以照着用，也方便互相交流。最有名的一本书是 1994 年出版的《Design Patterns: Elements of Reusable Object-Oriented Software》，四位作者是 Erich Gamma、Richard Helm、Ralph Johnson 和 John Vlissides，书里一共讲了 23 种模式。</p>
+  <p>设计模式在软件工程里早就很常见，做法是把写代码时反复出现的问题和成熟的解法起一个名字，写下来，让别人可以照着用，也方便互相交流。</p>
+  <p>最有名的一本书是 1994 年出版的《Design Patterns: Elements of Reusable Object-Oriented Software》，四位作者是 Erich Gamma、Richard Helm、Ralph Johnson 和 John Vlissides，书里一共讲了 23 种模式。</p>
   {{fig 3 | 左边是那本书的封面。右边是其中一种模式「单例」（Singleton）的示意：一个类只允许有一个实例，别的代码都通过 getInstance() 拿到同一个对象。图片来源：<a href="https://refactoring.guru/design-patterns/singleton">refactoring.guru</a>。}}
-  <p>搭 agent 系统也可以有设计模式。这里的 agent，指能自己决定下一步调用什么工具、分很多步去完成任务的语言模型系统。不过用模式之前要记住一句话，它出自 Martin Fowler（《企业应用架构模式》一书的作者）2003 年的一篇专栏：</p>
+  <p>搭 agent 系统也可以有设计模式。这里的 agent，指能自己决定下一步调用什么工具、分很多步去完成任务的语言模型系统。</p>
+  <p>用模式之前要记住一句话，它出自 Martin Fowler（《企业应用架构模式》一书的作者）2003 年的一篇专栏：</p>
   <p class="lead-in"><mark>模式是半成品：你总得自己把它做完，并且按自己的环境去调整。</mark></p>
   <p>所以这一讲介绍的模式是帮助思考的工具。它们能告诉你有哪些现成的做法可以用，但实际做的时候，方案总要按自己的任务去改，也完全可以在它们的基础上做出新的东西。</p>
+  <p>既然每次都要按自己的情况改，那有没有哪些东西是不太会变的？这个领域还很新，很多做法仍在变化。相对稳定的有两样。一是「先推理、再行动、看结果、再推理」这个循环，也就是<a href="reasoning.html#react">第四部分</a>的 ReAct，它已经沿用了好几年。二是 MCP（Model Context Protocol，一种把外部工具接给模型的标准接口），它正在成为组织工具的常见方式。</p>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>出处。</b>书的出版年份、作者和模式数量见<a href="https://en.wikipedia.org/wiki/Design_Patterns">维基百科的 Design Patterns 条目</a>。Fowler 的这句话出自他在 IEEE Software 2003 年 3、4 月号上的专栏<a href="https://martinfowler.com/ieeeSoftware/patterns.pdf">《Patterns》</a>，「半成品」对应的原文是 half-baked。他在 2002 年出版的那本书的引言里有一句意思相同、措辞不同的话。</div></div>
 </section>
 
 <section class="sec" id="decisions">
   <h2>搭 agent 系统要做哪些设计决定</h2>
-  <p>搭一个 agent 系统要做很多设计决定。这一讲把它们归成三组，每一组都有几种现成的模式。</p>
+  <p>搭一个 agent 系统要做很多设计决定。这一讲把它们归成三组，每一组都有几种现成的模式。「agent 系统」在这一讲里是统称：下一步由程序定的 workflow 和下一步由模型定的 agent 都算在内。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col">要决定的事</th><th scope="col">有哪些模式</th><th scope="col" class="nw">在哪一部分</th></tr></thead>
@@ -30,14 +33,13 @@
         <tr><th scope="row">每次调用模型时，上下文窗口里放什么</th><td>事件日志、把信息存到记忆里、compaction（把旧的历史压缩成摘要）、屏蔽旧的观察结果、上下文隔离</td><td><a href="context.html">六</a></td></tr>
       </tbody>
     </table>
-    <figcaption>英文的模式名在各自的页面里解释。最后一部分用 <a href="pi.html">Pi</a> 这个真实的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序），看这三组决定在一个产品里是怎样取舍的。</figcaption>
+    <figcaption>英文的模式名在各自的页面里解释。表里的「观察结果」指工具执行之后返回给模型的内容。最后一部分用 <a href="pi.html">Pi</a> 这个真实的运行框架（harness，包在模型外面、给它工具并管理多轮对话的程序），看这三组决定在一个产品里是怎样取舍的。</figcaption>
   </figure>
-  <p>既然每次都要按自己的情况改，那有没有哪些东西是不太会变的？这个领域还很新，很多做法仍在变化。相对稳定的有两样。一是「先推理、再行动、看结果、再推理」这个循环，也就是<a href="reasoning.html#react">第四部分</a>的 ReAct，它已经沿用了好几年。二是 MCP（Model Context Protocol，一种把外部工具接给模型的标准接口），它正在成为组织工具的常见方式。</p>
 </section>
 
 <section class="sec" id="spectrum">
   <h2>控制流在谁手里：模型、workflow、agent</h2>
-  <p>控制流，就是「下一步执行什么」是怎么决定的。按这个问题，基于语言模型的系统可以排成一条线。</p>
+  <p>控制流，就是「下一步执行什么」是怎么决定的。按这个问题，基于语言模型的系统可以排成一条线。图里的「编排」（orchestration），指安排各次模型调用和工具调用谁先谁后、什么情况走哪条分支。</p>
   {{fig 9 | 一条线上的三个点。左：模型，它只是一个更大的系统里的一小块。中：workflow，也叫复合 AI 系统（compound AI system），逻辑和编排都写在程序里。右：agent，控制流由模型负责。每个点下面是例子。}}
   <figure class="plate">
     <table class="tbl">
@@ -49,7 +51,7 @@
       </tbody>
     </table>
   </figure>
-  <p>Anthropic 在《Building Effective Agents》这篇文章里给的定义和这条线是一致的。它把两类系统统称为 agentic system，再按架构分成两种：workflow 是语言模型和工具按预先写好的代码路径来编排的系统；agent 是语言模型自己动态地决定流程和工具用法、自己掌握怎样完成任务的系统。出处：<a href="https://www.anthropic.com/engineering/building-effective-agents">Schluntz 和 Zhang，2024</a>。</p>
+  <p>Anthropic 在《Building Effective Agents》这篇文章里给的定义和这条线是一致的。它把两类系统统称为 agentic system，也就是这一讲说的 agent 系统，再按架构分成两种。workflow 是语言模型和工具按预先写好的代码路径来编排的系统。agent 是语言模型自己动态地决定流程和工具用法、自己掌握怎样完成任务的系统。出处：<a href="https://www.anthropic.com/engineering/building-effective-agents">Schluntz 和 Zhang，2024</a>。</p>
 </section>
 
 <section class="sec" id="tradeoff">
@@ -60,18 +62,19 @@
     <li><b>workflow 更好预测。</b>控制流在程序逻辑里，会发生什么是事先写明的。这也让它更容易评估、更容易优化，出了问题更容易复现和调试。</li>
     <li><b>agent 更灵活。</b>控制流在模型的决定里，它可以按看到的情况临时调整。同一个 agent 每次运行走过的步骤都可能不一样，所以更难预测，也更难评估和优化。</li>
   </ul>
-  <p>图的出处是 LangChain 的 Harrison Chase 在 2025 年 4 月写的一篇文章。原文的说法是：系统越是由模型自己做主，就越不好预测；有时候出于用户信任、监管要求或别的原因，你需要系统是可预测的；应该站在这条曲线的哪个位置，取决于具体的应用。</p>
+  <p>这张图出自 LangChain 的 Harrison Chase 在 2025 年 4 月写的一篇文章。文章说，系统越是由模型自己做主，就越不好预测。有时候出于用户信任、监管要求或别的原因，你需要系统是可预测的。应该站在这条曲线的哪个位置，取决于具体的应用。</p>
 </section>
 
 <section class="sec" id="example">
   <h2>一个例子：处理邮件</h2>
-  <p>用同一类任务看两种写法。左边是一个 workflow：收到一封邮件，把里面提到的日程提取出来，给每个日程挑一个表情符号，再加到日历里。右边是一个 agent 的结构。</p>
+  <p>下面的图把两种结构放在一起看。左边是一个处理邮件的 workflow：收到一封邮件，把里面提到的日程提取出来，给每个日程挑一个表情符号，再加到日历里。右边是 agent 的一般结构，它没有针对某一个具体的任务。</p>
   {{fig 11 | 左：workflow 的流程图。从开始到 extract（提取日程），再到 pick_emoji（挑表情符号），再到 add_to_calendar（加进日历），最后结束；extract 之后有一条虚线直接连到结束，表示没有日程时跳过后两步。右：agent 的流程图。model 和 tools 之间来回循环，由 model 决定什么时候走到结束。}}
   <p>左图里有几步、按什么顺序、什么情况下跳过，都是写程序的人定的，每次运行走的都是这张图。右图只有一个循环：模型调用工具，拿到观察结果（observation，工具返回的内容），再决定调用哪个工具，直到它自己判断做完了。如果把右图每次运行实际走过的路径画出来，每次都可能是不同的形状。</p>
 </section>
 
 <section class="sec" id="compare">
   <h2>workflow 和 agent 的对照</h2>
+  <p>下面的表从四个方面对照 workflow 和 agent：控制流在哪里，怎样适应不同的输入，最适合什么任务，各举一个例子。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">workflow</th><th scope="col">agent</th></tr></thead>
@@ -83,7 +86,7 @@
       </tbody>
     </table>
   </figure>
-  <p>最后一行的两个例子发生在同一个场景里，都是处理 IT 支持的工单。差别在于要做到哪一步。只需要在收到工单时自动回一封信，流程是固定的，workflow 就能做。需要真的把问题解决掉，就得先查清问题出在哪里，再动手处理，查的过程事先写不出来，这时才需要 agent。</p>
+  <p>最后一行的两个例子发生在同一个场景里，都是处理客服工单。差别在于要做到哪一步。只需要在收到工单时自动回一封信，流程是固定的，workflow 就能做。需要真的把问题解决掉，就得先查清问题出在哪里，再动手处理，查的过程事先写不出来，这时才需要 agent。</p>
 </section>
 
 <section class="sec" id="choose">
@@ -93,15 +96,16 @@
     <table class="tbl">
       <thead><tr><th scope="col">情况</th><th scope="col">建议</th></tr></thead>
       <tbody>
-        <tr><th scope="row">任何时候</th><td>先找能解决问题的最简单的做法，只有确实需要时才增加复杂度。这也可能意味着根本不搭 agentic system</td></tr>
+        <tr><th scope="row">任何时候</th><td>先找能解决问题的最简单的做法，只有确实需要时才增加复杂度。这也可能意味着根本不搭 agent 系统</td></tr>
         <tr><th scope="row">很多应用</th><td>把单次模型调用做好通常就够了：加上检索，加上放在 prompt（发给模型的输入文字）里的例子</td></tr>
         <tr><th scope="row">任务定义明确</th><td>用 workflow，它可预测，每次的表现一致</td></tr>
-        <tr><th scope="row">开放的问题：很难或无法预测要多少步，也写不出一条固定的路径</th><td>用 agent。前提是对模型的决定有一定的信任，并且环境是可信的</td></tr>
+        <tr><th scope="row">开放的问题：很难或无法预测要多少步，也写不出一条固定的路径</th><td>用 agent。前提是对模型的决定有一定的信任，并且环境是可信的（文章没有说明可信指什么）</td></tr>
       </tbody>
     </table>
     <figcaption>出处：<a href="https://www.anthropic.com/engineering/building-effective-agents">Schluntz 和 Zhang，2024</a>。</figcaption>
   </figure>
-  <p>这篇文章也写明了代价。agentic system 通常是拿延迟和花费去换更好的任务表现，要想清楚这笔交换什么时候划算。agent 自主运行，花费更高，前面一步的错误还会带到后面去越积越多，所以文章建议先在隔离的环境里充分测试，并配上合适的防护措施。</p>
-  <p>两种做法可以一起用。真实的系统常常把它们组合起来：一个 workflow 的某一步可以是一个 agent，一个 agent 也可以把一部分工作交给一个固定的 workflow 去做。LangChain 那篇文章的观察是，生产环境里见到的 agentic system，几乎都是 workflow 和 agent 的组合。</p>
+  <p>这篇文章也写明了代价。agent 系统通常是拿延迟和花费去换更好的任务表现，要想清楚这笔交换什么时候划算。</p>
+  <p>agent 还有它自己的代价。它自主运行，花费更高，前面一步的错误还会带到后面去越积越多。所以文章建议先在隔离的环境里充分测试，并配上合适的防护措施。隔离的环境（sandbox）指和真实的数据、真实的系统隔开的运行环境，agent 在里面做错了事也影响不到外面。防护措施（guardrails）指加在模型外面的限制和检查，用来拦住不该执行的动作和不该给出的输出。</p>
+  <p>两种做法可以一起用。真实的系统常常把它们组合起来：一个 workflow 的某一步可以是一个 agent，一个 agent 也可以把一部分工作交给一个固定的 workflow 去做。LangChain 那篇文章的观察是，生产环境里见到的 agent 系统，几乎都是 workflow 和 agent 的组合。</p>
   <p>下一部分先看 workflow 这一侧：<a href="workflows.html">五种常见的 workflow 模式</a>。</p>
 </section>

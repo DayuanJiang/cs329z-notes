@@ -7,49 +7,32 @@
       <thead><tr><th scope="col">要决定的事</th><th scope="col">现成的模式</th><th scope="col">今天的情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
       <tbody>
         <tr><th scope="row">控制流在谁手里</th><td>写在程序里的叫 workflow，有五种常见的模式：prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。交给模型的叫 agent</td><td>两种都在用，真实的系统常常是两者的组合。能用简单的做法解决，就不上复杂的</td><td><a href="control.html">一</a>、<a href="workflows.html">二</a>、<a href="compose.html">三</a></td></tr>
-        <tr><th scope="row">模型怎样推理和行动</th><td>ReAct（行动前先推理）、Reflexion（从失败里反思）、CodeAct（用代码当动作）、ReWOO 和 LLMCompiler（先计划再执行）</td><td>ReAct 是大多数 agent 的主循环。反思并进了模型自己的推理。后两种变成了代码生成和并行的工具调用</td><td><a href="reasoning.html">四</a>、<a href="acting.html">五</a></td></tr>
-        <tr><th scope="row">上下文里放什么</th><td>事件日志、把信息存到记忆里、compaction（把旧的历史压缩成摘要）、屏蔽旧的观察结果、上下文隔离</td><td>互相兼容，一个系统里常常同时用好几种</td><td><a href="context.html">六</a></td></tr>
+        <tr><th scope="row">模型怎样推理和行动</th><td>四种：ReAct（行动前先推理）、Reflexion（从失败里反思）、CodeAct（用代码当动作）、先计划再执行（ReWOO 和 LLMCompiler 两篇论文）</td><td>ReAct 是大多数 agent 的主循环。反思大多并进了模型自己的推理，这是一个判断，没有实验数据验证。后两种变成了代码生成和并行的工具调用</td><td><a href="reasoning.html">四</a>、<a href="acting.html">五</a></td></tr>
+        <tr><th scope="row">上下文里放什么</th><td>五种：事件日志、把信息存到记忆里、compaction（把旧的历史压缩成摘要）、屏蔽旧的观察结果、上下文隔离</td><td>互相兼容，一个系统里常常同时用好几种</td><td><a href="context.html">六</a></td></tr>
       </tbody>
     </table>
-    <figcaption>英文的模式名在各自的页面里解释。<a href="pi.html">第七部分</a>用 Pi 这个运行框架，看三组决定在一个真实的产品里是怎样取舍的。</figcaption>
+    <figcaption>英文的模式名在各自的页面里解释。表里的「观察结果」指工具执行之后返回给模型的内容。<a href="pi.html">第七部分</a>用 Pi 这个运行框架，看三组决定在一个真实的产品里是怎样取舍的。</figcaption>
   </figure>
 </section>
 
 <section class="sec" id="story">
   <h2>七个问题</h2>
+  <p>这一讲分七个部分，每一部分回答一个问题。下面的表列出每个问题的答案，和一条依据或例子。</p>
+  <p>表里有五个词先说明一下。基准测试（benchmark）是一组题目加一个打分的办法。token 是模型处理文字的最小单位。o1 是 OpenAI 的一个推理模型，这类模型在给出答案之前，先在内部写出一段思考过程。system prompt 是每次调用模型时放在输入最前面的那段固定指令。工具调用是模型发出的一次使用工具的请求，通常写成一个 JSON 对象或一行文字，里面是工具的名字和参数。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
         <tr><th scope="row"><a href="control.html">一 设计模式是什么，<br>控制流在谁手里？</a></th><td>模式是对常见解法的总结，用的时候要自己补完。控制流写在程序里的是 workflow，好预测；交给模型的是 agent，更灵活</td><td>同是处理客服工单：分类、查规定、自动回信是 workflow；查清问题并解决掉，需要 agent</td></tr>
         <tr><th scope="row"><a href="workflows.html">二 workflow 有哪些<br>现成的搭法？</a></th><td>五种模式。区别在于分几路、每路做什么是程序定的还是模型定的，以及有没有循环</td><td>先判断数学题的难度再决定交给哪个模型，是 routing；同一道题解五遍取多数，是 parallelization 里的 voting</td></tr>
-        <tr><th scope="row"><a href="compose.html">三 真实的 workflow<br>长什么样？</a></th><td>是几种模式的组合，而且常常只能近似地对上。怎样组合也可以交给程序去搜索</td><td>STORM 写维基百科式的文章，流程里能找到四种模式。按论文图上读出的近似值，Archon 搜出的架构在允许的 token 数达到约 5 万时，三个基准测试上的平均分和 o1 基本持平</td></tr>
-        <tr><th scope="row"><a href="reasoning.html">四 agent 该<br>怎样推理？</a></th><td>行动之前先推理；失败之后把反思写成文字留给下一次。有可靠的外部反馈时，反思的效果才明显</td><td>在 HotpotQA 和 Fever 两个问答数据集上，ReAct 比只行动高约 2 个百分点。让 GPT-4-Turbo 自己检查自己的答案，三种问法都没有超过只答一次</td></tr>
-        <tr><th scope="row"><a href="acting.html">五 动作用<br>什么形式？</a></th><td>要组合多个工具时，一段代码比一次一个的 JSON 调用好。能事先计划的任务，可以先写出计划再由程序执行，省 token，互不依赖的步骤还能并行</td><td>在要连续调用多个工具的基准测试上，CodeAct 在最强的模型上的成功率，比 JSON 和文字两种写法里较好的一种高 20.7 个百分点。ReWOO 在 HotpotQA 上用的 token 约为 ReAct 的五分之一</td></tr>
+        <tr><th scope="row"><a href="compose.html">三 真实的 workflow<br>长什么样？</a></th><td>是几种模式的组合，而且常常只能近似地对上。怎样组合也可以交给程序去搜索</td><td>STORM 写维基百科式的文章，流程里能找到四种模式。Archon 用搜索算法自动拼出 workflow，论文把拼出来的 workflow 叫架构。按论文图上读出的近似值，允许一个架构用的 token 数达到约 5 万时，Archon 搜出的架构在三个基准测试上的平均分和 o1 基本持平</td></tr>
+        <tr><th scope="row"><a href="reasoning.html">四 agent 该<br>怎样推理？</a></th><td>行动之前先推理；失败之后把反思写成文字留给下一次。有可靠的外部反馈时，反思的效果才明显</td><td>在问答数据集 HotpotQA 和事实核查数据集 Fever 上，ReAct 比只行动高约 2 个百分点。让 GPT-4-Turbo 自己检查自己的答案，三种问法都没有超过只答一次</td></tr>
+        <tr><th scope="row"><a href="acting.html">五 动作用<br>什么形式？</a></th><td>要组合多个工具时，把一段代码当作动作，比每次只发出一个工具调用好。能事先计划的任务，可以先写出计划再由程序执行，省 token，互不依赖的步骤还能并行</td><td>在要连续调用多个工具的基准测试上，CodeAct 在最强的模型上的成功率，比把工具调用写成 JSON 或文字的两种做法里较好的一种高 20.7 个百分点。ReWOO 在 HotpotQA 上用的 token 约为 ReAct 的五分之一</td></tr>
         <tr><th scope="row"><a href="context.html">六 上下文窗口里<br>放什么？</a></th><td>只放当前需要的，同时不丢掉目标和进度。五种模式各有代价，可以一起用</td><td>在一个编程 agent 的预备实验里，平均每一轮的 token 约 84% 是工具输出。把旧的输出屏蔽掉，五种模型配置里有四种花费降了一半左右</td></tr>
         <tr><th scope="row"><a href="pi.html">七 一个真实的运行框架<br>做了哪些选择？</a></th><td>Pi 只留最少的东西：4 个默认工具，ReAct 式循环，事件日志、按需加载的 skill（写着某类工作该怎么做的说明文件）和 compaction 一起管理上下文。执行工具之前不征求同意，对工具调用没有内置的限制</td><td>作者在 2025 年 11 月说，system prompt 加工具定义不到 1,000 个 token</td></tr>
       </tbody>
     </table>
-    <figcaption>每一行的出处和细节在对应的页面里。token 是模型处理文字的最小单位。</figcaption>
-  </figure>
-</section>
-
-<section class="sec" id="gaps">
-  <h2>容易想当然的七件事</h2>
-  <p>下面七件事，常见的说法都比论文和文档里的实际情况简单。每一件在对应的页面里有出处和细节。</p>
-  <figure class="plate">
-    <table class="tbl">
-      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
-      <tbody>
-        <tr><td>ReAct 证明了「边推理边行动」比只推理、只行动都好</td><td>它比只行动好。和只推理比则互有胜负：在 HotpotQA 上，单独的 ReAct 答案完全一致的比例是 27.4%，比只推理的 29.4% 低。论文里最好的结果来自两者的组合。小模型只靠 prompt 学 ReAct 效果最差，微调之后才最好</td><td><a href="reasoning.html#react-results">四 推理</a></td></tr>
-        <tr><td>Reflexion 用的是外部环境的反馈，所以不受「模型没法自我纠正」的影响</td><td>编程任务上是运行测试，说得通。问答任务上，那个反馈是「答案和标准答案是否一致」，真实使用时得不到。它在测试不可靠的 MBPP 上比 GPT-4 还低</td><td><a href="reasoning.html#limits">四 推理</a></td></tr>
-        <tr><td>用代码当动作总是比 JSON 好</td><td>在要组合多个工具的基准测试上，17 个模型里有 12 个是这样。只做单次工具调用时，GPT-4 用 JSON 的正确率更高（82.7% 比 76.7%）</td><td><a href="acting.html#codeact-results">五 动作</a></td></tr>
-        <tr><td>先计划再执行让准确率明显提高：ReWOO 提高 4%，LLMCompiler 提高约 9%</td><td>两者的主要收获是省 token 和快。ReWOO 的 4% 是相对比例，按百分点是 1.6。LLMCompiler 的 9% 出自一个开源模型在一个基准测试上的结果（从 59.59% 到 68.14%，高 8.55 个百分点）。用 GPT 模型时，四个基准测试里有三个和基线相差不到 1.5 个百分点，只有电影推荐高 4.66 个百分点</td><td><a href="acting.html#rewoo-results">五 动作</a></td></tr>
-        <tr><td>「大海捞针」的图说明模型找不到长文档中间的信息</td><td>那张图里的一部分失败是模型不愿意凭一句硬塞进去的话作答，在回答开头预填一句话，得分就从 27% 升到 98%。现在的模型在这个测试上接近满分。但换成更难的任务，输入越长表现越差仍然成立</td><td><a href="context.html#rot">六 上下文</a></td></tr>
-        <tr><td>屏蔽旧的观察结果和让模型写摘要效果一样，成本减半</td><td>五种模型配置里有三种是这样。另外两种里，一种的两种办法解决率都明显低于不做处理（36.4% 和 31.4% 比 40.4%），另一种的花费几乎没降（屏蔽降了约 10%，摘要没有降）。实验只做了编程任务</td><td><a href="context.html#masking">六 上下文</a></td></tr>
-        <tr><td>Pi 没有哪些功能，是一张固定的清单</td><td>清单随时间在变。2025 年 11 月作者写的是不支持 MCP，当时也没有 compaction；2026 年 11 月的文档里两样都是内置的</td><td><a href="pi.html#lacks">七 案例 Pi</a></td></tr>
-      </tbody>
-    </table>
+    <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
   </figure>
 </section>
 
@@ -63,14 +46,34 @@
 <section class="sec" id="modules">
   <h2>按部分阅读</h2>
   <div class="modlist">
-    <a href="control.html"><span class="m">第一部分</span><span><b>设计模式是什么，控制流在谁手里</b><p>软件工程里的设计模式；三组设计决定；模型、workflow、agent 的区别；怎么选。</p></span></a>
-    <a href="workflows.html"><span class="m">第二部分</span><span><b>workflow 的五种模式</b><p>prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer，各自什么时候用，怎样分清。</p></span></a>
-    <a href="compose.html"><span class="m">第三部分</span><span><b>真实的 workflow 是怎样拼起来的</b><p>STORM 的流程和效果；Archon 怎样自动搜索 workflow 的结构。</p></span></a>
-    <a href="reasoning.html"><span class="m">第四部分</span><span><b>agent 怎样推理</b><p>ReAct；Reflexion；自我反思的局限；CRITIC；这两个模式今天的形式。</p></span></a>
-    <a href="acting.html"><span class="m">第五部分</span><span><b>动作用什么形式</b><p>CodeAct；ReWOO；LLMCompiler；代码生成和并行工具调用。</p></span></a>
-    <a href="context.html"><span class="m">第六部分</span><span><b>上下文窗口里放什么</b><p>为什么要管理上下文；两条原则和缓存；五种模式；LangChain 的四类分法。</p></span></a>
-    <a href="pi.html"><span class="m">第七部分</span><span><b>案例：Pi 这个运行框架做了哪些选择</b><p>故意不做的功能；工具；循环和树形的会话；上下文管理；安全；整讲的小结。</p></span></a>
+    <a href="control.html"><span class="m">第一部分</span><span><b>设计模式是什么，控制流在谁手里</b><p>软件工程里的设计模式，搭 agent 系统要做的三组设计决定，模型、workflow、agent 的区别，以及怎么选。</p></span></a>
+    <a href="workflows.html"><span class="m">第二部分</span><span><b>workflow 的五种模式</b><p>prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer 各是什么，什么时候用，怎样分清。</p></span></a>
+    <a href="compose.html"><span class="m">第三部分</span><span><b>真实的 workflow 是怎样拼起来的</b><p>STORM 这个写作系统的流程和效果，以及 Archon 怎样自动搜索 workflow 的结构。</p></span></a>
+    <a href="reasoning.html"><span class="m">第四部分</span><span><b>agent 怎样推理</b><p>ReAct 和 Reflexion 两个推理模式，自我反思的局限，给检查的一方配上工具的 CRITIC，以及 ReAct 和 Reflexion 今天变成了什么样。</p></span></a>
+    <a href="acting.html"><span class="m">第五部分</span><span><b>动作用什么形式</b><p>用代码当动作的 CodeAct，先计划再执行的 ReWOO 和 LLMCompiler，以及它们今天变成的代码生成和并行工具调用。</p></span></a>
+    <a href="context.html"><span class="m">第六部分</span><span><b>上下文窗口里放什么</b><p>为什么要管理上下文，两条原则和缓存，五种模式，以及 LangChain 的四类分法。</p></span></a>
+    <a href="pi.html"><span class="m">第七部分</span><span><b>案例：Pi 这个运行框架做了哪些选择</b><p>Pi 故意不做的功能，它的工具、循环和树形的会话、上下文管理和安全，最后是整讲的小结。</p></span></a>
   </div>
+</section>
+
+<section class="sec" id="gaps">
+  <h2>容易想当然的七件事</h2>
+  <p>这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代。下面七件事，左列的说法都比论文和文档里的实际情况简单。每一件在对应的页面里有出处和细节。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>ReAct 证明了「边推理边行动」比只推理、只行动都好</td><td>它比只行动好。和只推理比则互有胜负：在 HotpotQA 上，单独的 ReAct 的答案和标准答案完全一致的比例是 27.4%，比只推理的 29.4% 低。论文里最好的结果来自两者的组合。小模型只靠 prompt 学 ReAct 效果最差，微调之后才最好</td><td><a href="reasoning.html#react-results">四 推理</a></td></tr>
+        <tr><td>Reflexion 用的是外部环境的反馈，所以不受「模型没法自我纠正」的影响</td><td>编程任务上，反馈来自运行测试，这个说法说得通。不过测试是模型自己写的：在编程基准测试 MBPP 上，这些测试不可靠，Reflexion 的通过率比不加反思的 GPT-4 还低。问答任务上，那个反馈是「答案和标准答案是否一致」，真实使用时得不到</td><td><a href="reasoning.html#limits">四 推理</a></td></tr>
+        <tr><td>用代码当动作总是比 JSON 好</td><td>在要组合多个工具的基准测试上，17 个模型里有 12 个是这样。只做单次工具调用时，GPT-4 用 JSON 的正确率是 82.7%，用代码是 76.7%</td><td><a href="acting.html#codeact-results">五 动作</a></td></tr>
+        <tr><td>先计划再执行让准确率明显提高：ReWOO 提高 4%，LLMCompiler 提高约 9%</td><td>两者的主要收获是省 token 和快。ReWOO 的 4% 是相对比例，按百分点是 1.6。LLMCompiler 的 9% 出自一个开源模型在一个基准测试上的结果（从 59.59% 到 68.14%，高 8.55 个百分点）。用 GPT 模型时，四个基准测试里有三个和基线相差不到 1.5 个百分点，只有电影推荐高 4.66 个百分点</td><td><a href="acting.html#rewoo-results">五 动作</a></td></tr>
+        <tr><td>「大海捞针」的图说明模型找不到长文档中间的信息</td><td>这个测试把一句话插进一篇很长的文档，再问模型这句话里的内容。那张图里的一部分失败，原因是模型不愿意只凭一句明显是插进去的话作答：在模型回答的开头替它先写好一句话，整套测试的总成绩就从 27% 升到 98%。现在的模型在这个测试上接近满分。换成更难的任务，输入越长表现越差仍然成立</td><td><a href="context.html#rot">六 上下文</a></td></tr>
+        <tr><td>屏蔽旧的观察结果和 compaction 效果一样，成本减半</td><td>五种模型配置里有三种是这样。另外两种配置里，有一种是屏蔽观察结果的解决率 36.4%、compaction 的解决率 31.4%，都明显低于不做处理的 40.4%。还有一种是花费几乎没降：屏蔽观察结果降了约 10%，compaction 没有降。实验只做了编程任务</td><td><a href="context.html#masking">六 上下文</a></td></tr>
+        <tr><td>Pi 没有哪些功能，是一张固定的清单</td><td>清单随时间在变。2025 年 11 月作者写的是不支持 MCP，当时也没有 compaction。2026 年 11 月的文档里两样都是内置的</td><td><a href="pi.html#lacks">七 案例 Pi</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>表里的 compaction 指让模型把旧的对话历史写成一段摘要。最后一行的 MCP（Model Context Protocol）是一种把外部工具接给模型的标准接口。</figcaption>
+  </figure>
 </section>
 
 <section class="sec" id="sources">

@@ -1,47 +1,58 @@
 <section class="sec" id="key">
   <h2>先看结论</h2>
   <ul class="takeaways">
-    <li>一个 AI 系统有三根支柱：数据、系统（或模型）、评估和度量。只有系统这一样，也能搭出一个能跑的 agent（能自己调用工具、分很多步完成任务的语言模型系统）。把它当工程来做，三样都要有。</li>
+    <li>一个 AI 系统有三根支柱：数据、系统（或模型）、评估和度量。其中的「系统」指要由你来搭的那个程序本身。度量（metric）是给系统的输出打分的函数，评估是用度量在一批数据上给系统打分。只有系统这一样，也能搭出一个能跑的 agent（能自己调用工具、分很多步完成任务的语言模型系统）。把它当工程来做，三样都要有。</li>
     <li>按「下一步做什么由谁决定」，可以把系统排成一条线：单个模型，workflow（步骤由程序写定的多次模型调用），agent。越往右，交给模型决定的事越多。</li>
     <li>这条线的每一段都有现成的框架（framework，写程序时调用的库）。另外还有两类工具跨在整条线上：一类管可靠性，一类管可观测性（observability，能从外面看到系统内部每一步发生了什么）。</li>
-    <li>框架把底层的细节包起来，让人不必每次都从头写。这一讲学的是这些抽象；抽象底下的系统细节，是这门课其他各讲的内容。</li>
+    <li>框架把底层的细节包起来，换成几个更容易使用的概念，让人不必每次都从头写。这些概念叫作抽象。这一讲学的是这些抽象，抽象底下的系统细节是这门课其他各讲的内容。</li>
   </ul>
 </section>
 
 <section class="sec" id="abstraction">
   <h2>框架是什么：从 PyTorch 说起</h2>
-  <p>用过 PyTorch 的人对「框架里的抽象」不会陌生。训练一个最简单的线性模型，需要算出损失对每个参数的导数，这一步叫反向传播。下面的图把两种写法放在一起。</p>
+  <p>框架替人做了什么，可以拿 PyTorch 来看。PyTorch 是一个用来训练神经网络的 Python 框架。</p>
+  <p>训练模型时要反复做一件事。先算损失（loss），它是一个数，衡量模型的预测离正确答案有多远。再算出损失对每个参数的导数，也就是这个参数稍微变一点时损失会跟着变多少，然后按导数调整参数，让损失变小。算导数的这一步叫反向传播。</p>
+  <p>下面的图用一个最简单的线性模型，把训练的两种写法放在一起。</p>
   {{fig 4 | 同一件事的两种写法。左：只用 Python 和 NumPy，手工写出反向传播。先算预测值和损失，再按公式算出损失对预测值的导数，进而算出对 w 和 b 的导数，最后更新参数。右：用 PyTorch。只写出前向的计算，然后调用 loss.backward()，导数由框架自动算出。}}
-  <p>右边的代码里，求导的数学一点没有少，只是由 PyTorch 在底下替你做了。这些数学仍然值得理解，但没有人愿意每次都手写一遍。</p>
+  <p>右边的代码里，求导的数学照样全部要做，现在由 PyTorch 在底下替你做。这些数学仍然值得理解，但没有人愿意每次都手写一遍。</p>
   <p class="lead-in">框架做的就是这件事：<mark>把底层系统的一部分细节包起来，换成几个更容易使用的概念</mark>。这些概念叫作抽象。</p>
-  <p>写 agent 的程序也有这样的框架。这一讲的目标有三个：认识 agent 工程里常用的框架；把这些框架引入的抽象，和它们底下的系统设计对应起来；判断不同的工具在编排（orchestration，安排多个步骤按什么顺序执行、中途出错怎么办）和可靠性上各有什么用。</p>
+  <p>写 agent 的程序也有这样的框架。这一讲的目标有三个。</p>
+  <ul>
+    <li>认识 agent 工程里常用的框架。</li>
+    <li>把这些框架引入的抽象，和它们底下的系统设计对应起来。</li>
+    <li>判断不同的工具在编排和可靠性上各有什么用。</li>
+  </ul>
+  <p>编排（orchestration）指安排多个步骤按什么顺序执行、中途出错怎么办。可靠性指系统出了错还能把任务做完，它要靠编排来保证。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>两个容易混的词。</b>这一讲里「框架」指 DSPy、LangGraph 这类给你写程序用的库。「运行框架」（harness，也叫 scaffold）是另一个东西：包在模型外面、给它工具并管理多轮对话的那层程序，比如 Claude Code。用框架可以写出一个运行框架，也可以完全不用框架、从头写一个。运行框架在<a href="harness.html">第五部分</a>讲。</div></div>
 </section>
 
 <section class="sec" id="pillars">
   <h2>三根支柱：数据、系统、评估</h2>
-  <p>一个 AI 系统可以拆成三样东西。</p>
+  <p>搭一个 agent，可以完全没有数据，也没有评估，后面会看到只用一行代码就能搭出来。但那样搭出来的东西，你不知道它好不好，也没有办法系统地改进它。</p>
+  <p>要把它当工程来做，就得同时考虑三样东西：数据、系统、评估。下表列出每一样包括什么。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">支柱</th><th scope="col">包括什么</th><th scope="col">在这一讲的例子里</th></tr></thead>
       <tbody>
-        <tr><th scope="row">数据<br><span class="muted small">Data</span></th><td>训练数据；rollout（让系统把任务完整跑一遍得到的记录）；示范；人的反馈。有的数据是提供给系统、用来改进它的，有的是系统自己运行时产生的</td><td>50 封带标准答案的邮件</td></tr>
+        <tr><th scope="row">数据<br><span class="muted small">Data</span></th><td>训练数据；rollout（让系统把任务完整跑一遍得到的记录）；示范（demonstration，演示任务该怎么做的例子）；人的反馈。有的数据是提供给系统、用来改进它的，有的是系统自己运行时产生的</td><td>50 封带标准答案的邮件</td></tr>
         <tr><th scope="row">系统或模型<br><span class="muted small">System or Model</span></th><td>一个语言模型；一个复合 AI 系统（compound AI system，由多次模型调用和其他部件配合而成的系统）或 workflow；一个 agent 式的系统。这是要由你来搭的东西</td><td>从邮件里提取日程并加到日历的程序</td></tr>
         <tr><th scope="row">评估和度量<br><span class="muted small">Evaluation + Metric</span></th><td>通过率；精确匹配（输出和标准答案完全一致才算对）；让语言模型当评审；花费和延迟。这也要由你来定义</td><td>日期、开始时间、时长三项全对才算对</td></tr>
       </tbody>
     </table>
     <figcaption>第三列的例子在<a href="optimizer.html">第三部分</a>展开。</figcaption>
   </figure>
+  <p>下面两张图画的是两种情况：只有系统这一样，和三样齐备。</p>
   {{figs 11 12 | 左：只有中间的「系统或模型」是亮的，下面写着 AI System。只搭出系统，得到的是一个 AI 系统。右：三根支柱都亮了，下面写着 AI System Engineering。三样齐备，才是 AI 系统的工程。}}
-  <p>两张图的差别就是这一部分的主题。搭一个 agent，可以完全没有数据，也没有评估，后面会看到只用一行代码就能搭出来。但那样搭出来的东西，你不知道它好不好，也没有办法系统地改进它。要把它当工程来做，就得同时考虑另外两样。后面几部分会看到，这三样在框架里各有对应的位置。</p>
-  {{fig 13 | 这门课的全部主题，按三根支柱上色。绿色是系统或模型，蓝色是数据，红色是评估和度量，粉色是新出现的方向。这一讲 Frameworks &amp; Orchestration 是绿色的，属于系统这一根。图里只列主题，不含嘉宾讲座，所以从第 10 个主题起，主题的次序和讲次的编号不再一一对应。}}
-  <p>从图上可以看到这门课的安排：前九个主题都在讲系统，随后是数据和评估，最后是安全、编程 agent 这些新的方向。这一讲虽然归在系统这一根下面，但它会用到另外两根：DSPy 的优化器离开数据和度量就无从谈起。</p>
+  <p>两张图的差别就是这一部分的主题。后面几部分会看到，这三样在框架里各有对应的位置。</p>
+  {{fig 13 | 这门课的全部主题，按三根支柱上色。绿色是系统或模型，蓝色是数据，红色是评估和度量，粉色是新出现的方向。这一讲 Frameworks &amp; Orchestration 是绿色的，属于系统这一样。}}
+  <p>从图上可以看到这门课的安排：前九个主题都在讲系统，随后是数据和评估，最后是安全、编程 agent 这些新的方向。这一讲的主题属于系统这一样，但它会用到数据和评估：DSPy 的优化器是根据数据和度量自动改写 prompt（给模型的输入文字）的部件，离开数据和度量就无从谈起。</p>
 </section>
 
 <section class="sec" id="spectrum">
   <h2>一条线：控制流在谁手里</h2>
   <p>控制流指的是程序里「接下来执行哪一步」的决定。按这个决定由谁来做，可以把 AI 系统排成一条线。</p>
   {{fig 14 | 按控制流划分的一条线，箭头的方向是模型的自主程度越来越高。左端是模型，中间是 workflow 或复合 AI 系统，右端是 agent。每个位置下面列了对应的框架。}}
+  <p>下表逐个说明线上的三个位置。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">位置</th><th scope="col">控制流由谁决定</th><th scope="col">例子</th></tr></thead>
@@ -53,13 +64,15 @@
     </table>
   </figure>
   <p>沿着这条线从左往右，变的只有一件事：决定权是在你写的代码里，还是在模型手里。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>这两个词的出处。</b>「复合 AI 系统」（compound AI system）来自伯克利 2024 年 2 月的一篇文章，定义是：用多个相互配合的部件来完成 AI 任务的系统，这些部件包括多次模型调用、检索器或外部工具。按这个定义，agent 也算复合 AI 系统；这条线把它和 workflow 写在一起，可以理解为指其中控制流写在程序里的那一类。workflow 和 agent 的分法，和 Anthropic 2024 年 12 月的文章一致：workflow 是通过预先写好的代码路径来编排模型和工具的系统；agent 是由模型动态地指挥自己的过程和工具使用的系统。出处：<a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">The Shift from Models to Compound AI Systems</a>；<a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>「复合 AI 系统」的出处。</b>这个词（compound AI system）来自伯克利 2024 年 2 月的一篇文章。文章的定义是：用多个相互配合的部件来完成 AI 任务的系统，这些部件包括多次模型调用、检索器或外部工具。按这个定义，agent 也算复合 AI 系统。上面的图把复合 AI 系统和 workflow 写在同一个位置，可以理解为图上指的是复合 AI 系统里控制流写在程序里的那一类。出处：<a href="https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/">The Shift from Models to Compound AI Systems</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>workflow 和 agent 的分法。</b>这里的分法和 Anthropic 2024 年 12 月的文章一致。文章说，workflow 是通过预先写好的代码路径来编排模型和工具的系统，agent 是由模型动态地指挥自己的过程和工具使用的系统。出处：<a href="https://www.anthropic.com/research/building-effective-agents">Building effective agents</a>。</div></div>
 </section>
 
 <section class="sec" id="landscape">
   <h2>框架的全景，和这一讲的路线</h2>
   <p>这条线的每个位置都有对应的框架。另外有两类工具不属于某一个位置，对整条线都适用。</p>
   {{fig 16 | 框架的全景。下面一条线上，从左到右是模型、workflow、agent 三个位置和各自的框架。上面一条横跨整条线，是管可靠性和管可观测性的工具。红色的圈标出三块内容：Part 1 是 workflow 的框架，对应这里的第二到第四部分；Part 2 是 agent 的运行框架，对应第五部分；Part 3 是可靠性和可观测性，对应第六部分。}}
+  <p>下表列出图上每个位置的框架或工具，和它们各自用来做什么。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">位置</th><th scope="col">框架或工具</th><th scope="col">用来做什么</th><th scope="col" class="nw">在哪一页</th></tr></thead>
@@ -83,7 +96,7 @@
       <thead><tr><th scope="col"></th><th scope="col">可观测性的工具</th><th scope="col">可靠性的工具</th></tr></thead>
       <tbody>
         <tr><th scope="row">做什么</th><td>把正在发生的事摆出来：运行记录、有没有错误</td><td>上面这些也做，另外还负责在出错时自动处理</td></tr>
-        <tr><th scope="row">出了问题之后</th><td>把问题呈现给你，由你去修</td><td>自动让系统恢复，比如崩溃之后重新拉起来接着跑。你可以事后再去看发生过什么</td></tr>
+        <tr><th scope="row">出了问题之后</th><td>把问题呈现给你，由你去修</td><td>自动让系统恢复，比如崩溃之后重启，再接着跑。你可以事后再去看发生过什么</td></tr>
         <tr><th scope="row">这一讲的例子</th><td>MLflow、LangSmith、Langfuse</td><td>Temporal</td></tr>
       </tbody>
     </table>
@@ -92,21 +105,10 @@
 </section>
 
 <section class="sec" id="used">
-  <h2>这些框架真的有人用吗</h2>
-  <p>这一讲挑的三个框架都是业界实际在用的。看两个侧面：GitHub 上的 star 数（用户给代码仓库点的收藏，常用来衡量关注度），和招聘市场。</p>
+  <h2>这些框架和工具真的有人用吗</h2>
+  <p>这一讲挑的 DSPy、LangGraph、Temporal 都是业界实际在用的。它们的代码仓库在 GitHub 上各有两万多到四万多个 star（用户给代码仓库点的收藏，常用来衡量关注度），招聘网站上也已经有按 DSPy、LangGraph 归类的职位页面。</p>
   {{fig 17 | 左：DSPy、LangGraph、Temporal 三个代码仓库的 star 数截图。右：两条搜索结果，一条是旧金山的 DSPy 开发职位，一条是招聘网站 Indeed 上的 LangGraph 职位。}}
-  <figure class="plate">
-    <table class="tbl">
-      <thead><tr><th scope="col">代码仓库</th><th scope="col" class="r">图上的 star 数</th><th scope="col" class="r">2026 年 11 月 16 日的 star 数</th></tr></thead>
-      <tbody>
-        <tr><th scope="row"><a href="https://github.com/stanfordnlp/dspy">stanfordnlp/dspy</a></th><td class="r">3.85 万</td><td class="r">39,089</td></tr>
-        <tr><th scope="row"><a href="https://github.com/langchain-ai/langgraph">langchain-ai/langgraph</a></th><td class="r">4.28 万</td><td class="r">45,024</td></tr>
-        <tr><th scope="row"><a href="https://github.com/temporalio/temporal">temporalio/temporal</a></th><td class="r">2.35 万</td><td class="r">24,433</td></tr>
-      </tbody>
-    </table>
-    <figcaption>右边一列是从 GitHub 的接口查到的数。三个仓库在查询的前三天内都有新的提交。</figcaption>
-  </figure>
-  <p>招聘这一侧，在搜索引擎里搜 agent 工程的职位，能看到有的职位把 DSPy、LangGraph 列为必需或优先的技能。图上两条搜索结果里的职位数量是搜索摘要里的数字，没有逐一核对。从截图能看到的是，招聘网站上已经有按 DSPy、LangGraph 归类的职位页面。</p>
+  <p>图上的 star 数和后来重新查到的数，见<a href="#notes">资料说明</a>。</p>
 </section>
 
 <section class="sec" id="summary">
@@ -118,4 +120,25 @@
     <li>还有一些工具专门用来提高 agent 的可靠性和可观测性。</li>
   </ul>
   <p>下一部分从线的中间开始，看第一个 workflow 框架：<a href="dspy.html">DSPy</a>。</p>
+</section>
+
+<section class="sec" id="notes">
+  <h2>资料说明</h2>
+  <p>这一节记录核对资料时发现的出入和没有查到的地方。前面各节的结论已经按核对的结果来写。</p>
+  <ul>
+    <li><b>全部主题的那张图。</b>图里只列主题，不含嘉宾讲座，所以从第 10 个主题起，主题的次序和讲次的编号不再一一对应。</li>
+    <li><b>三个代码仓库的 star 数。</b>配图上的 star 数是截图时的数。2026 年 11 月 16 日从 GitHub 的接口重新查了一次，两次的数列在下面的表里。三个仓库在查询的前三天内都有新的提交。</li>
+    <li><b>招聘截图里的职位数量。</b>配图上两条搜索结果里的职位数量是搜索摘要里的数字，没有逐一核对。在搜索引擎里搜 agent 工程的职位，能看到有的职位把 DSPy、LangGraph 列为必需或优先的技能。</li>
+  </ul>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">代码仓库</th><th scope="col" class="r">图上的 star 数</th><th scope="col" class="r">2026 年 11 月 16 日的 star 数</th></tr></thead>
+      <tbody>
+        <tr><th scope="row"><a href="https://github.com/stanfordnlp/dspy">stanfordnlp/dspy</a></th><td class="r">3.85 万</td><td class="r">39,089</td></tr>
+        <tr><th scope="row"><a href="https://github.com/langchain-ai/langgraph">langchain-ai/langgraph</a></th><td class="r">4.28 万</td><td class="r">45,024</td></tr>
+        <tr><th scope="row"><a href="https://github.com/temporalio/temporal">temporalio/temporal</a></th><td class="r">2.35 万</td><td class="r">24,433</td></tr>
+      </tbody>
+    </table>
+    <figcaption>三个代码仓库在两个时间的 star 数。</figcaption>
+  </figure>
 </section>

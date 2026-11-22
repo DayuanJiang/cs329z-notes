@@ -15,7 +15,7 @@
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">时间</th><th scope="col">模型</th><th scope="col">怎么算下一个 token 的概率</th></tr></thead>
       <tbody>
-        <tr><th scope="row">2010 年代以前</th><td>N-gram 模型</td><td>数数。统计语料里某几个词后面跟着某个词的次数，用比例当概率。例如 the 一共出现了 100 万次，其中 1000 次后面是 dog，就估计 the 后面是 dog 的概率是 0.1%。这组数是示意用的</td></tr>
+        <tr><th scope="row">2010 年代以前</th><td>N-gram 模型</td><td>统计语料里某几个词后面跟着某个词的次数，用比例当概率。例如 the 一共出现了 100 万次，其中 1000 次后面是 dog，就估计 the 后面是 dog 的概率是 0.1%。这组数是示意用的</td></tr>
         <tr><th scope="row">2003 年</th><td>第一个神经网络语言模型<br><span class="muted small"><a href="https://www.jmlr.org/papers/v3/bengio03a.html">Bengio 等</a></span></td><td>把每个词表示成一个向量，用神经网络从前面几个词的向量算出下一个词的概率</td></tr>
         <tr><th scope="row">2010 年</th><td>循环神经网络语言模型<br><span class="muted small"><a href="https://www.isca-archive.org/interspeech_2010/mikolov10_interspeech.html">Mikolov 等</a></span></td><td>一个词一个词地读，把读过的内容存在一个隐藏状态里，读一个词更新一次状态</td></tr>
         <tr><th scope="row">1997 年提出，2014 年前后流行</th><td>长短期记忆网络（LSTM）<br><span class="muted small">Hochreiter 和 Schmidhuber</span></td><td>循环神经网络的改进版，用几个门来控制状态里哪些信息保留、哪些丢掉，能记住更远的内容</td></tr>
@@ -28,80 +28,91 @@
 
 <section class="sec" id="origin">
   <h2>2017 年的 Transformer 和只有解码器的版本</h2>
-  <p>Transformer 出自 Google 的研究者 2017 年的论文《Attention Is All You Need》，作者是 Vaswani、Shazeer、Parmar、Uszkoreit、Jones、Gomez、Kaiser 和 Polosukhin。论文里的模型是为机器翻译设计的，由编码器和解码器两半组成。</p>
-  {{fig 27 | 论文里的结构图。左边被红色盖住的是编码器，右边红框里的是解码器。解码器从下往上依次是：输入的向量加位置编码、带掩码的多头注意力、多头注意力、前馈网络，重复 N 次，最后经过线性层和 softmax（把一组分数变成加起来等于 1 的概率的函数）得到输出的概率。图片来源：<a href="https://arxiv.org/abs/1706.03762">Vaswani 等，2017</a>。}}
-  <p>编码器把输入的文字变成一组向量，解码器读着这组向量，一个 token 一个 token 地写出译文。现在的大语言模型大多只保留解码器这一半，叫 decoder-only。两半用的是同一套零件，所以下面只讲解码器是怎么工作的。</p>
+  <p>Transformer 出自 Google 的研究者 2017 年的论文《Attention Is All You Need》，作者是 Vaswani、Shazeer、Parmar、Uszkoreit、Jones、Gomez、Kaiser 和 Polosukhin 八人。论文里的模型是为机器翻译设计的，由编码器和解码器两半组成。</p>
+  {{fig 27 | 论文里的结构图。左边被红色盖住的是编码器，右边红框里的是解码器。解码器从下往上依次是：输入的向量加位置向量、带掩码的多头注意力、读编码器输出的多头注意力、前馈网络，重复 N 次，最后经过线性层和 softmax（把一组分数变成加起来等于 1 的概率的函数）得到输出的概率。图片来源：<a href="https://arxiv.org/abs/1706.03762">Vaswani 等，2017</a>。}}
+  <p>编码器把输入的文字变成一组向量，解码器读着这组向量，一个 token 一个 token 地写出译文。图里解码器中间的那层多头注意力，就是用来读编码器输出的。</p>
+  <p>现在的大语言模型大多只保留解码器这一半，叫 decoder-only。没有了编码器，读编码器输出的那层注意力也跟着去掉，每一层只剩带掩码的注意力和前馈网络，后面几节的图画的都是这种结构。这样的模型读的是它自己前面已有的 token：输入的文字和已经生成的部分连成一串，都从解码器的输入进去。</p>
+  <p>两半用的是同一套部件，所以下面只讲解码器是怎么工作的。</p>
 </section>
 
 <section class="sec" id="input">
   <h2>第一步：把 token 变成带位置的向量</h2>
-  <p>还是用「The class was about」这四个 token，目标是算出下一个 token 的概率。</p>
+  <p>还是用「The class was about」这四个 token，目标是算出下一个 token 的概率。模型里的计算都是对向量做的，所以第一步是把每个 token 变成一个向量。</p>
+  <p>只有 token 自己的向量还不够，还要加上表示位置的向量。原因是：后面的注意力计算只看两个 token 的内容有多相关，结构本身不知道哪个 token 在前、哪个在后。没有位置向量，模型就分不清「was 在 class 之后」还是「class 在 was 之后」。所以要把位置直接告诉它。</p>
   {{fig 31 | 最下面是四个 token。每个 token 上面有两条向量：彩色的一条是它的词向量，黑色的一条是它所在位置的位置向量，两条相加。四个相加后的结果叠成右上方的一个矩阵，每个 token 占一行。}}
+  <p>图里的三样东西分别是：</p>
   <ul>
     <li><b>词向量（embedding）。</b>模型里有一张表，词表里每个 token 对应表里的一行，这一行就是它的向量。这张表是训练出来的。</li>
     <li><b>位置向量（positional embedding）。</b>再给每个位置一个向量，第 1 个位置一个、第 2 个位置一个，依此类推，和词向量相加。这些向量可以是一张训练出来的表，也可以用固定的公式算出来，2017 年的论文用的是公式。</li>
     <li><b>叠成矩阵。</b>四个 token 的向量叠起来，是一个 4 行的矩阵。后面的计算都是对这个矩阵整体做的。</li>
   </ul>
-  <h3>为什么需要位置向量</h3>
-  <p>后面的注意力计算，只看两个 token 的内容有多相关，结构本身不知道哪个 token 在前、哪个在后。去掉位置向量，模型就分不清「was 在 class 之后」还是「class 在 was 之后」。所以要把位置直接告诉它。</p>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>掩码里其实带着一点顺序的信息，但太少。</b>下一节的因果掩码规定每个 token 只能看它前面的 token。原则上，模型可以靠这一点自己数出位置：第一个 token 只能看到自己，第二个 token 能看到两个，依此类推。但这等于让模型在内部学会数数，很难学出来。直接给一个位置向量要容易得多。</div></div>
 </section>
 
 <section class="sec" id="attention">
   <h2>第二步：注意力层，一步一步算</h2>
-  <p class="lead-in">注意力层是整个结构的核心。它让每个 token <mark>按相关程度，把前面各个 token 的信息加权汇总到自己身上</mark>。下面分成八步。</p>
+  <p>要预测「The class was about」之后的 token，about 这个位置只有自己的向量是不够的，还要用到前面 The、class、was 的信息。模型里 token 之间的信息交换全部发生在注意力层，后面会看到，前馈网络是对每个 token 单独算的。</p>
+  <p class="lead-in">所以注意力层是整个结构的核心。它让每个 token <mark>按相关程度，把前面各个 token 的信息加权汇总到自己身上</mark>。下面分成八步。</p>
   <h3>先算出 query、key、value</h3>
-  {{fig 35 | 输入矩阵先做一次 Layer Norm，再分别乘上三个权重矩阵 WQ、WK、WV，得到 Q、K、V 三个矩阵。图里的方块是权重，圆点是计算出来的中间结果。K 的右上角有一个 T，表示它被转置了。旁边三个点的小向量是偏置。}}
+  <p>注意力层为每个 token 算出三个向量，叫 query、key、value。三者的分工可以这样理解：query 是「我在找什么」，key 是「我有什么」，value 是「如果你看我，我给你什么」。一个 token 拿自己的 query 去和前面各个 token 的 key 比，哪个 key 更相关，就从那个 token 的 value 里多取一些。</p>
+  <p>算这三个向量之前，输入矩阵先做一次 Layer Norm。Layer Norm 是一种归一化：把每一行的数减去这一行的均值，再除以标准差，让数值保持在稳定的范围里。</p>
+  {{fig 35 | 输入矩阵先做一次 Layer Norm，再分别乘上三个权重矩阵 WQ、WK、WV，得到 Q、K、V 三个矩阵。图里的方块是权重，圆点是计算出来的中间结果。K 的右上角有一个 T，表示它被转置了，也就是行和列对调：K 本来是 4 行 3 列，图里画成了 3 行 4 列。旁边三个点的小向量是偏置，也就是乘完权重矩阵之后再加到每一行上的一个向量，对理解这里的计算不重要。}}
   <p>图里有两种东西要分清。彩色的方块是权重，也就是模型的参数，训练好之后固定不变，对任何输入都一样。圆点是中间结果，是输入和权重算出来的，每段输入都不同。权重在训练开始时是随机数，所以没训练的模型第一次算出来的全是没有意义的结果。</p>
   <p>Q、K、V 各有 4 行，每个 token 一行。图里每行画了 3 个数，表示 query、key、value 的维度是 3。2017 年论文的基础模型里，这个维度是 64。</p>
+  <p>输入矩阵每一行的长度叫模型的维度，也就是每个 token 的向量里有几个数。图里输入矩阵的每一行画得比 Q、K、V 的每一行长，表示 query、key、value 的维度比模型的维度小。论文的基础模型里，模型的维度是 512。</p>
   <h3>再算出每个 token 该看谁</h3>
-  {{fig 40 | 完整的计算。Q 乘以转置后的 K，得到左上的 4 乘 4 的方阵；方阵右上角的黑色部分是因果掩码；除以 dk 的平方根，做 softmax，得到中间那个只有左下半边有数的方阵；它再乘以 V，得到最右边的矩阵。左侧是这一串计算写成的公式。}}
+  <p>有了 Q、K、V，剩下的计算见下图，每一步做什么列在图后面的表里。</p>
+  {{fig 40 | 完整的计算。Q 乘以转置后的 K，得到左上的 4 乘 4 的方阵，方阵右上角的黑色部分是因果掩码。这个方阵除以 dk 的平方根，做 softmax，得到中间那个只有左下半边有数的方阵。它再乘以 V，得到最右边的矩阵。左侧是这一串计算写成的公式。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">步骤</th><th scope="col">做什么</th><th scope="col">四个 token 时的形状和含义</th></tr></thead>
       <tbody>
-        <tr><th scope="row">1 归一化</th><td>对输入矩阵的每一行做 Layer Norm：减去这一行的均值，再除以标准差，让数值保持在稳定的范围里</td><td>形状不变</td></tr>
-        <tr><th scope="row">2 算 Q、K、V</th><td>输入矩阵分别乘以 WQ、WK、WV</td><td>各 4 行。可以这样理解三者的分工：query 是「我在找什么」，key 是「我有什么」，value 是「如果你看我，我给你什么」</td></tr>
-        <tr><th scope="row">3 算分数</th><td>Q 乘以 K 的转置</td><td>4 乘 4 的方阵。第 i 行第 j 列的数，是第 i 个 token 的 query 和第 j 个 token 的 key 的点积，表示第 i 个 token 该多看第 j 个 token</td></tr>
+        <tr><th scope="row">1 归一化</th><td>对输入矩阵的每一行做 Layer Norm</td><td>形状不变</td></tr>
+        <tr><th scope="row">2 算 Q、K、V</th><td>输入矩阵分别乘以 WQ、WK、WV</td><td>各 4 行，每个 token 一行</td></tr>
+        <tr><th scope="row">3 算分数</th><td>Q 乘以 K 的转置</td><td>4 乘 4 的方阵。第 i 行第 j 列的数，是第 i 个 token 的 query 和第 j 个 token 的 key 的点积。这个数是一个分数：分数越高，第 i 个 token 从第 j 个 token 那里取的信息越多</td></tr>
         <tr><th scope="row">4 因果掩码</th><td>把方阵里「看后面的 token」的那些格子设成负无穷</td><td>对角线右上方的格子全部被盖住。about 可以看 The，The 看不到 about</td></tr>
         <tr><th scope="row">5 缩放</th><td>除以 dk 的平方根，dk 是 key 的维度</td><td>形状不变</td></tr>
         <tr><th scope="row">6 softmax</th><td>对每一行做 softmax，把分数变成加起来等于 1 的权重。负无穷的格子变成 0</td><td>每一行是这个 token 分给它自己和前面各个 token 的注意力</td></tr>
         <tr><th scope="row">7 加权汇总</th><td>上一步的方阵乘以 V</td><td>4 行。每一行是这个 token 能看到的那些 value 的加权平均</td></tr>
-        <tr><th scope="row">8 投影和残差</th><td>乘以 WO 变回模型原来的维度，再和这一层的输入相加</td><td>和输入矩阵同样的形状</td></tr>
+        <tr><th scope="row">8 投影和残差</th><td>乘以 WO，把每一行从 value 的维度变回模型的维度，再和这一层的输入相加</td><td>和输入矩阵同样的形状</td></tr>
       </tbody>
     </table>
+    <figcaption>点积是把两个向量对应位置的数相乘再加起来，得到一个数。</figcaption>
   </figure>
-  <p>第 3 到第 7 步写成一个公式，是 <code>Attention(Q, K, V) = softmax(Q × K转置 ÷ √dk) × V</code>。</p>
-  {{fig 42 | 最后两步。粉色的 WO 把结果变回模型的维度，左边那条带加号的弧线是残差连接：把这一层的输入直接加到这一层的输出上。}}
-  <h3>三个常被问到的细节</h3>
+  <p>上表的第 3 步到第 7 步写成一个公式，是 <code>Attention(Q, K, V) = softmax(Q × K转置 ÷ √dk) × V</code>。</p>
+  {{fig 42 | 上表的第 8 步。粉色的 WO 把结果变回模型的维度，左边那条带加号的弧线是残差连接：把这一层的输入直接加到这一层的输出上。}}
+  <h3>三个细节的原因</h3>
   <ul>
     <li><b>为什么要因果掩码。</b>训练的时候，整句话「The class was about」都在手里。但生成的时候，后面的 token 还不存在。如果训练时允许 The 看到 class，那么「The 后面是什么」这个预测就已经看过答案了。掩码保证训练时和生成时的条件是一样的。也有不加掩码、前后都能看的注意力，用在不需要逐个生成的模型里。</li>
-    <li><b>为什么要除以 dk 的平方根。</b>论文的解释是：维度大的时候点积的数值会很大，softmax 会落到梯度极小的区域，训练不动。除以这个数能把数值拉回合适的范围。</li>
-    <li><b>残差连接有什么用。</b>它让梯度（训练时用来更新权重的信号）可以沿着这条直通的路一路传回前面的层，训练很深的网络时更稳定。</li>
+    <li><b>为什么要除以 dk 的平方根。</b>论文的解释是：维度大的时候点积的数值会很大，softmax 会落到梯度极小的区域，训练不动。梯度是训练时用来更新权重的信号，梯度极小，权重就几乎不变。除以这个数能把数值拉回合适的范围。</li>
+    <li><b>残差连接有什么用。</b>它让梯度可以沿着这条直通的路一路传回前面的层，训练很深的网络时更稳定。</li>
   </ul>
 </section>
 
 <section class="sec" id="multihead">
   <h2>多头注意力：同一件事并排做好几遍</h2>
-  <p>上一节讲的是只有一组 WQ、WK、WV 的注意力。实际的模型用的是多头注意力（multi-head attention），改动有三处。</p>
-  {{fig 48 | 多头注意力。WQ、WK、WV 各有好几个，叠在一起画；每一组各自算出一个结果，几个结果左右拼在一起，成为右上方那个更宽的矩阵；再用一个更大的 WO 投影回模型的维度。}}
+  <p>上一节讲的是只有一组 WQ、WK、WV 的注意力。只有一组权重时，每个 token 对前面的 token 只有一套注意力权重，只能按一种关系去汇总信息。实际的模型用的是多头注意力（multi-head attention）：准备好几组权重，每一组叫一个头，各算一遍。这样做的好处是，同一段文字可以同时有好几种表示，不同的头可以各看各的关系。</p>
+  <p>2017 年的论文在附录里画了两个例子，都出自编码器的第 5 层。一个例子里，好几个头把动词 making 和离它很远的 more difficult 连起来，补全了「making … more difficult」这个短语。另一个例子里，有两个头看上去在做指代，也就是判断代词指的是哪个词：从代词 its 出发，这两个头的注意力都非常集中。论文的说法是，各个头明显学会了做不同的事，其中不少头的行为和句子的语法、语义结构有关。</p>
+  <p>和单头相比，改动有三处。</p>
+  {{fig 48 | 多头注意力。WQ、WK、WV 各有好几个，叠在一起画。每一组各自算出一个结果，几个结果左右拼在一起，成为右上方那个更宽的矩阵，再用一个更大的 WO 投影回模型的维度。}}
   <ol>
-    <li><b>多组权重。</b>准备好几组 WQ、WK、WV，每一组叫一个头，各自独立地算一遍注意力。</li>
+    <li><b>多组权重。</b>准备好几组 WQ、WK、WV，每个头各自独立地算一遍注意力。</li>
     <li><b>拼接。</b>把各个头的输出左右拼成一个更宽的矩阵。</li>
     <li><b>更大的投影矩阵。</b>WO 也相应变大，把拼起来的结果投影回模型的维度。最后输出的形状和单头时一样。</li>
   </ol>
-  <p>这样做的好处是，同一段文字可以同时有好几种表示。不同的头可以各看各的关系。2017 年论文里的基础模型用了 8 个头，模型的维度是 512，每个头里 key 和 value 的维度是 64。</p>
+  <p>2017 年论文里的基础模型用了 8 个头，每个头里 key 和 value 的维度是 64。8 个头各 64 维，拼起来正好是模型的维度 512。</p>
 </section>
 
 <section class="sec" id="block">
   <h2>第三步：叠成一个完整的模型</h2>
-  <p>把多头、带因果掩码的自注意力层当成一个零件，再配上一个前馈网络，就是一个 Transformer block。</p>
-  {{fig 54 | 一个 Transformer block。从下往上：Layer Norm，多头因果自注意力层，左边的弧线是第一条残差连接；再做一次 Layer Norm，经过前馈网络，右边的弧线是第二条残差连接。}}
-  <p>前馈网络（feed forward）对每个 token 的向量单独做一次变换，token 之间不交换信息。2017 年的论文里，它是两次线性变换，中间夹一个 ReLU 激活函数：先把 512 维放大到 2048 维，再变回 512 维。token 之间的信息交换全部发生在注意力层。</p>
+  <p>前两节讲的注意力层，全名是多头因果自注意力层。自注意力（self-attention）的「自」，指的是一段文字里的 token 看的是同一段文字里的其他 token。把这一层当成一个部件，再配上一个前馈网络，就是一个 Transformer block。</p>
+  {{fig 54 | 一个 Transformer block。从下往上：先是 Layer Norm 和多头因果自注意力层，左边的弧线是第一条残差连接。然后再做一次 Layer Norm，经过前馈网络，右边的弧线是第二条残差连接。}}
+  <p>前馈网络（feed forward）对每个 token 的向量单独做一次变换，token 之间不交换信息。2017 年的论文里，它是两次线性变换，也就是两次乘权重矩阵：先把 512 维放大到 2048 维，再变回 512 维。两次变换中间夹一个 ReLU 激活函数，它是把负数变成 0、正数保持不变的一步运算。token 之间的信息交换全部发生在注意力层。</p>
+  <p>把 block 叠起来，再接上输出的部分，就是完整的模型。</p>
   {{fig 60 | 完整的模型。四个 token 的向量经过 N 个 Transformer block，做一次 Layer Norm，再经过 LM Head 和 softmax。最上面一排是四组概率，每个位置各一组。}}
   <figure class="plate">
     <table class="tbl">
-      <thead><tr><th scope="col" class="nw">零件</th><th scope="col">做什么</th></tr></thead>
+      <thead><tr><th scope="col" class="nw">部件</th><th scope="col">做什么</th></tr></thead>
       <tbody>
         <tr><th scope="row">Transformer block，重复 N 次</th><td>注意力层加前馈网络。叠很多个，就是一个深的神经网络。2017 年论文里的解码器叠了 6 个</td></tr>
         <tr><th scope="row">最后的 Layer Norm</th><td>在送进 LM Head 之前再归一化一次</td></tr>
@@ -117,7 +128,7 @@
 <section class="sec" id="recurrence">
   <h2>和循环神经网络比：能并行，但长了就贵</h2>
   <p>论文里有一张表，比较了几种层的计算量。这张表说明了 Transformer 为什么能取代循环神经网络，也说明了它的代价在哪里。</p>
-  {{fig 61 | 论文的表 1。红框里是要看的两列和两行：自注意力每层的计算量是 n 的平方乘以 d，顺序操作数是常数；循环层每层的计算量是 n 乘以 d 的平方，顺序操作数是 n。n 是序列长度，d 是向量的维度。图片来源：<a href="https://arxiv.org/abs/1706.03762">Vaswani 等，2017</a>。}}
+  {{fig 61 | 论文的表 1。红框里是要看的两列和两行。自注意力每层的计算量是 n 的平方乘以 d，顺序操作数是常数。循环层每层的计算量是 n 乘以 d 的平方，顺序操作数是 n。n 是序列长度，d 是向量的维度。图片来源：<a href="https://arxiv.org/abs/1706.03762">Vaswani 等，2017</a>。}}
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">层的类型</th><th scope="col">每层的计算量</th><th scope="col">必须按顺序做的操作数</th><th scope="col">这意味着什么</th></tr></thead>
@@ -142,15 +153,15 @@
     <table class="tbl">
       <thead><tr><th scope="col">模型</th><th scope="col" class="r">英译德 BLEU</th><th scope="col" class="r">英译法 BLEU</th><th scope="col" class="r">训练用的浮点运算次数</th></tr></thead>
       <tbody>
-        <tr><th scope="row">ConvS2S 的多模型集成<br><span class="muted small">此前最好的成绩之一</span></th><td class="r">26.36</td><td class="r">41.29</td><td class="r">英译德 7.7×10<sup>19</sup>，英译法 1.2×10<sup>21</sup></td></tr>
+        <tr><th scope="row">ConvS2S 的多模型集成<br><span class="muted small">论文的对比表里此前 BLEU 最高的一项</span></th><td class="r">26.36</td><td class="r">41.29</td><td class="r">英译德 7.7×10<sup>19</sup>，英译法 1.2×10<sup>21</sup></td></tr>
         <tr><th scope="row">Transformer 基础版<br><span class="muted small">6500 万个参数</span></th><td class="r">27.3</td><td class="r">38.1</td><td class="r">3.3×10<sup>18</sup></td></tr>
         <tr><th scope="row">Transformer 大号版<br><span class="muted small">2.13 亿个参数</span></th><td class="r">28.4</td><td class="r">41.8</td><td class="r">2.3×10<sup>19</sup></td></tr>
       </tbody>
     </table>
-    <figcaption>测试集是 newstest2014。数字来自论文的表 2 和表 3。Transformer 的两行，论文各只给了一个训练计算量。</figcaption>
+    <figcaption>ConvS2S 是一个用卷积网络做翻译的模型，多模型集成指把几个分别训练的模型的预测合起来用。测试集是 newstest2014。数字来自论文的表 2 和表 3。Transformer 的两行，论文各只给了一个训练计算量。</figcaption>
   </figure>
   <p>基础版在 8 块 NVIDIA P100 GPU 上训练了 12 小时，大号版训练了 3.5 天。大号版用的计算量不到 ConvS2S 集成英译德那一项的三分之一，英译德的 BLEU 高了大约 2 分。</p>
-  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>当年的「大号」放到今天有多小。</b>论文里叫 big 的那个模型有 2.13 亿个参数。2026 年公开权重的 Kimi K3，技术报告写的是 2.8 万亿个参数，每个 token 实际用到其中的 1040 亿个。按总参数算，相差大约 1.3 万倍。出处：<a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>。</div></div>
+  <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>当年的「大号」放到今天有多小。</b>论文里叫 big 的那个模型有 2.13 亿个参数。2026 年公开权重的 Kimi K3，技术报告写的是 2.8 万亿个参数，每个 token 实际用到其中的 1040 亿个，原因见<a href="linear.html#kimi">第三部分讲 Kimi K3 的一节</a>。按总参数算，两个模型相差大约 1.3 万倍。出处：<a href="https://arxiv.org/abs/2607.24653">Kimi K3 的技术报告</a>。</div></div>
 </section>
 
 <section class="sec" id="summary">
@@ -160,5 +171,5 @@
     <li>注意力层里，每个 token 产生 query、key、value。query 和前面各个 token 的 key 算出权重，再用权重把 value 加权汇总。</li>
     <li>所有位置可以并行算，这让大规模训练成为可能。计算量随长度的平方增长，这让长上下文变贵。</li>
   </ul>
-  <p>下一部分看怎样把平方降下来，以及这样做要付出什么：<a href="linear.html">线性注意力、混合结构和上下文长度</a>。</p>
+  <p>下一部分看怎样让计算量不再随长度的平方增长，以及这样做要付出什么：<a href="linear.html">线性注意力、混合结构和上下文长度</a>。</p>
 </section>

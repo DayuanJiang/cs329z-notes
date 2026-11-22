@@ -2,11 +2,13 @@
   <h2>一句话的结论</h2>
   <p class="lead-in">有了框架，搭出一个能跑的 agent 只要一两行代码。<mark>把它当工程来做，要的是另外几样东西：数据，评估，可靠的运行，和看得见的运行记录</mark>。框架在这几样上各提供了一套抽象，用的时候要知道抽象底下实际发生了什么。</p>
   <p>这里的 agent，指能自己调用工具、分很多步去完成一个任务的语言模型系统。「框架」（framework）指 DSPy、LangGraph 这类写程序时调用的库。它和「运行框架」（harness，包在模型外面、给它工具并管理多轮对话的程序）是两个东西，这一讲两样都会讲到。</p>
+  <p>抽象（abstraction）指框架把底层的细节包起来之后，留给写程序的人用的那几个概念。</p>
+  <p>下表把「搭出一个能跑的 agent」和「把它当工程来做」放在一起比较。表里有两个词先说明一下。度量（metric）是一个给程序的输出打分的函数。可观测性（observability）就是上面说的「看得见的运行记录」：能从外面看到系统内部每一步发生了什么。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col"></th><th scope="col">搭出一个能跑的 agent</th><th scope="col">把它当工程来做</th></tr></thead>
       <tbody>
-        <tr><th scope="row">需要什么</th><td>系统这一样</td><td>数据、系统、评估三样，加上可靠的运行和可观测性（能从外面看到系统内部每一步发生了什么）</td></tr>
+        <tr><th scope="row">需要什么</th><td>只要系统这一样，也就是 agent 程序本身</td><td>数据、系统、评估三样，加上可靠的运行和可观测性</td></tr>
         <tr><th scope="row">要写多少</th><td>DSPy 里一行 <code>dspy.ReAct</code>，LangGraph 里两行 <code>create_agent</code></td><td>还要有带标注的数据、一个度量、超时和重试的规定、每一步的记录</td></tr>
         <tr><th scope="row">怎么知道它好不好</th><td>试几个例子，看着像是对的</td><td>在没参与调整的测试数据上量。例：一个小模型在 20 封测试邮件上对了 11 封，优化 prompt 之后 20 封全对</td></tr>
         <tr><th scope="row">出了错会怎样</th><td>程序停下，从头再来</td><td>失败的步骤自动重试；执行的进程换了，从记录里接着跑</td></tr>
@@ -19,47 +21,37 @@
 
 <section class="sec" id="story">
   <h2>七个问题</h2>
+  <p>这一讲分七个部分，每个部分回答一个问题。下表每一行给出问题、答案和一个依据或例子。</p>
+  <p>表里有四个名字先说明一下。控制流指程序里「接下来执行哪一步」的决定。基准测试（benchmark）是一组题目加一个打分的办法。Terminal-Bench 2.0 是一个基准测试，题目是让 agent 在命令行环境里完成任务。HarnessTax 是 Pan 等六人 2026 年发表在 arena.ai 博客上的一篇文章，它测量换一个运行框架对成功率和花费有多大影响。</p>
   <figure class="plate">
     <table class="tbl">
       <thead><tr><th scope="col" class="nw">问题</th><th scope="col">答案</th><th scope="col">依据或例子</th></tr></thead>
       <tbody>
-        <tr><th scope="row"><a href="engineer.html">一 「工程化」一个<br>agent 指什么？</a></th><td>同时有数据、系统、评估三样。按控制流由谁决定，系统排成一条线：模型、workflow（步骤由程序写定的多次模型调用）、agent。每一段都有框架，另有管可靠性和可观测性的工具</td><td>用 PyTorch 写反向传播只要一行 <code>loss.backward()</code>，数学由框架在底下做。agent 的框架做的是同一类事</td></tr>
-        <tr><th scope="row"><a href="dspy.html">二 DSPy 怎样<br>代替手写 prompt？</a></th><td>用 signature 声明输入输出的字段和类型，用 module 决定怎样调用模型。prompt 由 DSPy 按固定规则拼出来</td><td>把字符串 <code>message -&gt; sentiment</code> 换成带类型的写法，输出就从大小写不一的三个词变成了固定取值加一个浮点数</td></tr>
+        <tr><th scope="row"><a href="engineer.html">一 「工程化」一个<br>agent 指什么？</a></th><td>同时有数据、系统、评估三样。按控制流由谁决定，系统排成一条线：模型、workflow（步骤由程序写定的多次模型调用）、agent。每一段都有框架，另有管可靠性和可观测性的工具</td><td>用 PyTorch 训练模型时，求导数的那一步（反向传播）只要写一行 <code>loss.backward()</code>，数学由框架在底下做。agent 的框架做的是同一类事</td></tr>
+        <tr><th scope="row"><a href="dspy.html">二 DSPy 怎样<br>代替手写 prompt？</a></th><td>用 signature 声明输入输出的字段和类型，用 module 决定怎样调用模型。prompt 由 DSPy 按固定规则拼出来</td><td>让模型判断一句话的情感。signature 只写成字符串 <code>message -&gt; sentiment</code> 时，三次输出是 positive、Negative、negative，大小写不统一。给字段标上类型之后，输出一定是规定的三个取值之一，另外带一个表示把握有多大的小数</td></tr>
         <tr><th scope="row"><a href="optimizer.html">三 prompt 能不能<br>自动改好？</a></th><td>能，前提是有数据和度量。优化器反复运行程序，根据错误改写指令</td><td>小模型 Gemma 3 12B 用一句话的指令，20 封测试邮件对 11 封。优化器 GEPA 在 30 封训练邮件上优化之后，20 封全对</td></tr>
         <tr><th scope="row"><a href="langgraph.html">四 LangGraph 的<br>写法有什么不同？</a></th><td>把程序写成一张图：共用的状态，读写状态的节点，决定走向的边。分支由一个普通的函数来判断</td><td>同一个日历程序写成三个节点、五条边，其中两条是带条件的边。一封和日程无关的邮件，在提取之后直接走到终点</td></tr>
-        <tr><th scope="row"><a href="harness.html">五 现成的运行框架<br>之间差在哪？</a></th><td>差在工具、历史的存法、命令的执行方式这些设计选择上。同一个模型换一个运行框架，结果会变</td><td>mini-SWE-agent 只有 bash 一个工具，OpenHands 把每一步存成事件。HarnessTax 让同一个模型分别配三个运行框架。在 Terminal-Bench 2.0 的四个 Claude 模型上，每次运行的花费最多相差约 1.6 倍，其中三个模型的成功率相差不到 5 个百分点。文章在全部 7 个模型和两个基准测试上报告的花费差距最大是 5 倍</td></tr>
+        <tr><th scope="row"><a href="harness.html">五 现成的运行框架<br>之间差在哪？</a></th><td>差在工具、历史的存法、命令的执行方式这些设计选择上。同一个模型换一个运行框架，结果会变</td><td>mini-SWE-agent 和 OpenHands 是两个开源的运行框架，前者只给模型 bash（命令行）一个工具，后者把每一步存成事件。HarnessTax 让同一个模型分别配三个运行框架。在 Terminal-Bench 2.0 上测的四个 Claude 模型里，同一个模型换运行框架，每次运行的花费最多相差约 1.6 倍，其中三个模型的成功率相差不到 5 个百分点。文章在全部 7 个模型和两个基准测试上报告的花费差距最大是 5 倍</td></tr>
         <tr><th scope="row"><a href="orchestration.html">六 怎样让 agent<br>稳定地跑很久？</a></th><td>把可能失败的每一步的结果记在服务端。失败的自动重试，进程挂了由另一个进程从记录里接着跑。再用可观测性的工具查看每次调用</td><td>Temporal 的演示里，一个步骤前两次报错、第三次成功，流程的代码没有改。执行的进程在等待中途被关掉，重启后日程只被加了一次</td></tr>
         <tr><th scope="row"><a href="practice.html">七 有哪些做法<br>值得照着做？</a></th><td>保持简单；让失败看得见、能恢复；在自己的任务上做评估；弄懂框架在底下做了什么</td><td>「每封邮件的日程都加到日历」用 workflow 就够了，「帮我打理日历」才需要 agent</td></tr>
       </tbody>
     </table>
     <figcaption>每一行的出处和细节在对应的页面里。</figcaption>
   </figure>
-  <p>把七个问题连起来，就是这一讲最后给出的循环：搭建，运行，评估，改进，然后再来一遍。</p>
-</section>
-
-<section class="sec" id="gaps">
-  <h2>容易想当然的六件事</h2>
-  <p>下面六件事，常见的说法都比实际情况简单。每一件在对应的页面里有出处和细节。</p>
-  <figure class="plate">
-    <table class="tbl">
-      <thead><tr><th scope="col">常见的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
-      <tbody>
-        <tr><td>METR 的图说明，现在的 agent 能自己连续工作十几个小时</td><td>图的纵轴是人完成任务要花的时间，量的是任务有多难。METR 自己说明，它不表示 AI 运行多久；在能做成的任务上，agent 通常比人快好几倍</td><td><a href="orchestration.html#why">编排与可观测性</a></td></tr>
-        <tr><td>换一个运行框架，成功率会差很多</td><td>HarnessTax 比较了三个成熟的运行框架，作者的结论是运行框架对成功率影响很小，对花费影响大。列出的四个 Claude 模型里，有三个的成功率相差不到 5 个百分点，而每个数的 95% 置信区间上下各有大约 15 个百分点；差得更确定的是花费。放到排行榜上各式各样的运行框架里看，同一个模型的通过率从 13.9% 到 35.5% 都有</td><td><a href="harness.html#tax">运行框架</a></td></tr>
-        <tr><td>自动搜出来的运行框架超过了 Claude Code</td><td>Meta-Harness 在 Terminal-Bench 2.0 这个基准测试（benchmark，一组题目加一个打分的办法）上，搜索和报告成绩用的是同一批 89 个任务。Claude Code 是面向各种任务的通用产品，论文里它的分数取自排行榜</td><td><a href="harness.html#meta">运行框架</a></td></tr>
-        <tr><td>优化器写出的那条《星际迷航》风格的 prompt，让模型的数学变好了</td><td>它在用来优化的 50 道题上答对 66%，高于最好的手写 prompt 的 44%。在另外留出的题上它答对 52%，低于手写 prompt 的 68%</td><td><a href="optimizer.html#cautions">优化器</a></td></tr>
-        <tr><td>优化之后，小模型和 gpt-5.4-nano 一样准了</td><td>两者在 20 封测试邮件上都是全对。20 封全对时，粗略估算真实的错误率仍可能高到 14% 左右。优化时没有单独的验证集</td><td><a href="optimizer.html#cautions">优化器</a></td></tr>
-        <tr><td>有一个 agent 在旁边监督，结果就比没有监督好</td><td>Shepherd 的实验里，监督把两个并行 agent 的通过率从 28.8% 提到了 54.7%。同一篇论文里，一个 agent 独自按顺序做完是 57.2%</td><td><a href="practice.html#shepherd">实践</a></td></tr>
-      </tbody>
-    </table>
-  </figure>
+  <p>这一讲最后把 agent 的工程归纳成一个循环：搭建，运行，评估，改进，然后再来一遍。七个问题可以按这四步大致归类，有的部分涉及不止一步。</p>
+  <ul>
+    <li>搭建：第二、四、五个问题。DSPy 和 LangGraph 是用来写程序的框架，第五个问题里的运行框架是别人已经搭好、装上就能用的 agent 程序。</li>
+    <li>运行：第六个问题。它讲怎样让 agent 稳定地跑很久，怎样查看每次调用。</li>
+    <li>评估和改进：第三个问题。有了数据和度量才量得出好坏，优化器靠它们来改 prompt。</li>
+    <li>第一个问题给出后面要用的概念，第七个问题汇总各步的做法。</li>
+  </ul>
 </section>
 
 <section class="sec" id="colors">
   <h2>页面里三种颜色的框</h2>
   <div class="note"><span class="note-icon" aria-hidden="true">i</span><div><b>蓝色</b>是对正文的说明和提醒。</div></div>
   <div class="note note-ext"><span class="note-icon" aria-hidden="true">+</span><div><b>绿色</b>是延伸的资料，都带出处链接。</div></div>
-  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲有三处。</div></div>
+  <div class="note note-warn"><span class="note-icon" aria-hidden="true">!</span><div><b>橙色</b>是常见的说法和事实对不上的地方。这一讲有三处，在第三、第五、第六部分各有一处。</div></div>
 </section>
 
 <section class="sec" id="modules">
@@ -75,6 +67,26 @@
   </div>
 </section>
 
+<section class="sec" id="gaps">
+  <h2>容易想当然的六件事</h2>
+  <p>这张表适合读完各部分之后再看，表里的说法和例子在各部分里都有交代。下面六件事，左列的说法都比实际情况简单。每一件在对应的页面里有出处和细节。其中第一、二、四件就是各部分里用橙色的框标出的那三处，另外三件写在各部分的正文、表格或蓝色的框里。</p>
+  <p>表里引用了四项研究。METR 是一个评估 AI 能力的研究机构，它的图画的是各个模型能完成多长的任务。HarnessTax 是 Pan 等六人 2026 年发表在 arena.ai 博客上的一篇文章，测量换一个运行框架对成功率和花费有多大影响。Meta-Harness 是 Lee 等人 2026 年的论文，提出一种自动搜索运行框架的方法。Shepherd 是 Yu 等人 2026 年的论文，研究让一个 agent 去管理其他 agent。</p>
+  <figure class="plate">
+    <table class="tbl">
+      <thead><tr><th scope="col">容易想当然的说法</th><th scope="col">实际情况</th><th scope="col" class="nw">在哪一页</th></tr></thead>
+      <tbody>
+        <tr><td>METR 的图说明，现在的 agent 能自己连续工作十几个小时</td><td>图的纵轴是人完成任务要花的时间，量的是任务有多难。METR 自己说明，它不表示 AI 运行多久。在能做成的任务上，agent 通常比人快好几倍</td><td><a href="orchestration.html#why">编排与可观测性</a></td></tr>
+        <tr><td>换一个运行框架，成功率会差很多</td><td>要看比的是哪些运行框架。HarnessTax 比较的是三个成熟的运行框架，作者的结论是运行框架对成功率影响很小，对花费影响大。在 Terminal-Bench 2.0 上测的四个 Claude 模型里，有三个模型换运行框架之后成功率相差不到 5 个百分点，而每个数的 95% 置信区间上下各有大约 15 个百分点，所以这三个模型上成功率的差别分不出高低，花费的差别更确定。这个结论只覆盖这三个运行框架，作者也说明它限于文章测的两个公开的基准测试。Terminal-Bench 2.0 的排行榜上，人写的运行框架各式各样，同样配 Claude Haiku 4.5 这一个模型，通过率从 13.9% 到 35.5% 都有</td><td><a href="harness.html#tax">运行框架</a></td></tr>
+        <tr><td>自动搜出来的运行框架超过了 Claude Code</td><td>这个比较的条件不对等。Meta-Harness 在 Terminal-Bench 2.0 这个基准测试上，搜索和报告成绩用的是同一批 89 个任务，所以它的成绩是对着这批任务调出来的。Claude Code 是面向各种任务的通用产品，论文里它的分数取自排行榜</td><td><a href="harness.html#meta">运行框架</a></td></tr>
+        <tr><td>优化器写出的那条《星际迷航》风格的 prompt，让模型的数学变好了</td><td>它只在用来优化的那批题上领先。在用来优化的 50 道题上它答对 66%，高于最好的手写 prompt 的 44%。在另外留出的题上它答对 52%，低于手写 prompt 的 68%</td><td><a href="optimizer.html#cautions">优化器</a></td></tr>
+        <tr><td>优化之后，小模型和 gpt-5.4-nano 一样准了</td><td>测试集太小，下不了「一样准」的结论。两者在 20 封测试邮件上都是全对。20 封全对时，粗略估算真实的错误率仍可能高到 14% 左右。优化时也没有单独的验证集</td><td><a href="optimizer.html#cautions">优化器</a></td></tr>
+        <tr><td>有一个 agent 在旁边监督，结果就比没有监督好</td><td>Shepherd 的实验里，监督把两个并行 agent 的通过率从 28.8% 提到了 54.7%。同一篇论文里，一个 agent 独自按顺序做完是 57.2%，比有监督的两个并行 agent 还高</td><td><a href="practice.html#shepherd">实践</a></td></tr>
+      </tbody>
+    </table>
+    <figcaption>95% 置信区间的意思是：按同样的办法重复测量很多次，算出来的范围大约有 95% 会包含真实值。范围越宽，这个数越不确定。验证集是优化过程中用来比较几版 prompt、从中挑出最好一版的那份数据，它和最后检验用的测试集是分开的。</figcaption>
+  </figure>
+</section>
+
 <section class="sec" id="sources">
   <h2>资料</h2>
   <h3>代码和三份阅读材料</h3>
@@ -83,9 +95,9 @@
       <thead><tr><th scope="col">材料</th><th scope="col">讲什么</th><th scope="col" class="nw">用在哪部分</th></tr></thead>
       <tbody>
         <tr><th scope="row">配套代码</th><td><a href="https://github.com/cs329z/lecture5-frameworks">cs329z/lecture5-frameworks</a>：一个 Jupyter notebook，用 DSPy、LangGraph、Temporal 把同一个日历程序各写一遍。页面上的代码和运行结果都取自这里</td><td>二、三、四、六</td></tr>
-        <tr><th scope="row">Khattab 等，2023</th><td><a href="https://arxiv.org/abs/2310.03714">DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</a>：DSPy 的论文，提出用声明式的模块代替手写的 prompt 模板，再由编译器按度量自动优化</td><td>二、三</td></tr>
+        <tr><th scope="row">Khattab 等，2023</th><td><a href="https://arxiv.org/abs/2310.03714">DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</a>：DSPy 的论文。它提出用模块代替手写的 prompt 模板：模块里只声明模型的输入和输出，这种写法叫声明式。prompt 里的指令和示例由一个叫编译器的部件按度量自动生成</td><td>二、三</td></tr>
         <tr><th scope="row">LangChain</th><td><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph Overview</a>：LangGraph 的官方概览，说明它的定位和状态、节点、边这三个概念</td><td>四</td></tr>
-        <tr><th scope="row">Arena，2026</th><td><a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax: How Much Does the Harness Matter for Coding Agents?</a>：让 7 个模型各配 3 个运行框架，在两个基准测试上比较成功率和花费</td><td>五</td></tr>
+        <tr><th scope="row">Pan 等，2026</th><td><a href="https://arena.ai/blog/coding-agents-harness-tax">HarnessTax: How Much Does the Harness Matter for Coding Agents?</a>：让 7 个模型各配 3 个运行框架，在两个基准测试上比较成功率和花费</td><td>五</td></tr>
       </tbody>
     </table>
   </figure>
